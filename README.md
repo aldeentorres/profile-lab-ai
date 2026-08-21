@@ -1,5 +1,7 @@
 # PhotoStudio+
 
+For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [HACKATHON_RUNBOOK.md](./HACKATHON_RUNBOOK.md).
+
 PhotoStudio+ is a demo-ready, white-label AI portrait studio for IQI. It helps agents replace missing or weak Atlas profile photos, gives friendly technical retake guidance, records profile and brand-use consent separately, and makes approved high-resolution portraits available to the IQI brand team.
 
 The app is deliberately offline-first. Browser camera capture, image upload, local photo assessment, enhancement, gallery storage, downloads, and printing work without external APIs. Atlas, IQPilot, n8n, hardware tethering, payments, and notifications remain clearly labelled integration adapters.
@@ -55,6 +57,8 @@ No API keys, external accounts, or internet connection are required after depend
 npm install
 npm run dev
 ```
+
+For a clean, lockfile-reproducible hackathon setup, use `npm run hackathon:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify`.
 
 Open the local address printed in the terminal, normally [http://localhost:3000](http://localhost:3000).
 

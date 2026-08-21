@@ -1,7 +1,8 @@
 {
-  "name": "site-creator-vinext-starter",
-  "version": "0.1.0",
+  "name": "photostudio-plus-hackathon",
+  "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@10.9.8",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -11,6 +12,9 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "preflight": "node scripts/hackathon-preflight.mjs",
+    "verify": "npm run preflight && npm run test && npm run lint",
+    "hackathon:setup": "npm ci && npm run verify",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -21,8 +25,7 @@
     "lucide-react": "^1.33.0",
     "qrcode": "^1.5.4",
     "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "react-loading-skeleton": "3.5.0"
+    "react-dom": "19.2.6"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
