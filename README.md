@@ -37,6 +37,7 @@ The current on-device readiness check evaluates measurable lighting and resoluti
 - Deterministic pass, retake, missing-photo, and face-detection cases
 - No more than two friendly instructions for a retake
 - Optional professional enhancement with on-device person segmentation, studio background replacement, adaptive relighting, face-aware texture smoothing, definition controls, and up-to-2048px export
+- Optional genuine CodeFormer face restoration with Real-ESRGAN whole-image upscaling through a private self-hosted service
 - Separate consent for Atlas profile use and IQI brand materials
 - Local Atlas demo update, persistent personal gallery, real downloads, and system-printer output with photo-paper presets
 - Searchable Brand Asset Gallery with visible consent status
@@ -77,7 +78,20 @@ The profile currently loads Aaron Paul from the public IQI Atlas endpoint throug
 
 The demo photo score is no longer hard-coded. It measures source resolution, exposure, contrast, edge sharpness, and portrait aspect locally in the browser, then displays the weighted breakdown. The enhancement screen uses the bundled MediaPipe person-segmentation and face-detection models to separate the subject, offer studio-style backgrounds, and constrain texture smoothing to the detected face region. Lighting, definition, compositing, and high-quality resizing are performed with the browser canvas. Facial structure is never generated or reshaped.
 
-The 2048px export uses high-quality browser resampling; it is not generative super-resolution and does not invent missing detail. A production deployment can replace that export stage with Real-ESRGAN or connect the same workflow to ComfyUI, while keeping the current local pipeline as the offline fallback.
+The local 2048px export uses high-quality browser resampling and does not invent missing detail. The optional CodeFormer adapter is a separate generative restoration stage: it reconstructs detected faces and uses Real-ESRGAN for the rest of the image. The original remains available for comparison because extremely small or damaged faces can be plausible rather than identity-accurate.
+
+### CodeFormer restoration service
+
+The AI model does not run in the browser or Cloudflare Worker. Start the pinned Python/PyTorch service on a GPU host (CPU also works, slowly), then configure the web server adapter:
+
+```bash
+cd services/codeformer
+docker compose up --build
+```
+
+Copy `.env.example` to `.env.local`, or set `CODEFORMER_SERVICE_URL` and `CODEFORMER_SERVICE_TOKEN` in the hosting environment. The browser calls `/api/codeformer`; the service URL and bearer token are never exposed to client JavaScript. Requests are limited to 12 MB, inference is serialized, and the local enhancement path remains available when the service is offline. See [services/codeformer/README.md](./services/codeformer/README.md) for CPU/GPU setup and API details.
+
+CodeFormer is released under the S-Lab License 1.0 for non-commercial use. Commercial use requires permission from the project contributors, so this integration must remain experimental/non-commercial until the required rights are obtained.
 
 Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the PhotoStudio+ check-in URL and opaque appointment ID. PhotoStudio+ validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
 
@@ -118,8 +132,10 @@ Use **Reset demo** at any time to return to the opening state. The current scree
 app/
   page.tsx       Route entry
   studio.tsx     Camera, upload, assessment, consent, galleries and output
+  api/codeformer Server-only proxy for the private restoration service
   globals.css    Responsive visual system and kiosk accessibility
   layout.tsx     App metadata and root document
+services/codeformer/  Pinned CodeFormer + Real-ESRGAN FastAPI container
 public/
   portraits-contact-sheet.png  Bundled fictional portrait imagery
 .agents/skills/                 Project-local agent skills

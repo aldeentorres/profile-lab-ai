@@ -84,3 +84,10 @@ test("rejects incomplete and unknown appointments", async () => {
   const missing = await request("/api/studio-sessions?session=PS-NOT-FOUND");
   assert.equal(missing.status, 404);
 });
+
+test("reports CodeFormer as optional when the private service is not configured", async () => {
+  const response = await request("/api/codeformer");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), { available: false, reason: "not_configured" });
+});
