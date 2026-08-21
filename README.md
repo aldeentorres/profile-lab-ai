@@ -36,7 +36,7 @@ The current on-device readiness check evaluates measurable lighting and resoluti
 - Local lighting and resolution assessment using the uploaded or captured pixels
 - Deterministic pass, retake, missing-photo, and face-detection cases
 - No more than two friendly instructions for a retake
-- Optional enhancement that is off by default
+- Optional professional enhancement with on-device person segmentation, studio background replacement, adaptive relighting, face-aware texture smoothing, definition controls, and up-to-2048px export
 - Separate consent for Atlas profile use and IQI brand materials
 - Local Atlas demo update, persistent personal gallery, real downloads, and system-printer output with photo-paper presets
 - Searchable Brand Asset Gallery with visible consent status
@@ -75,7 +75,9 @@ The Atlas page demonstrates the agent profile, professional-photo rating, photo-
 
 The profile currently loads Aaron Paul from the public IQI Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Aaron Paul fallback record if Atlas is temporarily unavailable.
 
-The demo photo score is no longer hard-coded. It measures source resolution, exposure, contrast, edge sharpness, and portrait aspect locally in the browser, then displays the weighted breakdown. The face component is deliberately shown as a browser visual check; production scoring should replace it with a validated face/pose model and calibrate all thresholds against IQI-approved and rejected portraits.
+The demo photo score is no longer hard-coded. It measures source resolution, exposure, contrast, edge sharpness, and portrait aspect locally in the browser, then displays the weighted breakdown. The enhancement screen uses the bundled MediaPipe person-segmentation and face-detection models to separate the subject, offer studio-style backgrounds, and constrain texture smoothing to the detected face region. Lighting, definition, compositing, and high-quality resizing are performed with the browser canvas. Facial structure is never generated or reshaped.
+
+The 2048px export uses high-quality browser resampling; it is not generative super-resolution and does not invent missing detail. A production deployment can replace that export stage with Real-ESRGAN or connect the same workflow to ComfyUI, while keeping the current local pipeline as the offline fallback.
 
 Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the PhotoStudio+ check-in URL and opaque appointment ID. PhotoStudio+ validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
 
@@ -166,7 +168,7 @@ Future n8n workflow: approved asset → secure storage → Atlas sync → confir
 - Motion is removed when the operating system requests reduced motion.
 - Errors state what happened and what the participant should do next.
 - Generated portraits depict fictional people and are stored locally.
-- Multi-camera selection, file import, download, system printing, enhancement, consent, and local galleries work now.
+- Multi-camera selection, file import, download, system printing, person-aware background cleanup, relighting, face-aware retouching, high-resolution export, consent, and local galleries work now.
 - Payments, remote Atlas updates, notifications, DSLR tethering, and automatic event printers are integration adapters.
 
 ## Hackathon checklist
