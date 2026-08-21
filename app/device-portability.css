@@ -1,0 +1,34 @@
+/* Portable camera and printer setup */
+.portable-devices{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+.portable-devices article{display:flex;min-width:0;flex-direction:column}
+.portable-devices article>p{min-height:88px;margin-bottom:18px}
+.device-field{display:flex;flex-direction:column;gap:7px;margin-top:auto;color:#b7bab8;font-size:12px;font-weight:700}
+.device-field select,.camera-picker select{width:100%;height:44px;padding:0 38px 0 12px;border:1px solid #535957;border-radius:10px;background:#202421;color:#fff;font:600 13px ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;text-overflow:ellipsis}
+.device-field select:focus-visible,.camera-picker select:focus-visible{outline:3px solid #ff8b68;outline-offset:2px}
+.device-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.devices .device-buttons button{flex:1;min-width:128px}
+.devices .device-buttons .device-primary{border-color:#ed6b45;background:#e75d37;color:#fff}
+.devices .device-buttons button:disabled{cursor:not-allowed;opacity:.42}
+.device-error{margin-top:10px;padding:10px;border-radius:8px;background:#5b2924;color:#ffd7ce;font-size:12px;line-height:1.35}
+
+.camera-picker{display:flex;flex-direction:column;gap:7px;color:#fff}
+.camera-picker>span{display:flex;align-items:center;gap:6px;color:#ffffff9e;font-size:12px;font-weight:700}
+.camera-picker select{background:#171d1a;border-color:#ffffff24}
+.camera-secondary-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.camera-secondary-actions button,.camera-loading button{min-height:40px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid #ffffff22;border-radius:9px;background:#ffffff0c;color:#fff;font-size:11px;font-weight:700}
+.camera-secondary-actions button:disabled{opacity:.45}
+.camera-loading{gap:12px;padding:24px;text-align:center}
+.camera-loading>span{max-width:440px;color:#ffd8ce;line-height:1.45}
+.camera-loading button{width:min(100%,280px);margin:0 auto;background:#29322e}
+.camera-loading button:last-child{background:#e75d37;border-color:#e75d37}
+
+@media(max-width:1050px){
+ .portable-devices{grid-template-columns:1fr 1fr!important}
+ .portable-devices article:last-child{grid-column:auto}
+ .portable-devices article>p{min-height:0}
+}
+@media(max-width:760px){
+ .portable-devices{grid-template-columns:1fr!important}
+ .portable-devices article:last-child{grid-column:auto}
+ .camera-secondary-actions{grid-template-columns:1fr}
+}

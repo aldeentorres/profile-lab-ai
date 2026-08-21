@@ -27,14 +27,16 @@ The current on-device readiness check evaluates measurable lighting and resoluti
 ## Features
 
 - Atlas-style profile prompt and guided portrait journey
-- Live browser camera with permission handling, viewfinder guidance, and countdown
+- Live browser camera discovery and switching with permission handling, viewfinder guidance, and countdown
+- Built-in, USB, phone-webcam, and DSLR/mirrorless capture-card support through standard browser camera devices
+- Camera/phone file import fallback for USB storage, AirDrop, cloud transfers, and memory-card readers
 - JPG, PNG, and WebP upload with file-size validation and real preview
 - Local lighting and resolution assessment using the uploaded or captured pixels
 - Deterministic pass, retake, missing-photo, and face-detection cases
 - No more than two friendly instructions for a retake
 - Optional enhancement that is off by default
 - Separate consent for Atlas profile use and IQI brand materials
-- Local Atlas demo update, persistent personal gallery, real downloads, and printable output
+- Local Atlas demo update, persistent personal gallery, real downloads, and system-printer output with photo-paper presets
 - Searchable Brand Asset Gallery with visible consent status
 - Operator console for camera, printer, payment, and print systems
 - Ready/offline equipment states with plain-language recovery guidance
@@ -91,7 +93,7 @@ npm run start
 7. Show that Atlas profile consent and IQI brand-use consent are independent controls.
 8. Confirm the local Atlas demo update and open **Your portraits**.
 9. Open **Brand assets**, search for an agent, verify the approval badge, and download the real high-resolution image.
-10. Finish in **Studio console**. Explain that webcams work in-browser, while DSLR/SLR cameras and event printers will connect through a Local Studio Bridge.
+10. Finish in **Studio console**. Show camera discovery for webcams, phone-webcam modes, and DSLR capture cards; then show that printing uses any USB, Wi-Fi, network, or AirPrint printer installed in the operating system.
 
 Use **Reset demo** at any time to return to the opening state. The current screen is otherwise preserved in browser storage if a participant pauses.
 
@@ -145,8 +147,8 @@ Suggested Claude demo-review prompt:
 
 | Adapter | Demo implementation | Future implementation |
 | --- | --- | --- |
-| Camera | Working browser camera and countdown capture | Local Studio Bridge DSLR tethering |
-| Printer | Working browser print page | Local Studio Bridge event-printer automation |
+| Camera | Browser device picker for webcams, phone-webcam modes, USB capture cards, plus universal file import | Optional Local Studio Bridge for manufacturer-specific DSLR tethering |
+| Printer | System print dialog for installed USB, Wi-Fi, network, AirPrint, and PDF destinations | Optional Local Studio Bridge for unattended event-printer automation |
 | Payment | Mock QR, card, and cash states | Approved payment provider |
 | Profile system | Mock Atlas success state | Atlas profile API or approved workflow |
 | Notifications | Local confirmation messages | IQPilot or messaging integration |
@@ -160,7 +162,7 @@ Future n8n workflow: approved asset → secure storage → Atlas sync → confir
 - Motion is removed when the operating system requests reduced motion.
 - Errors state what happened and what the participant should do next.
 - Generated portraits depict fictional people and are stored locally.
-- Camera, upload, download, browser print, enhancement, consent, and local galleries work now.
+- Multi-camera selection, file import, download, system printing, enhancement, consent, and local galleries work now.
 - Payments, remote Atlas updates, notifications, DSLR tethering, and automatic event printers are integration adapters.
 
 ## Hackathon checklist
