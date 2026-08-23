@@ -531,3 +531,732 @@ photo-decision: approves a usable portrait regardless of formality of pose · ap
 ## Appendix 2 — the three-minute judge flow (from the runbook)
 
 0:00 `/atlas`, point at the low score — "A weak profile photo affects trust and leaves the brand team without approved assets." · 0:25 Book studio, show QR + code — "Atlas creates a studio handoff without putting personal details in the QR." · 0:45 Open studio / load code — "The agent and appointment arrive in the studio with the current photo-quality breakdown." · 1:05 camera or import — "The browser checks framing, light, size, contrast, and sharpness locally. It scores the photograph, not the person." · 1:35 retake result, then the passing portrait — "Feedback is limited to direct, fixable instructions." · 2:00 Studio Enhance, hold to compare — "Enhancement is optional, non-generative, and runs on this device." · 2:20 consent toggles — "Profile use and brand use are separate permissions attached to this photo." · 2:40 Save, Photos, Assets — "The agent receives the portrait, while the brand team sees only approved assets ready to download or print."
+
+---
+
+## Appendix 3 — verbatim engine sources (the step-2 contract)
+
+A dry run of this spec (2026-08-23) implemented step 2 from Parts C6–C9 alone and found the
+prose insufficient to reproduce the engine identically: the `GateSignals` and
+`PhotoDecision` types, the 14 requirement labels and detail strings, the `fileReason`,
+`describe()`, hand-note and `scoreTrace` strings, the mask/landmark shapes, and the
+histogram range of the structure read were all guessable but not specified. These four pure
+modules are therefore included verbatim. They have no DOM or MediaPipe dependency and are the
+exact files the 86 tests import. Reproduce them character-for-character; everything in
+Parts C6–C9 is a reading guide to them.
+
+### `app/photo-score.ts`
+
+```ts
+// The four category scores, in one place, as pure functions.
+//
+// Every one of them answers "how well does this meet the standard for usable marketing artwork?", never
+// "can the model see it?". A face the detector is certain about is not a face a designer can lay up at
+// size, so detection confidence never becomes a score on its own.
+export const photoRatingWeights={technical_quality:.3,body_usability:.3,face_visibility:.2,editability:.2} as const;
+
+export type CategoryInputs={
+ sharpnessScore:number;
+ // Strength of the structural edges — eyes, eyebrows, hairline, nose and lip boundaries, glasses, a
+ // collar, clothing seams, the outer silhouette. Skin texture is deliberately not part of it: smooth or
+ // retouched skin is not evidence of blur, so it must never read as one.
+ structureScore:number;
+ lightingScore:number;
+ contrastScore:number;
+ fidelityScore:number;
+ resolutionScore:number;
+ faceCount:number;
+ faceHeightPixels:number;
+ faceScaleScore:number;
+ faceEdgeScore:number;
+ bodyExtentScore:number;
+ cropScore:number;
+ handScore:number;
+ usableArea:number;
+ backgroundQuality:number;
+ // 0 when nothing the agent is wearing changes the silhouette, 1 when a head accessory dominates the
+ // frame. Judged purely on crop and layout flexibility — never on whether the accessory suits them.
+ accessoryImpact:number;
+};
+export type CategoryScores={
+ photoQuality:number;
+ bodyCrop:number;
+ faceVisibility:number;
+ backgroundEditability:number;
+ faceClarity:number;
+ edgeQuality:number;
+ rawScore:number;
+};
+
+const clamp=(value:number,min=0,max=100)=>Math.max(min,Math.min(max,value));
+const rounded=(value:number)=>Math.round(clamp(value));
+
+// The tonal and separation reads the categories are built from. They live here, with the categories, so
+// that "excellent" has to be earned in each of them: none of these formulas carries headroom that hands
+// out 100 for merely being in the acceptable range.
+export const exposureScore=(mean:number,blownRatio:number,crushedRatio:number)=>clamp(102-Math.abs(mean-145)*1.35-blownRatio*260-crushedRatio*90);
+export const contrastScore=(deviation:number)=>clamp(100-Math.max(0,52-deviation)*2-Math.max(0,deviation-92)*1.4);
+export const fidelityScore=(flatFieldNoise:number)=>clamp(100-flatFieldNoise*2.1);
+// How cleanly the agent sits against what is behind them, before the sharpness of the edge is considered.
+export const backgroundQualityScore=(backgroundEdgeMean:number,coverage:number,hasMask:boolean,faceCount:number)=>{
+ const clarity=hasMask?clamp(102-backgroundEdgeMean*2.6):45,space=coverage?clamp(104-Math.max(0,coverage-.55)*180):45,separation=hasMask?clamp(64+coverage*80):40;
+ return rounded(clarity*.55+space*.2+separation*.15+(faceCount<=1?100:20)*.1);
+};
+
+// A face needs real pixels on it before a designer can print it. Below roughly 220px of face height the
+// detail is gone no matter how confident the detector was, so that is where full marks start.
+export const faceDetailTarget=220;
+// Resolution is not a separate axis: it is the ceiling on how much detail the other reads can possibly
+// carry. A 169px-tall upload cannot be a sharp photo, cannot show a detailed face, and cannot give a
+// clean subject edge to mask against — so it caps photo quality and edge quality rather than being
+// scored on its own. Body framing is unaffected: a small file can still be well composed.
+export const detailCeilings={photoQuality:(resolutionScore:number)=>40+resolutionScore*.57,edgeQuality:(resolutionScore:number)=>25+resolutionScore*.7};
+
+// PHOTO QUALITY 30% — what the designer actually receives: detail, exposure, contrast, compression and
+// the resolution that limits all of them.
+// The detail term leads on structural edges rather than the frame-wide sharpness average, because the
+// average is mostly skin and fabric: beauty retouching, soft studio lighting and ordinary portrait
+// processing pull it down without costing a designer anything. Mild softness therefore takes a few
+// points off this category, never a collapse.
+export const detailScore=(input:CategoryInputs)=>clamp(clamp(input.sharpnessScore)*.35+clamp(input.structureScore)*.65);
+export const photoQualityScore=(input:CategoryInputs)=>rounded(Math.min(
+ detailScore(input)*.40+input.lightingScore*.22+input.contrastScore*.12+input.fidelityScore*.12+input.resolutionScore*.14,
+ detailCeilings.photoQuality(input.resolutionScore),
+));
+
+// BODY & CROP USABILITY 30% — how much design flexibility the framing gives. How much of the agent is
+// in shot leads, and a clean crop, intact hands and a decently sized subject scale it up from there.
+// Crucially they scale it: a head-and-shoulders crop stays in the 20s and 30s however tidy it is, so
+// "some torso is visible" can never buy a close-up selfie an 89.
+export const bodyCropScore=(input:CategoryInputs)=>rounded(input.bodyExtentScore*(.54+.22*clamp(input.cropScore)/100+.10*clamp(input.handScore)/100+.06*clamp(input.usableArea)/100)*(1-.28*clamp(input.accessoryImpact,0,1)));
+
+// FACE & SUBJECT VISIBILITY 20% — usable facial detail, not detector confidence. Clarity is the smaller
+// of "are there enough pixels on the face" and "do the facial features actually resolve". The second
+// half reads structure — eyes, eyebrows, hairline, nose and lip boundaries, glasses — and never skin,
+// so this category only drops when the features are genuinely harder to use. A retouched face on plenty
+// of pixels is a face a designer can work with, and scores like one.
+// Above the usable floor the ceiling barely moves: the difference between crisp and softly processed
+// features is worth a few points, not a category. Below it the features are genuinely going rather than
+// merely softening, and the ceiling falls away with them.
+export const structureUsableFloor=50;
+export const featureCeiling=(structureScore:number)=>{const structure=clamp(structureScore);return structure>=structureUsableFloor?80+(structure-structureUsableFloor)*.4:structure*1.6};
+export const faceClarityScore=(input:CategoryInputs)=>clamp(Math.min(input.faceHeightPixels/faceDetailTarget*100,featureCeiling(input.structureScore)));
+export const faceVisibilityScore=(input:CategoryInputs)=>{
+ if(!input.faceCount)return 0;
+  // Face size and edge clearance are framing, and body & crop already scores framing. What is left for
+ // this category to answer is the one thing nothing else measures: how much usable detail is on the face.
+ const usable=input.faceScaleScore*.08+input.faceEdgeScore*.07+faceClarityScore(input)*.85;
+ // More than one face is a submission problem, not a visibility problem, but it does make the agent
+ // ambiguous — so it scales the category rather than zeroing it.
+ return rounded(input.faceCount===1?usable:usable*.4);
+};
+
+// BACKGROUND & EDITABILITY 20% — can the agent actually be cut out and laid up? A plain backdrop is not
+// enough on its own: a subject whose outline has genuinely dissolved has no edge to mask against. What
+// matters here is the silhouette and the clothing boundaries, which is what the structure read measures
+// — a softly lit subject with a crisp outline masks perfectly well and is not marked down for it.
+export const edgeQualityScore=(input:CategoryInputs)=>clamp(Math.min(Math.max(clamp(input.sharpnessScore),clamp(input.structureScore)),detailCeilings.edgeQuality(input.resolutionScore)));
+export const backgroundEditabilityScore=(input:CategoryInputs)=>rounded(input.backgroundQuality*.42+edgeQualityScore(input)*.34+clamp(input.cropScore)*.12+clamp(input.usableArea)*.12-clamp(input.accessoryImpact,0,1)*10);
+
+export function scoreCategories(input:CategoryInputs):CategoryScores{
+ const photoQuality=photoQualityScore(input),bodyCrop=bodyCropScore(input),faceVisibility=faceVisibilityScore(input),backgroundEditability=backgroundEditabilityScore(input);
+ // The raw score is exactly the published weighting of the four numbers above — nothing else feeds it.
+ const rawScore=rounded(photoQuality*photoRatingWeights.technical_quality+bodyCrop*photoRatingWeights.body_usability+faceVisibility*photoRatingWeights.face_visibility+backgroundEditability*photoRatingWeights.editability);
+ return {photoQuality,bodyCrop,faceVisibility,backgroundEditability,faceClarity:rounded(faceClarityScore(input)),edgeQuality:rounded(edgeQualityScore(input)),rawScore};
+}
+```
+
+### `app/photo-decision.ts`
+
+```ts
+import type {BodyExtent, HandState} from "./photo-body";
+
+export type PhotoStatus = "APPROVED"|"REVIEW"|"REUPLOAD"|"REJECT";
+// "Is this a good photograph?" and "can we ship this file?" are separate questions.
+// FileStatus answers the second one and never drags down the photo-quality score.
+export type FileStatus = "OK"|"LOW"|"TOO_SMALL"|"UNUSABLE";
+export type PhotoRequirement = {id:string;label:string;status:"PASS"|"FAIL";score:number;confidence:number;severity:"none"|"warning"|"critical";detail:string};
+export type PhotoPenalty = {id:string;label:string;points:number;cap:number|null;forces_status:"REVIEW"|"REJECT"|null};
+export type SnapshotSignal = {id:string;label:string;weight:number};
+export type GateSignals={minimumDimension:number;resolutionScore:number;sharpnessScore:number;focusScore:number;structureScore:number;fidelityScore:number;faceCount:number;faceClearance:number;faceHeight:number;faceHeightPixels:number;faceClarity:number;selfieProbability:number;lightingScore:number;backgroundQuality:number;designerUsability:number;bodyExtent:BodyExtent;accessoryImpact:number;choppedLimbs:number;photoQuality:number;bodyCrop:number;faceVisibility:number;cropScore:number;hands:HandState;handScore:number;isScreenshot:boolean;letterboxed:boolean;contentCoverage:number;backgroundTexture:number;frameAspect:number;subjectCoverage:number;torsoVisible:number;shoulderTilt:number;handAtFace:boolean};
+export type ScoreCap = {id:string;label:string;cap:number};
+export type PhotoDecision={score:number;rawScore:number;appliedCap:ScoreCap|null;scoreTrace:string[];status:PhotoStatus;hardGates:string[];designerReviewEligible:boolean;disputableGates:string[];reviewBlockReason:string;qualityDefects:QualityDefect[];retakeAdvice:string;snapshotSignals:SnapshotSignal[];fileSuitability:number;fileStatus:FileStatus;fileReason:string;confidence:number;decisionReason:string;requirements:PhotoRequirement[];penalties:PhotoPenalty[]};
+
+const clamp=(value:number,min=0,max=100)=>Math.max(min,Math.min(max,value));
+// Pixel dimensions the marketing outputs actually need on the shortest edge.
+// A file only blocks submission when it is too small to use anywhere at all.
+export const fileResolutionTargets={unusable:300,usable:600,recommended:1000} as const;
+export const bodyExtentLabels:Record<BodyExtent,string>={full_body:"Full body",three_quarter:"Three-quarter",half_body:"Half body",chest_up:"Head & chest",head_shoulders:"Head & shoulders",head_only:"Head only",unknown:"Unverified"};
+export const bodyExtentScores:Record<BodyExtent,number>={full_body:100,three_quarter:100,half_body:92,chest_up:58,head_shoulders:38,head_only:14,unknown:0};
+const rounded=(value:number)=>Math.round(clamp(value));
+// What to actually do about each gate, so the advice answers the reason the photo was turned down.
+const retakeInstructions:Record<string,string>={
+ face_missing:"Take a new photo where the face is clearly visible and unobstructed.",
+ face_unusable:"Send a photo taken closer, or at a higher resolution — there is too little detail on the face to use.",
+ multiple_people:"Send a photo with only the agent in frame.",
+ severe_blur:"Retake with the camera steady and the focus on the eyes.",
+ screenshot:"Send the original photo file rather than a screenshot of it.",
+ insufficient_body:"Step back so the frame reaches at least the waist.",
+ minimal_body:"Step back so the frame reaches at least the waist — only the head and shoulders are in shot.",
+ chopped_limbs:"Keep visible arms fully in frame, or leave them out of the composition entirely.",
+ mirror_selfie:"Ask someone else to take the photo rather than shooting into a mirror.",
+ subject_detail_floor:"Re-supply the original photo, or retake it sharper and closer — there is not enough usable detail on the subject.",
+ low_resolution_detail_loss:"Re-upload the original file — at this size the facial detail is already pixelated away.",
+ severe_degradation:"Re-supply the original photo file — this copy is too compressed or pixelated to use.",
+ oversized_accessory:"Step back, or take the photo without the oversized headwear, so the agent can be cropped and laid up freely.",
+ awkward_crop:"Leave room around the agent so nothing important is cut through.",
+ severe_face_crop:"Leave space around the head — the face is running off the edge.",
+ chopped_hands:"Keep hands fully in frame, or leave them out of the composition entirely.",
+ obvious_selfie:"Ask someone else to take it, framed from head to waist with the camera at chest height.",
+ casual_snapshot:"Ask someone else to take a portrait from head to waist, camera at chest height, against a tidy background.",
+ severe_exposure:"Retake with even light on the face.",
+ extreme_background:"Retake against a plainer background, or step further away from it.",
+ unusable_for_design:"Frame the agent larger, with at least half the body in shot.",
+};
+export const photoApprovalThresholds={approved:80,review:65,score:80} as const;
+
+// Some submission failures are not fully described by the four category scores. A phone screenshot can
+// be sharp, well framed and easy to mask and still be the wrong file to send. Those failures apply a
+// transparent maximum instead of a hidden deduction:
+//
+//   finalScore = min(rawScore, lowest applicable cap)
+//
+// The cap is a ceiling, not a value: a weak photo that also trips a gate keeps its own lower raw score.
+// Nothing else moves the number — no deductions, no band fitting, no forcing the score to match a verdict.
+export const scoreCaps:Record<string,number>={
+ // Wrong kind of submission — the photograph may be fine, the file is not what a designer needs.
+ obvious_selfie:59,
+ casual_snapshot:59,
+ screenshot:55,
+ mirror_selfie:49,
+ // Not enough of the agent, or the frame cuts through them.
+ insufficient_body:59,
+ minimal_body:49,
+ chopped_limbs:59,
+ awkward_crop:59,
+ chopped_hands:59,
+ severe_face_crop:49,
+ unusable_for_design:49,
+ // The image itself fails the minimum a designer can work from.
+ severe_blur:39,
+ face_missing:39,
+ face_unusable:39,
+ severe_exposure:39,
+ severe_degradation:39,
+ multiple_people:39,
+ extreme_background:49,
+ low_resolution_detail_loss:59,
+ // Weak subject scores backed by a confirmed visual defect (see below). A clean background or a good
+ // body crop is never allowed to carry a photo whose subject detail is genuinely gone.
+ subject_detail_floor:64,
+ design_readiness_floor:79,
+ // Review-level: worth a human look, and the number says so rather than reading as ready.
+ likely_selfie:79,
+ snapshot_cues:79,
+};
+// Photo quality and face visibility are foundational: a designer cannot invent facial detail that the
+// upload does not carry, however good the crop and background are. They are still only scores, though,
+// and a score is an estimate — so `ready` holds a photo at designer review, and `review` is one half of
+// a retake test whose other half is a confirmed visual defect. Neither number rejects on its own.
+export const categoryFloors={ready:{photoQuality:72,faceVisibility:75,bodyCrop:70},review:{photoQuality:65,faceVisibility:65}} as const;
+
+// Designer review is for challenging AI *judgement*, never for rescuing a bad file. A photo qualifies
+// when nothing measured in the image is wrong with it — see `validateQualityDefects` — and the photo
+// quality clears this floor. It sits deliberately between the two above: 65 reviews, 70 may be
+// disputed, 72 is ready. A photo at 71 is below the ready bar and can argue the point; one at 69
+// cannot, because at that level the weakness is in the photograph rather than in the verdict.
+export const designerReviewFloor=70;
+// Background edge magnitude above which a scene reads as busy. `lived` is the generic "not a plain
+// backdrop" bar; `lostSubjectTexture` is deliberately higher, because concluding that the agent is lost
+// in the scene is a much stronger claim than noticing the background is not seamless paper.
+export const snapshotCueThresholds={lived:8,lostSubjectTexture:14} as const;
+// Gates a measured defect produced. These are the objectively technical failures, and they are the only
+// ones a designer cannot overrule: no judgement recovers detail the file does not carry.
+const defectBackedGates=new Set(["severe_blur","face_unusable","severe_degradation","low_resolution_detail_loss","subject_detail_floor"]);
+
+// --- Validated visual defects ---------------------------------------------------------------------
+//
+// A category score is a weighted estimate, and estimates are wrong sometimes. So no score, and no
+// combination of scores, is ever a rejection trigger by itself: a quality-driven retake has to point at
+// something genuinely visible in the image. That is what this section is for.
+//
+// Every rule below is written to separate three different things that all lower a sharpness read:
+//
+//   slight softness   smooth skin, beauty retouching, JPEG compression, soft studio lighting, AI
+//                     enhancement, ordinary portrait processing. Structural detail is intact, so the
+//                     photo stays ready for design.
+//   moderate blur     detail is visibly reduced but the designer can still work with the subject. It
+//                     costs category points and may reach designer review. Never a retake.
+//   severe blur       the features genuinely lack definition and the subject boundary has dissolved.
+//                     Only this is a defect.
+//
+// Structure — eyes, eyebrows, hairline, nose and lip boundaries, glasses, collar, seams, silhouette — is
+// what every rule reads. Skin texture is not evidence of anything.
+export type QualityDefect={id:string;label:string;evidence:string};
+export const qualityDefectRules={
+ // Two independent reads must agree before an image is called unusably blurred: the structural edges
+ // have gone, and the frame-wide focus read confirms it rather than blaming retouching for it.
+ severeBlur:{structure:30,focus:35},
+ // Fewer pixels on the face than any output can print from, whatever the rest of the file measures.
+ faceDetail:{pixels:90},
+ // Small file AND the detail loss it implies is actually visible on the subject. Small dimensions on
+ // their own are never a defect — a good photograph in a small file is still a good photograph.
+ lowResolution:{minimumDimension:fileResolutionTargets.usable,facePixels:150,structure:48},
+ // Blocky, over-compressed or corrupted: no structural edge survives, at any scale, anywhere.
+ degradation:{structure:22,fidelity:32,supportingStructure:40},
+} as const;
+
+export function validateQualityDefects(signals:GateSignals):QualityDefect[]{
+ const defects:QualityDefect[]=[];
+ const structure=clamp(signals.structureScore??0),focus=Math.min(clamp(signals.focusScore??0),clamp(signals.sharpnessScore??0));
+ const facePixels=signals.faceCount>0?Math.max(0,signals.faceHeightPixels??0):0,fidelity=clamp(signals.fidelityScore??100);
+ const rules=qualityDefectRules;
+ if(structure<rules.severeBlur.structure&&focus<rules.severeBlur.focus)
+  defects.push({id:"severe_blur",label:"Severe blur — the subject cannot be edited",evidence:`Structural detail ${Math.round(structure)}/100 and focus ${Math.round(focus)}/100: the facial features and the subject outline have both lost definition.`});
+ if(facePixels>0&&facePixels<rules.faceDetail.pixels)
+  defects.push({id:"face_unusable",label:"Too little usable detail on the face",evidence:`Roughly ${Math.round(facePixels)}px of face height — below the detail any marketing output can print.`});
+ if(facePixels>0&&signals.minimumDimension<rules.lowResolution.minimumDimension&&facePixels<rules.lowResolution.facePixels&&structure<rules.lowResolution.structure)
+  defects.push({id:"low_resolution_detail_loss",label:"Low resolution with visible loss of facial detail",evidence:`${signals.minimumDimension}px shortest edge, ~${Math.round(facePixels)}px of face, structural detail ${Math.round(structure)}/100 — the detail is visibly pixelated away, not merely small.`});
+ if(structure<rules.degradation.structure||(fidelity<rules.degradation.fidelity&&structure<rules.degradation.supportingStructure))
+  defects.push({id:"severe_degradation",label:"Pixelation or compression has destroyed the subject detail",evidence:`Structural detail ${Math.round(structure)}/100, compression fidelity ${Math.round(fidelity)}/100.`});
+ return defects;
+}
+
+export function applyPhotoDecision(baseScore:number,signals:GateSignals):PhotoDecision{
+ const requirement=(id:string,label:string,score:number,pass:boolean,confidence:number,severity:PhotoRequirement["severity"],detail:string):PhotoRequirement=>({id,label,status:pass?"PASS":"FAIL",score:rounded(score),confidence:Number(clamp(confidence,0,1).toFixed(2)),severity:pass?"none":severity,detail});
+ const hasFace=signals.faceCount>0,singleAgent=signals.faceCount===1,severeCrop=hasFace&&signals.faceClearance<.005,moderateCrop=hasFace&&signals.faceClearance<.025;
+ // Validated before any gate reads a category score, because no category score may reject without one.
+ const qualityDefects=validateQualityDefects(signals),defect=(id:string)=>qualityDefects.find(item=>item.id===id)??null;
+ const subjectDetailFailed=signals.photoQuality<categoryFloors.review.photoQuality&&signals.faceVisibility<categoryFloors.review.faceVisibility&&qualityDefects.length>0;
+ const minimalBody=signals.bodyExtent==="head_only"||signals.bodyExtent==="head_shoulders",chestOnly=signals.bodyExtent==="chest_up",thinBody=minimalBody||chestOnly,unknownBody=signals.bodyExtent==="unknown";
+ const requirements:PhotoRequirement[]=[
+  // "Slightly soft" and "cannot be cleanly used" are different findings and are never stated as if they
+  // were the same one. Only a validated severe-blur defect earns the second wording.
+  requirement("focus","Sharpness & focus",Math.min(signals.sharpnessScore,signals.focusScore),Math.min(signals.sharpnessScore,signals.focusScore)>=55||clamp(signals.structureScore??0)>=60,.85,defect("severe_blur")?"critical":"warning",defect("severe_blur")?"The subject is genuinely out of focus — the facial features and outline cannot be cleanly used":Math.min(signals.sharpnessScore,signals.focusScore)>=55?"Sharp enough to edit and print at size":clamp(signals.structureScore??0)>=60?"Softly processed, but the eyes, hairline and clothing edges stay usable":"Slightly soft — check focus on the eyes"),
+  requirement("face_visibility","Face clearly visible",hasFace?100:0,hasFace,.9,"critical",hasFace?"The agent's face is clearly visible":"No clear face detected in this agent portrait"),
+  requirement("single_agent","One agent",singleAgent?100:signals.faceCount?25:0,singleAgent,.9,"critical",singleAgent?"Exactly one agent detected":signals.faceCount>1?`${signals.faceCount} faces detected — submit one agent only`:"Cannot verify a single agent without a visible face"),
+  requirement("body_visible","Enough body visible",bodyExtentScores[signals.bodyExtent],!thinBody&&!unknownBody,.8,thinBody?"critical":"warning",unknownBody?"Body framing could not be verified":minimalBody?"Only the head and shoulders are in frame — a designer needs at least half the body":chestOnly?"The frame stops at the chest — a designer needs it to reach the waist":`${bodyExtentLabels[signals.bodyExtent]} in frame — enough area for marketing layouts`),
+  requirement("crop_safety","Clean crop",signals.cropScore,signals.cropScore>=62,.8,signals.cropScore<40?"critical":"warning",signals.cropScore>=62?"Nothing important is cut off":signals.cropScore<40?"The agent is cropped in a way that limits editing":"Slightly awkward crop — leave a little more room"),
+  requirement("hands","Hand & limb framing",signals.hands==="partial"?55:100,signals.hands!=="partial",.7,"warning",signals.hands==="complete"?"Visible hands are fully in frame":signals.hands==="absent"?"Hands and arms are outside the composition — nothing to crop badly":signals.choppedLimbs?"A visible arm runs off the side of the frame and stops in mid-air":"A visible hand is cut off at the frame edge, which is awkward to mask"),
+  requirement("selfie","Intentionally photographed",(1-signals.selfieProbability)*100,signals.selfieProbability<.5&&!signals.isScreenshot,Math.max(.62,Math.abs(signals.selfieProbability-.5)*1.6),signals.selfieProbability>=.75||signals.isScreenshot?"critical":"warning",signals.isScreenshot?"This is a phone screenshot, not a supplied photo file":signals.selfieProbability<.2?"Reads as an intentionally taken portrait":signals.selfieProbability<.5?"Some selfie cues — worth a quick look":"Reads as a casual or mirror selfie"),
+  requirement("source_frame","Original photo file",Math.round(signals.contentCoverage*100),!signals.letterboxed,.78,"warning",signals.letterboxed?"Padded with empty canvas — a designer trims that in seconds; supply the original where you have it":"Supplied as a full photo frame"),
+  requirement("exposure","Exposure",signals.lightingScore,signals.lightingScore>=60,.9,signals.lightingScore<35?"critical":"warning",signals.lightingScore>=60?"Exposure is usable":"Lighting is too dark, bright, or uneven"),
+  requirement("background","Background & editability",signals.backgroundQuality,signals.backgroundQuality>=60,.72,signals.backgroundQuality<30?"critical":"warning",signals.backgroundQuality>=60?"Clean enough to isolate the agent":"Background is distracting and makes editing harder"),
+  requirement("designer_usability","Designer usability",signals.designerUsability,signals.designerUsability>=60,.78,signals.designerUsability<35?"critical":"warning",signals.designerUsability>=60?"Usable for profile and marketing layouts":"Not enough usable subject area for design work"),
+  requirement("accessory_fit","Accessory fit for layout",rounded(100-signals.accessoryImpact*45),signals.accessoryImpact<.4,.6,"warning",signals.accessoryImpact<.4?"Nothing the agent is wearing limits the crop":"A head accessory widens the silhouette and limits cropping and layout — the accessory itself is fine, its size in this frame is not"),
+  // Fails only when weak scores and a confirmed visual defect agree. A 63 on its own is an estimate.
+  requirement("subject_detail","Usable subject detail",Math.min(signals.photoQuality,signals.faceVisibility),!subjectDetailFailed,.85,"critical",subjectDetailFailed?`Too little usable detail on the subject — a clean crop and background cannot make up for it. ${qualityDefects[0].evidence}`:qualityDefects.length?qualityDefects[0].evidence:"Enough detail on the subject to edit and print"),
+  requirement("resolution","File resolution",signals.resolutionScore,signals.minimumDimension>=fileResolutionTargets.usable,1,"warning",signals.minimumDimension>=fileResolutionTargets.recommended?"Large enough for every marketing output":signals.minimumDimension>=fileResolutionTargets.usable?`${signals.minimumDimension}px shortest edge — fine for profile cards, tight for large banners`:`${signals.minimumDimension}px shortest edge — good photo, small file; re-supply the original if you need print size`),
+ ];
+  const penalties:PhotoPenalty[]=[],addPenalty=(id:string,label:string,points:number,cap:number|null,forces_status:PhotoPenalty["forces_status"])=>penalties.push({id,label,points,cap,forces_status});
+ // A hard gate may only fire when the problem materially prevents — or significantly limits — a graphic
+ // designer from using the agent in marketing artwork. Cosmetic imperfections (padding or empty canvas,
+ // aspect ratio, moderate resolution limits, casual posing, sitting, leaning, clothing style, naturally
+ // hidden hands) are editable in seconds and must never force a verdict: they move the score only.
+ // A hard gate decides the verdict and never edits the number: the technical qualities of the photograph
+ // do not get worse because a gate fired, and a capped score hides what the photo is actually like.
+ const blocker=(id:string,label:string)=>addPenalty(id,label,0,scoreCaps[id]??null,"REJECT");
+ // Notes are exactly that: the four category scores already carry these problems, so a note never
+ // deducts a second time. Where a note describes something the categories cannot see, it carries a cap.
+ const note=(id:string,label:string,forces:PhotoPenalty["forces_status"]=null)=>addPenalty(id,label,0,scoreCaps[id]??null,forces);
+ const focus=Math.min(signals.sharpnessScore,signals.focusScore);
+ // --- Hard gates: a designer cannot work with this person from this photo. ---
+ if(!hasFace)blocker("face_missing","Face not clearly visible");
+ if(signals.faceCount>1)blocker("multiple_people","Multiple people detected");
+ // Detecting a face is not the same as having a face a designer can use — but "cannot be used" is a
+ // measurement of the pixels actually on the face, not a threshold on a derived score.
+ if(hasFace&&defect("face_unusable"))blocker("face_unusable","Too little usable detail on the face");
+ // Retouching, smooth skin, soft studio processing, AI enhancement and mild compression all lower a
+ // sharpness read without making the photo impractical. Only the validated defect — structural edges
+ // gone and the focus read agreeing — is severe blur; everything softer than that is reported by the
+ // category scores (photo quality, face visibility, editability) and by the notes below.
+ if(defect("severe_blur"))blocker("severe_blur","Severe blur — the subject cannot be edited");
+ if(defect("severe_degradation"))blocker("severe_degradation","Pixelation or compression has destroyed the subject detail");
+ // Small dimensions alone are advisory (see the file axis below). This fires only when the small file
+ // has visibly cost the face its detail.
+ if(defect("low_resolution_detail_loss"))blocker("low_resolution_detail_loss","Low resolution with visible loss of facial detail");
+ if(signals.isScreenshot)blocker("screenshot","Phone screenshot, not a photo file");
+ if(minimalBody)blocker("minimal_body","Only head and shoulders in frame");
+ else if(chestOnly)blocker("insufficient_body","The frame stops at the chest, above the waist");
+ if(signals.cropScore<40)blocker("awkward_crop","The crop cuts through the agent");
+ if(severeCrop)blocker("severe_face_crop","Face severely cropped");
+ if(signals.hands==="partial"&&signals.handScore<=40)blocker("chopped_hands","Both hands are chopped at the frame edge");
+ // A visible arm running off the side of the frame is a crop problem whether or not the hand was ever
+ // in shot. Arms continuing past the bottom edge are normal half-body framing and never counted here.
+ if(signals.choppedLimbs>=1&&signals.hands!=="complete")blocker("chopped_limbs","A visible arm is cut off at the frame edge");
+ // A mirror or arm's-length selfie is the least usable of the selfie shapes: the camera is right on the
+ // agent and there is almost no body left to lay up, so it caps lower than a merely close self-portrait.
+ if(signals.selfieProbability>=.85&&(signals.handAtFace||minimalBody))blocker("mirror_selfie","Mirror or arm's-length selfie");
+ else if(signals.selfieProbability>=.75)blocker("obvious_selfie","Obvious casual selfie");
+ if(signals.lightingScore<35)blocker("severe_exposure","Exposure is too far gone to edit");
+ if(signals.backgroundQuality<30)blocker("extreme_background","Background makes isolating the agent impossible");
+ if(signals.designerUsability<35)blocker("unusable_for_design","Not enough usable subject area to design with");
+ // Obvious selfie / incidental snapshot. Never decided by one cue: a lived-in room, a phone aspect ratio or
+ // a relaxed pose are each perfectly acceptable alone. Several agreeing cues are what make it a snapshot
+ // rather than a portrait somebody set out to take.
+ const snapshotCues:(SnapshotSignal&{hit:boolean})[]=[
+  {id:"lived_in_scene",label:"Photographed in a lived-in room rather than set up as a portrait",weight:1,hit:signals.backgroundTexture>=snapshotCueThresholds.lived},
+  {id:"full_frame_capture",label:"Straight-off-the-phone or webcam framing",weight:.5,hit:signals.frameAspect<=.6||signals.frameAspect>=1.15},
+  {id:"camera_close",label:"Camera held close to the face",weight:1,hit:signals.faceHeight>=.28},
+  {id:"hand_at_face",label:"Hand raised into frame at face height",weight:.5,hit:signals.handAtFace&&signals.backgroundTexture>=snapshotCueThresholds.lived},
+  {id:"camera_tilt",label:"Hand-held camera tilt",weight:.5,hit:signals.shoulderTilt>=10},
+  // Low coverage on its own means nothing: a standing figure in a 2:3 frame covers about a quarter of
+  // it, and `bodyExtentScores` rates full-body framing at 100. So "small in frame" only reads as lost
+  // when the scene around them is genuinely busy — a measured studio sweep sits near 9, a cluttered
+  // room near 20. Sharing the 8 threshold with `lived_in_scene` made a deliberate full-length portrait
+  // trip both cues at once and reach the blocking weight of 2 on a single borderline measurement.
+  {id:"subject_lost_in_scene",label:"The agent occupies little of the frame",weight:1,hit:signals.subjectCoverage<.34&&signals.backgroundTexture>=snapshotCueThresholds.lostSubjectTexture},
+  {id:"torso_cut_short",label:"The frame stops above the waist",weight:.5,hit:signals.torsoVisible>0&&signals.torsoVisible<.9},
+ ];
+ const snapshotSignals=snapshotCues.filter(cue=>cue.hit).map(({id,label,weight})=>({id,label,weight}));
+ const snapshotWeight=snapshotSignals.reduce((total,cue)=>total+cue.weight,0);
+ if(snapshotWeight>=2)blocker("casual_snapshot","Obvious selfie or incidental snapshot, not a portrait taken for marketing use");
+ else if(snapshotWeight>=1.5)note("snapshot_cues","Some snapshot framing cues — worth a human look","REVIEW");
+ // --- Notes only. Each of these already shows up in a category score, so none of them deducts again:
+ // softness is in photo quality and face visibility, a busy background is in editability, a tight crop
+ // is in body & crop usability. Punishing them a second time here would double-count one problem. ---
+ if(focus>=35&&focus<55&&clamp(signals.structureScore??0)<60)note("soft_image","Slightly soft — the original file is preferred where available");
+ if(signals.letterboxed)note("padded_export","Empty canvas around the photo — trimmed in seconds");
+ if(signals.lightingScore>=35&&signals.lightingScore<60)note("poor_exposure","Exposure needs a lift");
+ if(signals.backgroundQuality>=30&&signals.backgroundQuality<60)note("busy_background","Background is slightly distracting");
+ if(signals.designerUsability>=35&&signals.designerUsability<60)note("limited_design_use","Limited space for the designer");
+ if(signals.cropScore>=40&&signals.cropScore<62)note("tight_crop","Slightly awkward crop");
+ if(moderateCrop&&!severeCrop)note("tight_face_crop","Face sits close to the frame edge");
+ if(signals.hands==="partial"&&signals.handScore>40)note("cut_hands","A visible hand is cut off at the frame edge");
+ // Selfie framing the categories cannot see on their own: worth a designer's eye, so it caps at review level.
+ if(signals.selfieProbability>=.5&&signals.selfieProbability<.75)note("likely_selfie","Likely selfie framing","REVIEW");
+ if(signals.accessoryImpact>=.4)note("oversized_accessory","A head accessory widens the silhouette and limits cropping and layout");
+ // Score answers "is this a good photograph?" only — every capping penalty above is about what the
+ // photograph shows, never about how many pixels the uploaded file happens to carry.
+ // --- Critical category floors. Photo quality and face visibility are foundational: they describe how
+ // much of the agent actually survived into the file, and no crop or background score can put detail
+ // back. But a category score is an estimate, and a slightly inaccurate estimate must never be enough
+ // on its own to turn down a good portrait. So the retake floor is a conjunction: both foundational
+ // scores in the genuinely-degraded band AND a defect confirmed in the image. Neither half rejects
+ // alone — a 63 with intact structural detail is a photo, not a fault. A floor is not a penalty; it is
+ // a ceiling, applied the same transparent way as any gate. ---
+ const {photoQuality,faceVisibility,bodyCrop}=signals;
+ const subjectScoresPoor=photoQuality<categoryFloors.review.photoQuality&&faceVisibility<categoryFloors.review.faceVisibility;
+ const subjectFloorFailed=subjectDetailFailed;
+ const readyFloorFailed=photoQuality<categoryFloors.ready.photoQuality||faceVisibility<categoryFloors.ready.faceVisibility||bodyCrop<categoryFloors.ready.bodyCrop;
+ if(subjectFloorFailed)blocker("subject_detail_floor",`Not enough usable subject detail — photo quality ${rounded(photoQuality)}, face visibility ${rounded(faceVisibility)}, confirmed by ${qualityDefects[0].label.toLowerCase()}`);
+ // Below the ready-for-design bar but with nothing confirmed against it: designer review, never a retake.
+ else if(readyFloorFailed||subjectScoresPoor)note("design_readiness_floor",`Usable, but below the ready-for-design minimum — photo quality ${rounded(photoQuality)}, face visibility ${rounded(faceVisibility)}, body & crop ${rounded(bodyCrop)}`,"REVIEW");
+ // The raw score arrives already weighted from the four category scores and is never adjusted here.
+ const rawScore=rounded(baseScore),forcedReject=penalties.some(penalty=>penalty.forces_status==="REJECT");
+ const gatePenalties=penalties.filter(penalty=>penalty.forces_status==="REJECT"),hardGates=gatePenalties.map(penalty=>penalty.label);
+ // Every validated gate contributes a ceiling; the lowest one wins. min() is the only arithmetic between
+ // the raw score and the displayed one, so any difference between them is always attributable to a gate.
+ const caps:ScoreCap[]=penalties.filter(penalty=>penalty.cap!==null).map(penalty=>({id:penalty.id,label:penalty.label,cap:penalty.cap as number}));
+ const appliedCap=caps.filter(entry=>entry.cap<rawScore).sort((first,second)=>first.cap-second.cap)[0]??null;
+ const score=appliedCap?appliedCap.cap:rawScore;
+ const retakeAdvice=gatePenalties.map(penalty=>retakeInstructions[penalty.id]).find(Boolean)??"";
+ // File suitability answers "can we ship this particular file?" and is tracked on its own axis.
+ const fileSuitability=rounded(signals.resolutionScore),fileStatus:FileStatus=signals.minimumDimension>=fileResolutionTargets.recommended?"OK":signals.minimumDimension>=fileResolutionTargets.usable?"LOW":signals.minimumDimension>=fileResolutionTargets.unusable?"TOO_SMALL":"UNUSABLE",fileReason=fileStatus==="OK"?`${signals.minimumDimension}px shortest edge is large enough for every marketing output.`:fileStatus==="LOW"?`${signals.minimumDimension}px shortest edge works for profile cards but is tight for large banners and print.`:fileStatus==="TOO_SMALL"?`${signals.minimumDimension}px shortest edge is small — usable on screen, but re-supply the original for print or large banners.`:`${signals.minimumDimension}px shortest edge is too small to use anywhere — re-upload the original file.`;
+ // --- Designer review eligibility ---
+ // Three terms, and every one of them is a measurement rather than an estimate. `qualityDefects` is
+ // already the set of failures validated against the pixels, so "no severe blur", "face has usable
+ // detail", "not pixelated or corrupted" and "resolution carries enough detail" all collapse into it.
+ // Note what is deliberately absent: no gate, no verdict and no derived score appears here. A gate
+ // firing is precisely the thing the agent is entitled to argue about.
+ const reviewBlockingDefect=qualityDefects[0]??null;
+ const designerReviewEligible=photoQuality>=designerReviewFloor&&!reviewBlockingDefect&&fileStatus!=="UNUSABLE";
+ const reviewBlockReason=designerReviewEligible?"":reviewBlockingDefect?`${reviewBlockingDefect.label}. ${reviewBlockingDefect.evidence}`:fileStatus==="UNUSABLE"?fileReason:`Photo quality ${rounded(photoQuality)} is below the ${designerReviewFloor} needed for a designer to work from this image.`;
+ // What the agent would actually be challenging: every judgement that changed the verdict, minus the
+ // measured defects, which are not matters of opinion.
+ const disputableGates=penalties.filter(penalty=>penalty.forces_status&&!defectBackedGates.has(penalty.id)).map(penalty=>penalty.label);
+ const photoIsUsable=!forcedReject&&rawScore>=photoApprovalThresholds.review;
+ // Resolution is advisory: a good photograph in a small file is still a good photograph. Only a file
+ // too small to use anywhere becomes a re-upload request, and it never lowers the quality score.
+ // A genuine hard failure overrides the score; nothing else does. 80+ approves, 65+ reviews, below 65 retakes.
+ const status:PhotoStatus=forcedReject||score<photoApprovalThresholds.review?"REJECT":fileStatus==="UNUSABLE"?"REUPLOAD":score<photoApprovalThresholds.approved?"REVIEW":"APPROVED";
+ // Every gate caps at or below 59, so a fired gate already puts the score under the retake threshold:
+ // the verdict and the number are two readings of the same value, and cannot contradict each other.
+ const scoreTrace=[`Categories: photo quality ${rounded(photoQuality)}, body & crop ${rounded(bodyCrop)}, face visibility ${rounded(faceVisibility)}, background & editability ${rounded(signals.designerUsability)}.`,`Raw score ${rawScore} = those four weighted 30/30/20/20.`,`Validated quality defects: ${qualityDefects.length?qualityDefects.map(item=>`${item.label.toLowerCase()} — ${item.evidence}`).join(" "):"none — no score alone may force a retake."}`,`Critical floors: ${subjectFloorFailed?"FAIL — weak subject scores confirmed by a visual defect":readyFloorFailed||subjectScoresPoor?"below the ready-for-design minimum":"PASS"}.`,caps.length?`Validated gates: ${caps.map(entry=>`${entry.label} (max ${entry.cap})`).join("; ")}.`:"Validated gates: none.",appliedCap?`Final score ${score} = min(${rawScore}, ${appliedCap.cap}) — capped by ${appliedCap.label.toLowerCase()}.`:`Final score ${score} — no cap applied.`];
+ const failed=requirements.filter(item=>item.status==="FAIL"),confidence=Number((requirements.reduce((total,item)=>total+item.confidence,0)/requirements.length).toFixed(2)),primaryPenalty=penalties.find(penalty=>penalty.forces_status==="REJECT")??null;
+ const decisionReason=status==="REUPLOAD"?`${photoIsUsable&&!penalties.length?"The photograph itself is good":"The photograph is usable"} — only the file is too small. ${fileReason}`:primaryPenalty?`Retake recommended: ${primaryPenalty.label.toLowerCase()}. Marketing readiness ${score}/100${appliedCap?` — capped at ${appliedCap.cap} by that gate, from a raw ${rawScore}`:""}.`:penalties.length?`Usable for design. Noted: ${penalties[0].label.toLowerCase()}.`:failed.find(item=>item.id!=="resolution")?.detail??(fileStatus==="LOW"?fileReason:"Usable for design — nothing blocks a designer.");
+ return {score,rawScore,appliedCap,scoreTrace,status,hardGates,designerReviewEligible,disputableGates,reviewBlockReason,qualityDefects,retakeAdvice,snapshotSignals,fileSuitability,fileStatus,fileReason,confidence,decisionReason,requirements,penalties};
+}
+```
+
+### `app/photo-body.ts`
+
+```ts
+import type {FaceRegion, PersonMask} from "./image-enhancement";
+
+export type PoseLandmark = {x:number;y:number;visibility:number};
+export type BodyExtent = "unknown"|"head_only"|"head_shoulders"|"chest_up"|"half_body"|"three_quarter"|"full_body";
+export type HandState = "absent"|"complete"|"partial";
+export type BodyAnalysis = {
+ extent:BodyExtent;
+ extentScore:number;
+ bodyVisibleRatio:number;
+ cropScore:number;
+ croppedEdges:string[];
+ hands:HandState;
+ handScore:number;
+ handNote:string;
+ subjectArea:number;
+ // Framing geometry the snapshot gate reads. torsoVisible is how far down the torso the frame reaches:
+ // 1 = the waist is at the bottom edge, below 1 = the frame stops higher up the chest.
+ torsoVisible:number;
+ shoulderTilt:number;
+ handAtFace:boolean;
+ // How far the silhouette spreads around the head relative to the face, and what that costs a designer.
+ // This is about crop and layout flexibility only — never about whether an accessory suits the agent.
+ headSpread:number;
+ accessoryImpact:number;
+ choppedLimbs:number;
+ note:string;
+};
+
+// MediaPipe pose landmark indices we care about.
+const NOSE=0,L_SHOULDER=11,R_SHOULDER=12,L_ELBOW=13,R_ELBOW=14,L_WRIST=15,R_WRIST=16,L_HIP=23,R_HIP=24,L_KNEE=25,R_KNEE=26,L_ANKLE=27,R_ANKLE=28;
+const L_HAND=[17,19,21],R_HAND=[18,20,22];
+const VISIBLE=.55,clamp=(value:number,min=0,max=100)=>Math.max(min,Math.min(max,value));
+const inFrame=(point?:PoseLandmark)=>!!point&&point.x>=0&&point.x<=1&&point.y>=0&&point.y<=1;
+const seen=(point?:PoseLandmark)=>!!point&&point.visibility>=VISIBLE&&inFrame(point);
+const eitherSeen=(points:PoseLandmark[],a:number,b:number)=>seen(points[a])||seen(points[b]);
+
+// "Enough body for a designer to work with" is a function of how far down the torso the frame reaches,
+// never of how formally the agent is posed. Sitting, leaning and relaxed arms all read the same here.
+function measureExtent(points:PoseLandmark[],silhouetteRatio:number):{extent:BodyExtent;extentScore:number}{
+ const shoulders=eitherSeen(points,L_SHOULDER,R_SHOULDER),hips=eitherSeen(points,L_HIP,R_HIP),knees=eitherSeen(points,L_KNEE,R_KNEE),ankles=eitherSeen(points,L_ANKLE,R_ANKLE),head=seen(points[NOSE]);
+ if(ankles)return {extent:"full_body",extentScore:100};
+ if(knees)return {extent:"three_quarter",extentScore:100};
+ if(hips)return {extent:"half_body",extentScore:92};
+ // Half body means head to waist or hip. A frame that stops at mid-chest is a different, much less
+ // flexible photograph, so it gets its own tier rather than being rounded up to half body.
+ // A hip landmark that lands just past the bottom edge means the frame cuts through the torso — a
+ // waist-up portrait, not a head-and-shoulders crop. The silhouette-to-face ratio says the same thing,
+ // and it is the only read available when the pose model is missing, so honour either signal.
+ if(shoulders&&(torsoRunsPastBottom(points)||silhouetteRatio>=3.1))return {extent:"half_body",extentScore:92};
+ if(shoulders&&silhouetteRatio>=2.4)return {extent:"chest_up",extentScore:58};
+ if(shoulders)return {extent:"head_shoulders",extentScore:38};
+ if(head)return {extent:"head_only",extentScore:14};
+ return {extent:"unknown",extentScore:0};
+}
+
+// Hips predicted below the frame edge (but not wildly extrapolated) mean the torso continues past the crop.
+function torsoRunsPastBottom(points:PoseLandmark[]){return [L_HIP,R_HIP].some(index=>{const point=points[index];return !!point&&point.y>1&&point.y<1.6&&point.x>=-.2&&point.x<=1.2})}
+
+// A visible arm that leaves through a side edge is a chopped limb even when the hand itself was never
+// in shot: the designer is left with a forearm that stops in mid-air. The bottom edge is different —
+// every half-body portrait cuts the subject there, so an arm continuing past it is normal framing.
+function measureLimbs(points:PoseLandmark[]){
+ return [[L_ELBOW,L_WRIST],[R_ELBOW,R_WRIST]].filter(([elbowIndex,wristIndex])=>{
+  const elbow=points[elbowIndex],wrist=points[wristIndex];
+  if(!seen(elbow))return false;
+  if(elbow.x<=.05||elbow.x>=.95)return true;
+  return !!wrist&&wrist.visibility>=VISIBLE*.7&&!inFrame(wrist)&&(wrist.x<0||wrist.x>1);
+ }).length;
+}
+
+// A hand only matters when the agent actually put it in the shot. Hands resting out of frame or
+// tucked behind the body are normal portrait framing and must not cost anything — but an arm the
+// designer can see running off the side of the frame is never "nothing to crop badly".
+function measureHands(points:PoseLandmark[],choppedLimbs:number):{hands:HandState;handScore:number;handNote:string}{
+ const side=(wrist:number,fingers:number[])=>{
+  const w=points[wrist];
+  if(!w||w.visibility<VISIBLE)return "absent" as HandState;
+  if(!inFrame(w))return "absent" as HandState;
+  const tracked=fingers.map(index=>points[index]).filter((point):point is PoseLandmark=>!!point&&point.visibility>=VISIBLE*.7);
+  if(!tracked.length)return "partial" as HandState;
+  return tracked.every(inFrame)?"complete" as HandState:"partial" as HandState;
+ };
+ const left=side(L_WRIST,L_HAND),right=side(R_WRIST,R_HAND),states=[left,right];
+ const partial=states.filter(state=>state==="partial").length,complete=states.filter(state=>state==="complete").length;
+ if(partial>=2||choppedLimbs>=2)return {hands:"partial",handScore:34,handNote:choppedLimbs>=2?"Both arms are cut off at the frame edge — hard to mask cleanly":"Both hands run out of frame — hard to mask cleanly"};
+ if(partial===1||choppedLimbs===1)return {hands:"partial",handScore:62,handNote:partial?"One hand is cut off at the frame edge":"A visible arm runs off the side of the frame and stops in mid-air"};
+ if(complete)return {hands:"complete",handScore:100,handNote:`${complete===2?"Both hands are":"The visible hand is"} fully in frame`};
+ return {hands:"absent",handScore:100,handNote:"Hands are outside the composition — nothing to crop badly"};
+}
+
+// Which frame edges the silhouette runs off, and how much of it does so.
+function measureCrop(mask:PersonMask|null,points:PoseLandmark[]):{cropScore:number;croppedEdges:string[]}{
+ const croppedEdges:string[]=[];
+ if(!mask)return {cropScore:70,croppedEdges};
+ const {data,width,height}=mask,covered=(index:number)=>data[index]>.5;
+ const edgeRun=(cells:number[])=>cells.filter(covered).length/cells.length;
+ const topCells=[],bottomCells=[],leftCells=[],rightCells=[];
+ for(let x=0;x<width;x+=1){topCells.push(x);bottomCells.push((height-1)*width+x)}
+ for(let y=0;y<height;y+=1){leftCells.push(y*width);rightCells.push(y*width+width-1)}
+ const top=edgeRun(topCells),bottom=edgeRun(bottomCells),left=edgeRun(leftCells),right=edgeRun(rightCells);
+ // A subject standing on the bottom edge is normal framing; the head and the sides are not.
+ if(top>.06)croppedEdges.push("top of the head");
+ if(left>.3)croppedEdges.push("left side");
+ if(right>.3)croppedEdges.push("right side");
+ const headCut=seen(points[NOSE])&&top>.06?28:0;
+ const cropScore=clamp(100-top*260-Math.max(0,left-.3)*120-Math.max(0,right-.3)*120-headCut-Math.max(0,bottom-.86)*40);
+ return {cropScore,croppedEdges};
+}
+
+function measureFraming(points:PoseLandmark[]){
+ const left=points[L_SHOULDER],right=points[R_SHOULDER],leftHip=points[L_HIP],rightHip=points[R_HIP],nose=points[NOSE];
+ if(!left||!right)return {torsoVisible:0,shoulderTilt:0,handAtFace:false};
+ const shoulderY=(left.y+right.y)/2,hipY=leftHip&&rightHip?(leftHip.y+rightHip.y)/2:0;
+ const torsoVisible=hipY>shoulderY?clamp((1-shoulderY)/(hipY-shoulderY),0,4):0;
+ const degrees=Math.abs(Math.atan2(left.y-right.y,left.x-right.x))*180/Math.PI;
+ const shoulderTilt=Math.min(degrees,180-degrees);
+ const handAtFace=!!nose&&[points[L_WRIST],points[R_WRIST]].some(wrist=>!!wrist&&wrist.visibility>=VISIBLE&&inFrame(wrist)&&wrist.y<nose.y+.15);
+ return {torsoVisible,shoulderTilt,handAtFace};
+}
+
+export function analyzeBody(points:PoseLandmark[]|null,mask:PersonMask|null,face:FaceRegion|null,subjectArea:number):BodyAnalysis{
+ if(!points?.length){
+  // No pose model result: fall back to silhouette height relative to the face, which still separates
+  // a head-and-shoulders crop from a half-body shot.
+  const ratio=face&&face.height>0?estimateSilhouetteHeight(mask)/face.height:0;
+  const extent:BodyExtent=ratio>=6?"full_body":ratio>=4.2?"three_quarter":ratio>=3.1?"half_body":ratio>=1.8?"head_shoulders":ratio>0?"head_only":"unknown";
+  const extentScore=extent==="full_body"||extent==="three_quarter"?100:extent==="half_body"?92:extent==="head_shoulders"?38:extent==="head_only"?14:0;
+  const {cropScore,croppedEdges}=measureCrop(mask,[]);
+  const headSpread=measureHeadSpread(mask,face),accessoryImpact=clamp((headSpread-accessorySpreadThreshold)/1.4,0,1);
+  return {extent,extentScore,bodyVisibleRatio:ratio,cropScore,croppedEdges,hands:"absent",handScore:100,handNote:"Hand framing could not be verified",subjectArea,torsoVisible:0,shoulderTilt:0,handAtFace:false,headSpread,accessoryImpact,choppedLimbs:0,note:describe(extent,croppedEdges)};
+ }
+ const ratio=face&&face.height>0?estimateSilhouetteHeight(mask)/face.height:0;
+ const choppedLimbs=measureLimbs(points);
+ const {extent,extentScore}=measureExtent(points,ratio),{hands,handScore,handNote}=measureHands(points,choppedLimbs),{cropScore,croppedEdges}=measureCrop(mask,points);
+ const headSpread=measureHeadSpread(mask,face),accessoryImpact=clamp((headSpread-accessorySpreadThreshold)/1.4,0,1);
+ return {extent,extentScore,bodyVisibleRatio:ratio,cropScore,croppedEdges,hands,handScore,handNote,subjectArea,...measureFraming(points),headSpread,accessoryImpact,choppedLimbs,note:describe(extent,croppedEdges,accessoryImpact,choppedLimbs)};
+}
+
+// Accessories are never judged as style. What matters is what they do to the silhouette: hair and
+// ordinary headwear sit around 1.3-1.8x the face width, while a wide-brim hat or similar reaches past
+// 2.2x, which is exactly what makes a tight frame hard to crop and hard to lay text beside.
+export const accessorySpreadThreshold=2.2;
+function measureHeadSpread(mask:PersonMask|null,face:FaceRegion|null){
+ if(!mask||!face||face.width<=0)return 0;
+ const bandTop=Math.max(0,Math.floor((face.y-face.height*.7)*mask.height)),bandBottom=Math.min(mask.height-1,Math.floor((face.y+face.height*.35)*mask.height));
+ let widest=0;
+ for(let y=bandTop;y<=bandBottom;y+=1){
+  let left=-1,right=-1;
+  for(let x=0;x<mask.width;x+=1)if(mask.data[y*mask.width+x]>.5){if(left<0)left=x;right=x}
+  if(left>=0)widest=Math.max(widest,(right-left+1)/mask.width);
+ }
+ return face.width>0?widest/face.width:0;
+}
+
+function estimateSilhouetteHeight(mask:PersonMask|null){
+ if(!mask)return 0;
+ let top=-1,bottom=-1;
+ for(let y=0;y<mask.height&&top<0;y+=1)for(let x=0;x<mask.width;x+=1)if(mask.data[y*mask.width+x]>.5){top=y;break}
+ for(let y=mask.height-1;y>=0&&bottom<0;y-=1)for(let x=0;x<mask.width;x+=1)if(mask.data[y*mask.width+x]>.5){bottom=y;break}
+ return top<0||bottom<top?0:(bottom-top+1)/mask.height;
+}
+
+function describe(extent:BodyExtent,croppedEdges:string[],accessoryImpact=0,choppedLimbs=0){
+ if(choppedLimbs)return `A visible arm is cut off at the frame edge${croppedEdges.length?`, and the subject is cut off at the ${croppedEdges.join(" and ")}`:""}`;
+ if(croppedEdges.length)return `Cut off at the ${croppedEdges.join(" and ")}`;
+ if(accessoryImpact>=.4)return "A head accessory widens the silhouette and limits how the agent can be cropped or laid up";
+ return {full_body:"Full body in frame — plenty for any layout",three_quarter:"Three-quarter framing — very usable",half_body:"Half body in frame — usable for design",chest_up:"Head and chest only — the frame stops above the waist",head_shoulders:"Only head and shoulders — too little body for design use",head_only:"Face only — no body area to work with",unknown:"Body framing could not be verified"}[extent];
+}
+```
+
+### `app/photo-artifacts.ts`
+
+```ts
+export type SourceArtifacts = {
+ contentCoverage:number;
+ deadCanvas:number;
+ letterboxed:boolean;
+ chromeRatio:number;
+ isScreenshot:boolean;
+ detailVariance:number;
+ focusScore:number;
+ subjectFocusScore:number;
+ structureScore:number;
+ note:string;
+};
+
+const FLAT_ROW_RANGE=14;
+// Structural detail: the edges a designer actually needs — eyes, eyebrows, hairline, nose and lip
+// boundaries, glasses, a shirt collar, clothing seams, the outer silhouette. It is read as the strength
+// of the strongest few per cent of edges rather than their average, because the average is dominated by
+// skin and fabric. Smooth skin, beauty retouching, soft studio lighting and JPEG compression all flatten
+// the average without touching those structural edges, so a mean-based sharpness read calls a perfectly
+// usable portrait "blurred". This one only falls when the structure itself is genuinely gone.
+const STRUCTURE_PERCENTILE=.98;
+// |Laplacian| on 8-bit luminance: a crisp lash line or collar seam runs 60-150, visible softness lands
+// in the 20s and 30s, and below ~15 nothing structural has survived at any scale.
+const STRUCTURE_FULL_MARKS=70;
+const EDGE_BINS=512;
+
+// Exact enough at 1-unit resolution, and far cheaper than sorting a few hundred thousand samples.
+function edgePercentile(histogram:Uint32Array,ratio:number){
+ let total=0;
+ for(let bin=0;bin<histogram.length;bin+=1)total+=histogram[bin];
+ if(!total)return 0;
+ const target=total*ratio;
+ let seen=0;
+ for(let bin=0;bin<histogram.length;bin+=1){seen+=histogram[bin];if(seen>=target)return bin}
+ return histogram.length-1;
+}
+
+// Screenshots, letterboxed exports and re-saved thumbnails all look "clean" to a background check
+// because their padding is perfectly flat. These read the source frame itself instead.
+// `subjectAt` receives normalised coordinates and returns the person-mask value there. Supplying it lets
+// focus be read on the agent alone, which matters for cut-outs where flat backdrop dominates the frame.
+export function inspectSource(luminance:Float32Array,width:number,height:number,subjectAt?:(nx:number,ny:number)=>number):SourceArtifacts{
+ const at=(x:number,y:number)=>luminance[y*width+x];
+ const rowRange=(y:number)=>{let min=Infinity,max=-Infinity;for(let x=0;x<width;x+=1){const value=at(x,y);if(value<min)min=value;if(value>max)max=value}return max-min};
+ const columnRange=(x:number)=>{let min=Infinity,max=-Infinity;for(let y=0;y<height;y+=1){const value=at(x,y);if(value<min)min=value;if(value>max)max=value}return max-min};
+ let top=0,bottom=0,left=0,right=0;
+ while(top<height*.45&&rowRange(top)<FLAT_ROW_RANGE)top+=1;
+ while(bottom<height*.45&&rowRange(height-1-bottom)<FLAT_ROW_RANGE)bottom+=1;
+ while(left<width*.45&&columnRange(left)<FLAT_ROW_RANGE)left+=1;
+ while(right<width*.45&&columnRange(width-1-right)<FLAT_ROW_RANGE)right+=1;
+ const contentCoverage=((height-top-bottom)/height)*((width-left-right)/width),deadCanvas=1-contentCoverage;
+ const absLaplacian=(x:number,y:number)=>Math.abs(4*at(x,y)-at(x-1,y)-at(x+1,y)-at(x,y-1)-at(x,y+1));
+ let total=0,count=0;
+ for(let y=1;y<height-1;y+=1)for(let x=1;x<width-1;x+=1){total+=absLaplacian(x,y);count+=1}
+ const overallMean=total/Math.max(1,count);
+ // Phone screenshots carry a status bar: dense, high-contrast glyph edges packed into the top strip.
+ const stripHeight=Math.max(3,Math.floor(height*.1));
+ let strip=0,stripCount=0;
+ for(let y=1;y<stripHeight;y+=1)for(let x=1;x<width-1;x+=1){strip+=absLaplacian(x,y);stripCount+=1}
+ const chromeRatio=overallMean>.4?strip/Math.max(1,stripCount)/overallMean:0;
+ // Focus is judged on the real photographic area only, so flat padding cannot fake or hide softness.
+ const x0=Math.max(1,left+1),x1=Math.max(x0+1,width-1-right),y0=Math.max(1,top+1),y1=Math.max(y0+1,height-1-bottom);
+ let sum=0,sumSquares=0,samples=0;
+ const frameEdges=new Uint32Array(EDGE_BINS),subjectEdges=new Uint32Array(EDGE_BINS);
+ const bin=(value:number)=>Math.min(EDGE_BINS-1,Math.round(Math.abs(value)));
+ for(let y=y0;y<y1;y+=1)for(let x=x0;x<x1;x+=1){const value=4*at(x,y)-at(x-1,y)-at(x+1,y)-at(x,y-1)-at(x,y+1);sum+=value;sumSquares+=value*value;samples+=1;frameEdges[bin(value)]+=1}
+ const mean=sum/Math.max(1,samples),detailVariance=Math.max(0,sumSquares/Math.max(1,samples)-mean*mean);
+ let subjectSum=0,subjectSquares=0,subjectSamples=0;
+ if(subjectAt)for(let y=y0;y<y1;y+=1)for(let x=x0;x<x1;x+=1){
+  const inside=subjectAt(x/width,y/height)>.6&&subjectAt((x-1)/width,y/height)>.6&&subjectAt((x+1)/width,y/height)>.6&&subjectAt(x/width,(y-1)/height)>.6&&subjectAt(x/width,(y+1)/height)>.6;
+  if(!inside)continue;
+  const value=4*at(x,y)-at(x-1,y)-at(x+1,y)-at(x,y-1)-at(x,y+1);subjectSum+=value;subjectSquares+=value*value;subjectSamples+=1;subjectEdges[bin(value)]+=1;
+ }
+ const letterboxed=contentCoverage<.62,isScreenshot=chromeRatio>=1.6;
+ // ~1000 is a crisp studio portrait, ~300 is visibly soft, <150 is unusable.
+ const focusScore=Math.max(0,Math.min(100,Math.sqrt(detailVariance)/33*100));
+ // Too few subject pixels to trust (tiny or failed mask): fall back to the whole-frame read.
+ const subjectMean=subjectSum/Math.max(1,subjectSamples),subjectVariance=Math.max(0,subjectSquares/Math.max(1,subjectSamples)-subjectMean*subjectMean);
+ const subjectFocusScore=subjectSamples>2000?Math.max(0,Math.min(100,Math.sqrt(subjectVariance)/33*100)):focusScore;
+ // Read on the agent where there are enough subject pixels to trust, on the photographic area otherwise.
+ const structureScore=Math.max(0,Math.min(100,edgePercentile(subjectSamples>2000?subjectEdges:frameEdges,STRUCTURE_PERCENTILE)/STRUCTURE_FULL_MARKS*100));
+ // "Soft" and "unusable" are different findings, so the note says softness only when the structural
+ // edges are going too — a mean-based focus read alone is retouching as often as it is blur.
+ const note=isScreenshot?"Looks like a phone screenshot rather than a photo file":letterboxed?"Padded with empty bars — supply the original photo, not a boxed export":structureScore<45?"Structural detail on the subject is soft":Math.min(focusScore,subjectFocusScore)<45?"Softly processed, but the structural detail is intact":"Source frame looks like an original photo";
+ return {contentCoverage,deadCanvas,letterboxed,chromeRatio,isScreenshot,detailVariance,focusScore,subjectFocusScore,structureScore,note};
+}
+```
+
+### Test fixtures
+
+The tests build `CategoryInputs`/`GateSignals` from a "good portrait" base fixture and override
+one or two fields per test. A base that lands in the ready-for-design band (raw 88, APPROVED):
+
+```js
+const inputs={sharpnessScore:80,structureScore:85,lightingScore:90,contrastScore:85,fidelityScore:95,resolutionScore:100,faceCount:1,faceHeightPixels:300,faceScaleScore:100,faceEdgeScore:100,bodyExtentScore:92,cropScore:95,handScore:100,usableArea:90,backgroundQuality:85,accessoryImpact:0};
+const signals={minimumDimension:1200,resolutionScore:100,sharpnessScore:80,focusScore:80,structureScore:85,fidelityScore:95,faceCount:1,faceClearance:.1,faceHeight:.2,faceHeightPixels:300,faceClarity:94,selfieProbability:.05,lightingScore:90,backgroundQuality:85,designerUsability:87,bodyExtent:"half_body",accessoryImpact:0,choppedLimbs:0,photoQuality:89,bodyCrop:83,faceVisibility:95,cropScore:95,hands:"absent",handScore:100,isScreenshot:false,letterboxed:false,contentCoverage:1,backgroundTexture:5,frameAspect:.8,subjectCoverage:.4,torsoVisible:1,shoulderTilt:2,handAtFace:false};
+// scoreCategories(inputs) → {photoQuality:89, bodyCrop:83, faceVisibility:95, backgroundEditability:87, faceClarity:94, edgeQuality:85, rawScore:88}
+// applyPhotoDecision(88, signals) → status "APPROVED", score 88, rawScore 88, appliedCap null
+```
+
+Derived checks the test suite relies on: `structureScore 22 / focus 20` → `severe_blur`, score 39;
+`bodyExtent "head_shoulders"` → `minimal_body`, cap 49; `isScreenshot` → cap 55;
+`minimumDimension 240, faceHeightPixels 60` → `face_unusable` (39, REJECT) while the same photo
+at 240px with enough face pixels → `REUPLOAD`; `photoQuality 70` with no defect → eligible for
+designer review, 69 → not.
