@@ -52,7 +52,7 @@ test("creates and reloads a studio appointment", async () => {
   const payload = {
     session,
     agentId: "71502",
-    agentName: "Hackathon Test Agent",
+    agentName: "Demo Test Agent",
     agentMobile: "60122070021",
     agentRenTag: "REN01143",
     agentOfficePhone: "03-7453 5155",

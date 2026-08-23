@@ -1,6 +1,6 @@
 # Studio+
 
-For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [HACKATHON_RUNBOOK.md](./HACKATHON_RUNBOOK.md). For the rules AI coding agents must follow in this repository, use [CLAUDE.md](./CLAUDE.md) (also served as `AGENTS.md`).
+For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md). For the rules AI coding agents must follow in this repository, use [CLAUDE.md](./CLAUDE.md) (also served as `AGENTS.md`).
 
 Studio+ is a demo-ready, white-label AI portrait studio. It helps agents replace missing or weak profile photos, gives friendly technical retake guidance, lets an agent challenge a verdict they believe is wrong, records profile and brand-use consent separately, and turns approved high-resolution portraits into ready-to-print marketing artwork.
 
@@ -63,7 +63,7 @@ npm install
 npm run dev
 ```
 
-For a clean, lockfile-reproducible hackathon setup, use `npm run hackathon:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify` — it runs the preflight, the build, 86 tests, and lint.
+For a clean, lockfile-reproducible demo setup, use `npm run demo:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify` — it runs the preflight, the build, 86 tests, and lint.
 
 Open the local address printed in the terminal, normally [http://localhost:3000](http://localhost:3000).
 
@@ -138,7 +138,7 @@ npm run start
 
 ## Presenting the demo
 
-The rehearsed, timed judge flow lives in [HACKATHON_RUNBOOK.md](./HACKATHON_RUNBOOK.md#three-minute-judge-flow). Prepare these sample files beforehand so every verdict can be shown without depending on the camera:
+The rehearsed, timed judge flow lives in [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md#three-minute-judge-flow). Prepare these sample files beforehand so every verdict can be shown without depending on the camera:
 
 | Prepared sample | Expected verdict | Purpose |
 | --- | --- | --- |
@@ -166,7 +166,7 @@ app/
   brand-assets.tsx      Background removal, subsale banner, print ordering
   api/                  Atlas proxies, studio sessions, server-only CodeFormer proxy
 services/codeformer/    Pinned CodeFormer + Real-ESRGAN FastAPI container
-scripts/                Hackathon preflight
+scripts/                Demo preflight
 tests/                  node:test suites for the scoring engine and rendered HTML
 public/                 Bundled fictional portraits, MediaPipe models and WASM
 .claude/skills/         Project skills (mirrored into .agents/skills for other agents)
@@ -176,7 +176,7 @@ public/                 Bundled fictional portraits, MediaPipe models and WASM
 
 Project-local skills in `.claude/skills`, symlinked into `.agents/skills` so Codex, Cursor and other tools that follow the `npx skills` layout pick up the same files:
 
-- `studio-plus-hackathon` — how to change, debug and present the demo while it is frozen
+- `studio-plus-demo` — how to change, debug and present the demo while it is frozen
 - `photo-scoring-invariants` — the rules the verdict engine must keep, and where its thresholds live
 
 Vendored third-party skills, tracked in `skills-lock.json`:
@@ -199,7 +199,7 @@ Suggested Claude visual-review prompt:
 
 Suggested Claude demo-review prompt:
 
-> Act as a hackathon judge. Assess whether the demo proves the complete workflow: weak profile photo, AI guidance, approved portrait, consented brand asset, printable artwork. Identify unclear claims, unfinished handoffs, or unnecessary features, then rewrite the three-minute story in direct language.
+> Act as a demo judge. Assess whether the demo proves the complete workflow: weak profile photo, AI guidance, approved portrait, consented brand asset, printable artwork. Identify unclear claims, unfinished handoffs, or unnecessary features, then rewrite the three-minute story in direct language.
 
 ## Mock integration architecture
 
@@ -224,9 +224,9 @@ Future n8n workflow: approved asset → secure storage → Atlas sync → confir
 - Multi-camera selection, file import, download, system printing, background removal, relighting, face-aware retouching, high-resolution export, banner composition, consent, and local galleries work now.
 - Payments, remote Atlas updates, notifications, designer review handoff, DSLR tethering, and automatic event printers are integration adapters.
 
-## Hackathon checklist
+## Demo checklist
 
-- Confirm Node.js and dependencies before the event: `npm run hackathon:setup`.
+- Confirm Node.js and dependencies before the event: `npm run demo:setup`.
 - Run `npm run verify` and expect a passing preflight, 86 passing tests, and 0 lint errors.
 - Walk every verdict with the prepared samples above.
 - Rehearse the full journey from a fresh reset in under three minutes, once with a camera and once with file import only.

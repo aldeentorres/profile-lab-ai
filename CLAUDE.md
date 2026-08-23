@@ -1,10 +1,10 @@
 # Studio+ — instructions for AI coding agents
 
-Studio+ is an offline-first, white-label AI portrait studio built for a hackathon demo.
+Studio+ is an offline-first, white-label AI portrait studio built for a live product demo.
 The whole product journey — capture, scoring, enhancement, consent, galleries, banner
 artwork, download and print — runs in the browser with no API keys and no network.
 
-**Demo day is imminent. Read [HACKATHON_RUNBOOK.md](./HACKATHON_RUNBOOK.md) before touching
+**Demo day is imminent. Read [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) before touching
 anything, and treat the repository as frozen unless the user explicitly asks for a change.**
 
 ## Commands
@@ -15,7 +15,7 @@ npm run verify       # preflight + build + tests + lint — the gate for every c
 npm run preflight    # Node version, lockfile sync, sha256 of the 7 frozen offline assets
 npm run test         # build, then node --test over tests/*.test.mjs
 npm run lint         # eslint (warnings are tolerated, errors are not)
-npm run hackathon:setup   # npm ci + verify, for a clean machine
+npm run demo:setup   # npm ci + verify, for a clean machine
 ```
 
 Last verified state: preflight passes, 86/86 tests pass, lint reports 17 warnings and 0
@@ -39,7 +39,7 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
 | `app/api/` | `atlas-agent`, `atlas-avatar`, `studio-sessions`, `codeformer` (server-only proxy) |
 | `services/codeformer/` | Optional, self-hosted CodeFormer + Real-ESRGAN container |
 | `tests/` | `node:test` suites in `.mjs`, importing `.ts` directly via `--experimental-strip-types` |
-| `scripts/hackathon-preflight.mjs` | Frozen-asset and environment check |
+| `scripts/demo-preflight.mjs` | Frozen-asset and environment check |
 | `.claude/skills/`, `.agents/skills/` | Project skills (same files, `.agents` symlinks into `.claude`) |
 
 ## Invariants — do not break these
@@ -48,7 +48,7 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
    and payments are adapters with local fallbacks; never make one a hard dependency.
 2. **No new dependencies** during the freeze. `npm ci` from the committed lockfile must keep
    reproducing the demo.
-3. **Frozen assets.** The seven files hashed in `scripts/hackathon-preflight.mjs` (portraits,
+3. **Frozen assets.** The seven files hashed in `scripts/demo-preflight.mjs` (portraits,
    MediaPipe models, WASM) must not be re-encoded or replaced.
 4. **Enhancement is non-generative.** The local pipeline never invents or reshapes facial
    structure. Only the optional, clearly-labelled CodeFormer adapter reconstructs faces, and

@@ -1,7 +1,7 @@
 # Studio+ — complete rebuild specification and agent prompt
 
 Purpose: rebuild this exact product from nothing, on a clean machine, during a one-day
-hackathon, as identically as possible to the validated `hackathon-demo-v1` build. This
+demo, as identically as possible to the validated `demo-v2` build. This
 document is three things in one:
 
 - **Part A** — the human plan: what to bring, the fast path (restore) vs. the scratch path
@@ -21,13 +21,13 @@ The n8n backup (no-code path) is documented separately in [`../../n8n/README.md`
 
 | Item | Why | How |
 | --- | --- | --- |
-| `photostudio-plus-hackathon.zip` | Source archive of the tagged build. Restores everything in minutes. | `git archive --format=zip --output=photostudio-plus-hackathon.zip hackathon-demo-v1` |
+| `photostudio-plus-demo.zip` | Source archive of the tagged build. Restores everything in minutes. | `git archive --format=zip --output=photostudio-plus-demo.zip demo-v2` |
 | `node_modules` tarball **or** npm offline cache | The venue Wi-Fi may be unusable. `npm ci` needs ~390 packages. | `tar czf node_modules.tgz node_modules` (same OS/arch only), or `npm ci --cache ./npm-cache` tonight and carry `./npm-cache` |
 | The 7 frozen assets + 2 extras (see C4) | Models/WASM/portraits cannot be re-created; sha256 is checked by preflight. | They live in `public/` — included in the zip. Also copy `public/` to USB separately. |
 | Node.js 22.22.3 installer (`.pkg`/`.msi`) | `.nvmrc` pins it; venue laptop may not have it. | https://nodejs.org/dist/v22.22.3/ |
 | Prepared sample photos (5) | Every verdict shown without a camera: REJECT, REVIEW, REUPLOAD, APPROVED, plus an Atlas "no photo" state. | Export from your phone/studio tonight; name them `sample-reject.jpg`, `sample-review.jpg`, `sample-reupload.jpg`, `sample-approved.jpg` |
 | Screen recording of the 3-minute judge flow | Last-resort fallback. | QuickTime/OBS, 1080p |
-| This document + `HACKATHON_RUNBOOK.md` + `CLAUDE.md` | Rules for people and agents. | In the zip |
+| This document + `DEMO_RUNBOOK.md` + `CLAUDE.md` | Rules for people and agents. | In the zip |
 | Anthropic API key (for the n8n backup only) | The n8n path calls Claude for vision; the real app needs no key. | Keep in a password manager, never in the repo |
 
 ### A2. Fast path — restore (target: 15 minutes)
@@ -37,7 +37,7 @@ The n8n backup (no-code path) is documented separately in [`../../n8n/README.md`
 nvm install 22.22.3 && nvm use 22.22.3        # or run the carried installer
 node -v                                        # v22.22.3
 # 2. Source
-unzip photostudio-plus-hackathon.zip -d studio-plus && cd studio-plus
+unzip photostudio-plus-demo.zip -d studio-plus && cd studio-plus
 # 3. Dependencies (pick one)
 npm ci                                         # online
 npm ci --offline --cache ../npm-cache          # offline cache carried from home
@@ -53,7 +53,7 @@ re-run. Never `npm update`, never re-encode a `public/` asset.
 
 ### A3. Scratch path — rebuild from this spec (target: one working day)
 
-Use this only if the hackathon requires code written on the day, or the archive is lost.
+Use this only if the event requires code written on the day, or the archive is lost.
 Work in this order; each step ends in a verifiable state and the demo is showable from step 6.
 
 | # | Time box | Deliverable | Done when |
@@ -76,9 +76,9 @@ dependencies beyond C2, non-generative enhancement, score the photograph not the
 ## Part B — Copy-paste prompt for an AI coding agent
 
 > You are rebuilding **Studio+**, an offline-first, white-label AI portrait studio for a
-> real-estate agency hackathon demo. Build it exactly as specified in
+> real-estate agency product demo. Build it exactly as specified in
 > `docs/rebuild/REBUILD_PROMPT.md` Part C, in the step order of Part A3. Read
-> `CLAUDE.md`, `HACKATHON_RUNBOOK.md`, and the two skills in `.claude/skills/` first if they
+> `CLAUDE.md`, `DEMO_RUNBOOK.md`, and the two skills in `.claude/skills/` first if they
 > exist; if they do not, recreate them from Part C17.
 >
 > Stack and versions are fixed (Part C2): Next.js-app-router code running on `vinext`
@@ -113,7 +113,7 @@ dependencies beyond C2, non-generative enhancement, score the photograph not the
 > Work step by step. After each step run the gate for that step (Part A3), then
 > `npm run verify` once it exists. Report the real output. Never claim something works without
 > running it. When finished: `npm run verify` must end with preflight passed, 86 tests
-> passed, 0 lint errors; tag `hackathon-demo-v1`; `git archive` the zip.
+> passed, 0 lint errors; tag `demo-v2`; `git archive` the zip.
 
 ---
 
@@ -142,7 +142,7 @@ Surfaces: `/` (Studio+ kiosk), `/atlas` and `/atlas/{slug}` (Atlas profile demo)
 
 ```json
 {
-  "name": "photostudio-plus-hackathon",
+  "name": "photostudio-plus-demo",
   "version": "1.0.0",
   "private": true,
   "packageManager": "npm@10.9.8",
@@ -153,9 +153,9 @@ Surfaces: `/` (Studio+ kiosk), `/atlas` and `/atlas/{slug}` (Atlas profile demo)
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --experimental-strip-types --test tests/photo-decision.test.mjs tests/photo-score.test.mjs tests/photo-body.test.mjs tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "preflight": "node scripts/hackathon-preflight.mjs",
+    "preflight": "node scripts/demo-preflight.mjs",
     "verify": "npm run preflight && npm run test && npm run lint",
-    "hackathon:setup": "npm ci && npm run verify",
+    "demo:setup": "npm ci && npm run verify",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -254,11 +254,11 @@ artwork — text zones at x 72–1760, portrait zone from x=1800), `og.png`, `fa
 If the exact hashed files are unavailable on the day, download the same MediaPipe model
 versions from Google's storage (`blaze_face_short_range`, `selfie_segmenter`,
 `pose_landmarker_lite`) and copy the WASM from the installed package, then **update the
-hashes** in `scripts/hackathon-preflight.mjs` — the script's job is reproducibility, not a
+hashes** in `scripts/demo-preflight.mjs` — the script's job is reproducibility, not a
 specific byte sequence.
 
-`scripts/hackathon-preflight.mjs` checks: Node ≥ 22.13.0; `package.json.name ===
-"photostudio-plus-hackathon"`; lockfile name/version match; each asset's sha256; hosting.json
+`scripts/demo-preflight.mjs` checks: Node ≥ 22.13.0; `package.json.name ===
+"photostudio-plus-demo"`; lockfile name/version match; each asset's sha256; hosting.json
 `d1`/`r2` are null. Prints ✓ notes or ✗ failures and sets exit code 1 on failure.
 
 ### C5. `app/photo-quality.ts` — orchestration and the `PhotoRating` shape
@@ -509,11 +509,11 @@ Fallback agent: `{id:"71502", name:"Aaron Paul", role:"Negotiator · REN76860", 
 
 ### C17. Agent guardrails to recreate
 
-`CLAUDE.md` (symlinked as `AGENTS.md`) with the table of modules, the seven invariants and conventions; `.claude/skills/studio-plus-hackathon/SKILL.md` (freeze rules and live-demo triage table) and `.claude/skills/photo-scoring-invariants/SKILL.md` (the nine rules and the threshold table); `.agents/skills` symlinked to `.claude/skills`. Both already exist in the archive — copy them.
+`CLAUDE.md` (symlinked as `AGENTS.md`) with the table of modules, the seven invariants and conventions; `.claude/skills/studio-plus-demo/SKILL.md` (freeze rules and live-demo triage table) and `.claude/skills/photo-scoring-invariants/SKILL.md` (the nine rules and the threshold table); `.agents/skills` symlinked to `.claude/skills`. Both already exist in the archive — copy them.
 
 ### C18. Verification gates
 
-- `npm run preflight` → "Studio+ hackathon preflight passed" with Node, lockfile v3, "7 offline demo assets verified", "no API keys or hosted storage required".
+- `npm run preflight` → "Studio+ demo preflight passed" with Node, lockfile v3, "7 offline demo assets verified", "no API keys or hosted storage required".
 - `npm run test` → 86 pass, 0 fail.
 - `npm run lint` → 0 errors (17 warnings are the known state: `<img>` and two `react-hooks/exhaustive-deps`).
 - Manual: Atlas → Book → QR → `/` scan or code → session → camera or import → verdicts for all five samples → enhance → consent → Photos → Assets → banner → print order; all with Wi-Fi off.

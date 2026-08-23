@@ -1,19 +1,19 @@
 ---
-name: studio-plus-hackathon
-description: Operating rules for changing the Studio+ demo while it is frozen for the hackathon. Use before editing, debugging, rehearsing or presenting this repository — especially for "fix this before the demo", "the camera failed", "add X to the demo", or any request that touches the judge flow.
+name: studio-plus-demo
+description: Operating rules for changing the Studio+ demo while it is frozen for the demo. Use before editing, debugging, rehearsing or presenting this repository — especially for "fix this before the demo", "the camera failed", "add X to the demo", or any request that touches the judge flow.
 metadata:
   author: studio-plus
   version: "1.0.0"
 ---
 
-# Studio+ hackathon mode
+# Studio+ demo mode
 
 The repository is a validated demo build. Every change is a risk to a rehearsed
 three-minute pitch, so the bar is "smallest verified fix", not "best refactor".
 
 ## Before changing anything
 
-1. Read [HACKATHON_RUNBOOK.md](../../../HACKATHON_RUNBOOK.md) — the judge flow, the fallbacks
+1. Read [DEMO_RUNBOOK.md](../../../DEMO_RUNBOOK.md) — the judge flow, the fallbacks
    and the freeze steps are defined there.
 2. Confirm the baseline still passes: `npm run verify`.
 3. Ask what breaks in the demo if the change is wrong. If the answer is "the pitch", propose
@@ -24,7 +24,7 @@ three-minute pitch, so the bar is "smallest verified fix", not "best refactor".
 - **No new dependencies, no version bumps.** `npm ci` from the lockfile must keep reproducing
   the build. `npm update` is forbidden during the event.
 - **No renames, no refactors, no new screens.** Fix the defect that was reported.
-- **Do not touch the frozen assets** hashed in `scripts/hackathon-preflight.mjs` (bundled
+- **Do not touch the frozen assets** hashed in `scripts/demo-preflight.mjs` (bundled
   portraits, MediaPipe face/segmentation models, WASM). Re-encoding them fails preflight.
 - **Do not remove a fallback.** Camera blocked → import photo. QR blocked → manual code.
   Atlas down → bundled agent record. Printer missing → download or Save as PDF. CodeFormer

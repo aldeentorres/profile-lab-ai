@@ -1,6 +1,6 @@
-# Studio+ Hackathon Runbook
+# Studio+ Demo Runbook
 
-This is the repeatable operating plan for presenting the same validated Studio+ build on hackathon day. The app completes its core portrait journey locally; Atlas live data is an enhancement, not a dependency.
+This is the repeatable operating plan for presenting the same validated Studio+ build on demo day. The app completes its core portrait journey locally; Atlas live data is an enhancement, not a dependency.
 
 ## The exact build
 
@@ -19,7 +19,7 @@ On a fresh computer, run:
 
 ```bash
 nvm use
-npm run hackathon:setup
+npm run demo:setup
 npm run dev
 ```
 
@@ -77,19 +77,19 @@ Printer unavailable → Download image or choose Save as PDF in the system print
 ## Day-before freeze
 
 1. Stop feature work.
-2. Run `npm run hackathon:setup` from a clean checkout.
+2. Run `npm run demo:setup` from a clean checkout.
 3. Rehearse the judge flow once with a camera and once using file import only.
 4. Rehearse QR scanning and the manual-code fallback.
 5. Test at the actual laptop and display resolution.
-6. Commit the passing state and create a clearly named tag, such as `hackathon-demo-v1`.
+6. Commit the passing state and create a clearly named tag, such as `demo-v2`.
 7. Create two backups: a Git remote and an offline archive or USB copy of the tagged source.
 8. Record a screen capture of the full three-minute flow.
 
 Recommended freeze commands after the final commit:
 
 ```bash
-git tag -a hackathon-demo-v1 -m "Validated Studio+ hackathon demo"
-git archive --format=zip --output=photostudio-plus-hackathon.zip hackathon-demo-v1
+git tag -a demo-v2 -m "Validated Studio+ demo build"
+git archive --format=zip --output=photostudio-plus-demo.zip demo-v2
 ```
 
 ## Working with AI agents during the freeze
@@ -97,7 +97,7 @@ git archive --format=zip --output=photostudio-plus-hackathon.zip hackathon-demo-
 Claude Code, Codex and any other agent used on this repository must read
 [CLAUDE.md](./CLAUDE.md) (served as `AGENTS.md`) first. Two project skills carry the rules:
 
-- `studio-plus-hackathon` — smallest verified fix, no new dependencies, no touching the frozen
+- `studio-plus-demo` — smallest verified fix, no new dependencies, no touching the frozen
   assets, never remove a fallback, and gate every change on `npm run verify`.
 - `photo-scoring-invariants` — the rules the verdict engine must keep before any threshold moves.
 

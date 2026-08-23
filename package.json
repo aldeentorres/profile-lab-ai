@@ -1,5 +1,5 @@
 {
-  "name": "photostudio-plus-hackathon",
+  "name": "photostudio-plus-demo",
   "version": "1.0.0",
   "private": true,
   "packageManager": "npm@10.9.8",
@@ -12,9 +12,9 @@
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
     "test": "npm run build && node --experimental-strip-types --test tests/photo-decision.test.mjs tests/photo-score.test.mjs tests/photo-body.test.mjs tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "preflight": "node scripts/hackathon-preflight.mjs",
+    "preflight": "node scripts/demo-preflight.mjs",
     "verify": "npm run preflight && npm run test && npm run lint",
-    "hackathon:setup": "npm ci && npm run verify",
+    "demo:setup": "npm ci && npm run verify",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
