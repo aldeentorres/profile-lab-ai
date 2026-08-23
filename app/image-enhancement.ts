@@ -1,4 +1,4 @@
-export type FaceRegion = {x:number;y:number;width:number;height:number};
+export type FaceRegion = {x:number;y:number;width:number;height:number;confidence?:number};
 export type BackgroundMode = "original"|"blur"|"gray"|"ivory";
 export type EnhanceSettings = {
   skin:number;
@@ -59,6 +59,8 @@ export async function analyzePortraitComposition(src:string,targetAspect=.8):Pro
   return {score,note};
 }
 
+// A real face lands near .96; crossed arms, folded hands and patterned fabric produce phantoms around .6.
+export const confidentFace=.75;
 async function detectFaces(src:string):Promise<FaceRegion[]>{
   const [image,vision]=await Promise.all([loadImage(src),import("@mediapipe/tasks-vision")]);
   const files=await vision.FilesetResolver.forVisionTasks("/mediapipe");
@@ -68,15 +70,18 @@ async function detectFaces(src:string):Promise<FaceRegion[]>{
     minDetectionConfidence:.5,
   });
   try{
+    // Ranked by confidence, not by area: the largest box is not always the actual face. Callers decide
+    // what to do with the weak ones — see confidentFace.
     return detector.detect(image).detections.flatMap(detection=>{
-      const box=detection.boundingBox;
+      const box=detection.boundingBox,confidence=detection.categories?.[0]?.score??0;
       return box?[{
         x:box.originX/image.naturalWidth,
         y:box.originY/image.naturalHeight,
         width:box.width/image.naturalWidth,
         height:box.height/image.naturalHeight,
+        confidence,
       }]:[];
-    }).sort((a,b)=>b.width*b.height-a.width*a.height);
+    }).sort((a,b)=>b.confidence-a.confidence||b.width*b.height-a.width*a.height);
   }finally{
     detector.close();
   }

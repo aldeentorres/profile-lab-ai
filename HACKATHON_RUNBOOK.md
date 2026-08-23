@@ -43,7 +43,7 @@ Atlas profile
   → Download or system print
 ```
 
-Walk-in fallback:
+Demo (no appointment) fallback:
 
 ```text
 Studio+ home → Take a photo → guided capture → enhance → consent → Photos
@@ -54,7 +54,7 @@ Hardware fallback:
 ```text
 Camera blocked or unavailable → Import photo → local assessment → continue or retake
 QR scanner blocked → Enter the appointment code → Load
-Atlas API unavailable → bundled Aaron Paul fallback → walk-in/photo flow still works
+Atlas API unavailable → bundled Aaron Paul fallback → mock-agent/photo flow still works
 Printer unavailable → Download image or choose Save as PDF in the system print dialog
 ```
 
@@ -107,7 +107,7 @@ Thirty minutes before presenting:
 - If any live dependency takes more than five seconds, use the documented local fallback immediately.
 - Do not troubleshoot camera permissions on stage; switch to **Import photo**.
 - Do not retry QR scanning more than once; enter the displayed code.
-- If the browser state is unexpected, use **Reset**, then start the walk-in flow.
+- If the browser state is unexpected, use **Reset**, then start the demo flow.
 - If the live app cannot continue, play the backup recording and narrate the same product flow.
 
 ## Success criteria
