@@ -977,6 +977,7 @@ select:focus-visible {
 /* Dark session and camera surfaces */
 .studio-camera,
 .batch-review,
+.session-profile-check,
 .studio-session-page {
   color-scheme: dark;
 }

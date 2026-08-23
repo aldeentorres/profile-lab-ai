@@ -1,7 +1,13 @@
 .session-profile-check {
+  /* Rendered outside .app-shell, so <body>'s 100dvh overflow:hidden lock applies:
+     this screen has to be its own scroll container or tall content is unreachable. */
   min-height: 100dvh;
+  height: 100dvh;
   padding: 26px clamp(18px, 4vw, 56px) 44px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   background:
     radial-gradient(circle at 11% 6%, #26332e 0, transparent 25%),
     radial-gradient(circle at 92% 84%, #241d18 0, transparent 24%),

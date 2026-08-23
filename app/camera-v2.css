@@ -223,7 +223,12 @@
 
 /* Camera-style photo selection gallery. */
 .batch-review {
+  /* Same as .session-profile-check: top-level screen outside .app-shell, must scroll itself. */
   min-height: 100dvh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: 28px max(20px, 4vw) 110px;
   background: #101412;
   color: #fff;
