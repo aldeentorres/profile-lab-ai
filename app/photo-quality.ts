@@ -116,12 +116,16 @@ function dedupeIssues(candidates:string[]){
  return issues;
 }
 
-function buildRecommendation(status:PhotoStatus,issues:string[],fileReason="",hardGates:string[]=[],retakeAdvice=""){
+function buildRecommendation(status:PhotoStatus,issues:string[],fileReason="",hardGates:string[]=[],retakeAdvice="",designerReviewEligible=true){
  if(status==="APPROVED")return issues.length?`Ready for design. Noted, but not blocking: ${issues[0].toLowerCase()}.`:"Ready for design.";
  const fixes=issues.slice(0,3).map(issue=>issue.replace(/\.$/,"").toLowerCase());
  // A good photograph in a small file needs the same shot re-supplied, not a new shoot.
  if(status==="REUPLOAD")return `Keep this photo — re-upload the original at a higher resolution. ${fileReason}`;
- if(status==="REVIEW")return `Potentially usable — designer review recommended${fixes.length?`; ${fixes.join(", ")}`:""}.`;
+ // Never offer a designer review the agent is not allowed to request: below the eligibility floor the
+ // weakness is in the photograph itself, and a designer cannot add detail the file does not carry.
+ if(status==="REVIEW")return designerReviewEligible
+  ?`Potentially usable — send it for designer review${fixes.length?`; ${fixes.join(", ")}`:""}.`
+  :`Not enough usable quality for a designer to work from — upload a clearer or higher-quality photo${fixes.length?`; ${fixes.join(", ")}`:""}.`;
  // The gate is the reason for the retake, so the advice has to answer the gate, not the smallest nit found.
  if(hardGates.length)return `Retake recommended because: ${hardGates[0].toLowerCase()}.${retakeAdvice?` ${retakeAdvice}`:""}`;
  return `Retake the photo${fixes.length?` with these changes: ${fixes.join(", ")}`:" from farther away with even lighting and a clean background"}.`;
@@ -211,7 +215,7 @@ export function evaluatePhoto(src:string,targetAspect=.8){
     // Technical file facts are reported, never weighted: a valid JPEG is not a good photograph, and a
     // small file is not a bad one.
     const fileNote=`${inferFileNote(src)} · ${image.naturalWidth} × ${image.naturalHeight}`;
-    resolve({score,overall_score:score,base_score:baseScore,raw_score:decision.rawScore,applied_cap:decision.appliedCap,score_trace:decision.scoreTrace,status,label,tone,confidence:decision.confidence,file_note:fileNote,hard_gates:decision.hardGates,designer_review_eligible:decision.designerReviewEligible,disputable_gates:decision.disputableGates,review_block_reason:decision.reviewBlockReason,quality_defects:decision.qualityDefects,snapshot_signals:decision.snapshotSignals,technical_quality:technicalQuality,body_usability:bodyUsability,face_visibility:faceVisibility,editability,body_extent:body.extent,hands:body.hands,file_suitability:decision.fileSuitability,file_status:decision.fileStatus,file_reason:decision.fileReason,professionalism,composition,background_quality:backgroundQuality,face_quality:faceQuality,designer_usability:designerUsability,pose_appropriateness:poseAppropriateness,selfie_probability:selfieProbability,issues,strengths,recommendation:buildRecommendation(status,issues,decision.fileReason,decision.hardGates,decision.retakeAdvice),decision_reason:decision.decisionReason,requirements:decision.requirements,penalties:decision.penalties,metrics});
+    resolve({score,overall_score:score,base_score:baseScore,raw_score:decision.rawScore,applied_cap:decision.appliedCap,score_trace:decision.scoreTrace,status,label,tone,confidence:decision.confidence,file_note:fileNote,hard_gates:decision.hardGates,designer_review_eligible:decision.designerReviewEligible,disputable_gates:decision.disputableGates,review_block_reason:decision.reviewBlockReason,quality_defects:decision.qualityDefects,snapshot_signals:decision.snapshotSignals,technical_quality:technicalQuality,body_usability:bodyUsability,face_visibility:faceVisibility,editability,body_extent:body.extent,hands:body.hands,file_suitability:decision.fileSuitability,file_status:decision.fileStatus,file_reason:decision.fileReason,professionalism,composition,background_quality:backgroundQuality,face_quality:faceQuality,designer_usability:designerUsability,pose_appropriateness:poseAppropriateness,selfie_probability:selfieProbability,issues,strengths,recommendation:buildRecommendation(status,issues,decision.fileReason,decision.hardGates,decision.retakeAdvice,decision.designerReviewEligible),decision_reason:decision.decisionReason,requirements:decision.requirements,penalties:decision.penalties,metrics});
    }catch(error){reject(error)}
   };
   image.onerror=reject;image.src=src;

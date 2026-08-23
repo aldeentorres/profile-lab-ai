@@ -78,6 +78,13 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .score-trace ol{margin:8px 0 0;padding-left:18px;display:grid;gap:5px}
 .score-trace li{font-size:12.5px;line-height:1.5;opacity:.8}
 
+/* A REVIEW verdict is the AI asking for a designer, so that path leads with the action rather than
+   hiding it behind a dispute checkbox. */
+.appeal.recommended .appeal-body{margin-top:9px}
+.appeal-lead{display:flex;align-items:flex-start;gap:8px;margin:0;color:#e9c789;font-size:12px;line-height:1.45}
+.appeal-lead svg{flex:none;margin-top:2px}
+.final-quality .appeal-lead{color:#8a5a12}
+
 /* Designer review appeal: the agent's right of reply to a judgement call. Deliberately quieter than the
    verdict above it — an option, not a second opinion competing with the first. */
 .appeal{margin:12px 0 0;padding:11px 0 0;border-top:1px solid #ffffff14}

@@ -52,19 +52,25 @@ function DesignerReviewAppeal({rating,appeal}:{rating:PhotoRating;appeal:AppealC
  const status=rating.status;
  if(status==="APPROVED")return null;
  if(!rating.designer_review_eligible)return <p className="appeal-blocked" role="note"><ShieldCheck size={15}/> <span>This image does not have enough usable quality for designer review. Please upload a clearer or higher-quality photo.{rating.review_block_reason?<small>{rating.review_block_reason}</small>:null}</span></p>;
- if(sentId)return <p className="appeal-sent" role="status"><Check size={15}/> <span>Designer review requested · {sentId}<small>A designer will look at this photo and decide. You can continue in the meantime.</small></span></p>;
+ if(sentId)return <p className="appeal-sent" role="status"><Check size={15}/> <span>Designer review requested · {sentId}<small>A designer will look at this photo and decide. You can carry on in the meantime.</small></span></p>;
+ // A REVIEW verdict is the AI asking for a designer itself, so sending it is agreement, not a dispute —
+ // making the agent tick "the AI got this wrong" to act on the AI's own recommendation would be absurd.
+ // A REJECT is the case the checkbox exists for.
+ const recommended=status==="REVIEW";
  const send=()=>{
   const request=recordReviewRequest({id:createReviewRequestId(),createdAt:new Date().toISOString(),agentName:appeal.agentName,agentId:appeal.agentId,photo:appeal.photo,score:rating.score,status,disputedGates:rating.disputable_gates,note:note.trim(),state:"pending"});
   setSentId(request.id);
   appeal.onSent(request.id);
  };
+ const body=<div className="appeal-body">
+  {rating.disputable_gates.length?<><small>{recommended?"A designer will look at":"You are challenging"}:</small><ul>{rating.disputable_gates.map(gate=><li key={gate}>{gate}</li>)}</ul></>:<small>{recommended?`A designer will judge this photo's marketing readiness score of ${rating.score}.`:`You are challenging this photo's marketing readiness score of ${rating.score}.`}</small>}
+  <label className="appeal-note"><span>Anything the designer should know? (optional)</span><textarea value={note} onChange={event=>setNote(event.target.value)} maxLength={280} rows={3} placeholder="For example: this was taken by a photographer in a studio."/></label>
+  <button type="button" className="appeal-send" onClick={send}>{recommended?"Send for designer review":"Request designer review"}</button>
+ </div>;
+ if(recommended)return <div className="appeal recommended"><p className="appeal-lead"><HelpCircle size={15}/> <span>This photo needs a designer to decide. Send it over and carry on.</span></p>{body}</div>;
  return <div className="appeal">
   <label className="appeal-toggle"><input type="checkbox" checked={open} onChange={event=>setOpen(event.target.checked)}/><span>I think the AI got this wrong</span></label>
-  {open?<div className="appeal-body">
-   {rating.disputable_gates.length?<><small>You are challenging:</small><ul>{rating.disputable_gates.map(gate=><li key={gate}>{gate}</li>)}</ul></>:<small>You are challenging this photo&rsquo;s marketing readiness score of {rating.score}.</small>}
-   <label className="appeal-note"><span>Anything the designer should know? (optional)</span><textarea value={note} onChange={event=>setNote(event.target.value)} maxLength={280} rows={3} placeholder="For example: this was taken by a photographer in a studio."/></label>
-   <button type="button" className="appeal-send" onClick={send}>Request designer review</button>
-  </div>:null}
+  {open?body:null}
  </div>;
 }
 
