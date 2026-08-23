@@ -9,7 +9,8 @@ export type EnhanceSettings = {
 };
 
 export type PersonMask = {data:Float32Array;width:number;height:number};
-export type EnhancementAssets = {face:FaceRegion|null;faces:FaceRegion[];personMask:PersonMask|null};
+export type PoseLandmark = {x:number;y:number;visibility:number};
+export type EnhancementAssets = {face:FaceRegion|null;faces:FaceRegion[];personMask:PersonMask|null;pose:PoseLandmark[]|null};
 export type RenderedPhoto = {dataUrl:string;width:number;height:number};
 export type PortraitComposition = {score:number;note:string};
 type NormalizedCrop = {x:number;y:number;width:number;height:number};
@@ -28,9 +29,9 @@ export function loadImage(src:string){
 export async function prepareEnhancementAssets(src:string):Promise<EnhancementAssets>{
   const cached=enhancementAssetCache.get(src);
   if(cached)return cached;
-  const pending=Promise.allSettled([detectFaces(src),segmentPerson(src)]).then(([faceResult,maskResult])=>{
+  const pending=Promise.allSettled([detectFaces(src),segmentPerson(src),detectPose(src)]).then(([faceResult,maskResult,poseResult])=>{
     const faces=faceResult.status==="fulfilled"?faceResult.value:[];
-    return {face:faces[0]??null,faces,personMask:maskResult.status==="fulfilled"?maskResult.value:null};
+    return {face:faces[0]??null,faces,personMask:maskResult.status==="fulfilled"?maskResult.value:null,pose:poseResult.status==="fulfilled"?poseResult.value:null};
   });
   enhancementAssetCache.set(src,pending);
   if(enhancementAssetCache.size>4)enhancementAssetCache.delete(enhancementAssetCache.keys().next().value!);
@@ -78,6 +79,26 @@ async function detectFaces(src:string):Promise<FaceRegion[]>{
     }).sort((a,b)=>b.width*b.height-a.width*a.height);
   }finally{
     detector.close();
+  }
+}
+
+// Body framing and hand completeness need skeleton landmarks; face box plus silhouette cannot tell
+// "hands resting out of shot" from "hands chopped off at the wrist".
+async function detectPose(src:string):Promise<PoseLandmark[]|null>{
+  const [image,vision]=await Promise.all([loadImage(src),import("@mediapipe/tasks-vision")]);
+  const files=await vision.FilesetResolver.forVisionTasks("/mediapipe");
+  const landmarker=await vision.PoseLandmarker.createFromOptions(files,{
+    baseOptions:{modelAssetPath:"/pose_landmarker_lite.task"},
+    runningMode:"IMAGE",
+    numPoses:1,
+    minPoseDetectionConfidence:.4,
+    minPosePresenceConfidence:.4,
+  });
+  try{
+    const landmarks=landmarker.detect(image).landmarks?.[0];
+    return landmarks?.length?landmarks.map(point=>({x:point.x,y:point.y,visibility:point.visibility??0})):null;
+  }finally{
+    landmarker.close();
   }
 }
 
