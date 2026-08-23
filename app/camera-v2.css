@@ -131,8 +131,12 @@
   background: #050706;
   animation: previewSettle 260ms 100ms ease-out both;
 }
-.shot-preview img { width: 100%; height: 100%; object-fit: contain; }
-.shot-preview span {
+.shot-preview-frame { position: relative; height: min(78%, 520px); overflow: hidden; border: 2px solid #ffffffba; border-radius: 16px; background: #101412; box-shadow: 0 20px 58px #000a; }
+.shot-preview-frame.portrait { aspect-ratio: 4 / 5; }
+.shot-preview-frame.square { height: min(74%, 500px); aspect-ratio: 1 / 1; }
+.shot-preview-frame img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.preview-crop-label,.batch-crop-label { position: absolute; top: 10px; left: 10px; padding: 6px 8px; border: 1px solid #ffffff24; border-radius: 999px; background: #090d0bcf; color: #fff; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.shot-preview>.shot-confirmation {
   position: absolute;
   left: 50%;
   bottom: 18px;
@@ -149,6 +153,30 @@
   font-weight: 750;
   white-space: nowrap;
 }
+.live-pose-card { width: min(220px, 32%); position: absolute; top: 14px; left: 14px; z-index: 6; padding: 11px 12px; border: 1px solid #ffffff20; border-radius: 14px; background: #0b100ed9; box-shadow: 0 12px 30px #0006; backdrop-filter: blur(14px); }
+.live-pose-card>div { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.live-pose-card>div>span { color: #ffffffa0; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.live-pose-card strong { color: #fff; font: 800 23px/1 ui-sans-serif; }
+.live-pose-card strong small { margin-left: 2px; color: #ffffff72; font-size: 9px; }
+.live-pose-card>i { height: 4px; display: block; overflow: hidden; margin: 8px 0; border-radius: 99px; background: #ffffff16; }
+.live-pose-card>i>b { height: 100%; display: block; border-radius: inherit; background: #ef7656; transition: width 180ms ease, background-color 180ms ease; }
+.live-pose-card.fair>i>b { background: #f3b44d; }
+.live-pose-card.good>i>b { background: #5ce493; }
+.live-pose-card p { margin: 0; color: #fff; font-size: 11px; font-weight: 650; line-height: 1.35; }
+.live-pose-card>small { display: block; margin-top: 5px; color: #ffffff56; font-size: 8px; }
+.camera-rating { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid #ffffff24; border-radius: 12px; background: #111714e8; color: #fff; box-shadow: 0 8px 24px #0007; }
+.camera-rating>strong { width: 39px; height: 39px; display: grid; place-items: center; flex: none; border: 3px solid #ef7656; border-radius: 50%; font-size: 14px; }
+.camera-rating.fair>strong { border-color: #f3b44d; }
+.camera-rating.good>strong { border-color: #5ce493; }
+.camera-rating>span { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.camera-rating>span b { font-size: 10px; }
+.camera-rating>span small { max-width: 120px; overflow: hidden; color: #ffffff8b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.shot-preview>.camera-rating { position: absolute; top: 18px; right: 18px; }
+.camera-rating.compact { position: absolute; top: 10px; right: 10px; z-index: 2; gap: 6px; padding: 6px 8px; border-radius: 10px; }
+.camera-rating.compact>strong { width: 32px; height: 32px; border-width: 2px; font-size: 11px; }
+.camera-rating.compact>span b { font-size: 8px; }
+.camera-rating.compact>span small { max-width: 82px; font-size: 7px; }
+.batch-crop-label { z-index: 2; }
 @keyframes cameraFlash {
   0% { opacity: 0; }
   10% { opacity: 1; }
@@ -184,6 +212,13 @@
   .camera-top > div small { display: block; }
   .camera-stage { top: 50%; right: auto; bottom: auto; height: 78%; }
   .crop-square .camera-stage { top: 50%; right: auto; bottom: auto; height: 66%; }
+  .live-pose-card { width: auto; right: 10px; top: 10px; left: 10px; padding: 8px 10px; }
+  .live-pose-card>div>span { font-size: 8px; }
+  .live-pose-card strong { font-size: 18px; }
+  .live-pose-card p { font-size: 10px; }
+  .live-pose-card>small { display: none; }
+  .shot-preview>.camera-rating { top: 10px; right: 10px; }
+  .shot-preview-frame { height: min(72%, 400px); }
 }
 
 /* Camera-style photo selection gallery. */
