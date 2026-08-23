@@ -77,3 +77,36 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .score-trace b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.66}
 .score-trace ol{margin:8px 0 0;padding-left:18px;display:grid;gap:5px}
 .score-trace li{font-size:12.5px;line-height:1.5;opacity:.8}
+
+/* Designer review appeal: the agent's right of reply to a judgement call. Deliberately quieter than the
+   verdict above it — an option, not a second opinion competing with the first. */
+.appeal{margin:12px 0 0;padding:11px 0 0;border-top:1px solid #ffffff14}
+.appeal-toggle{display:flex;align-items:center;gap:9px;cursor:pointer}
+.appeal-toggle input{width:16px;height:16px;flex:none;accent-color:#f57721;cursor:pointer}
+.appeal-toggle span{color:#ffffffb0;font-size:12px;font-weight:650}
+.appeal-toggle:hover span{color:#fff}
+.appeal-body{margin:10px 0 0;padding:11px 12px;border-radius:10px;background:#ffffff0a}
+.appeal-body>small{display:block;color:#ffffff62;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.appeal-body>ul{margin:7px 0 0;padding:0 0 0 16px;display:flex;flex-direction:column;gap:4px}
+.appeal-body>ul li{color:#ffffffa8;font-size:12px}
+.appeal-note{margin:11px 0 0;display:flex;flex-direction:column;gap:5px}
+.appeal-note span{color:#ffffff7a;font-size:11px}
+.appeal-note textarea{width:100%;padding:8px 10px;border:1px solid #ffffff1f;border-radius:8px;background:#0000002e;color:#fff;font:inherit;font-size:12px;resize:vertical}
+.appeal-note textarea:focus{border-color:#f57721;outline:none}
+.appeal-send{min-height:38px;width:100%;margin:11px 0 0;padding:0 14px;border:0;border-radius:9px;background:#f57721;color:#fff;font-size:11px;font-weight:800;cursor:pointer}
+.appeal-send:hover{background:#ff8938}
+.appeal-blocked,.appeal-sent{display:flex;align-items:flex-start;gap:8px;margin:12px 0 0;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.45}
+.appeal-blocked{border-left:3px solid #d1553a;background:#d1553a1a;color:#e8a493}
+.appeal-sent{border-left:3px solid #5ce493;background:#5ce4931a;color:#b9f8d0}
+.appeal-blocked svg,.appeal-sent svg{flex:none;margin-top:2px}
+.appeal-blocked small,.appeal-sent small{display:block;margin:4px 0 0;opacity:.72;font-size:11px}
+/* The final-review card sits on white, so the same controls need the light treatment. */
+.final-quality .appeal{border-top-color:#dfe5e2}
+.final-quality .appeal-toggle span{color:#3d4a44}
+.final-quality .appeal-body{background:#f4f7f5}
+.final-quality .appeal-body>small{color:#77837c}
+.final-quality .appeal-body>ul li{color:#41504a}
+.final-quality .appeal-note span{color:#5d6b64}
+.final-quality .appeal-note textarea{border-color:#d5ddd8;background:#fff;color:#17211d}
+.final-quality .appeal-blocked{background:#fbeae6;color:#9d3a22}
+.final-quality .appeal-sent{background:#e8f7ee;color:#1f6b3f}

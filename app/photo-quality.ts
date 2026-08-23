@@ -37,6 +37,9 @@ export type PhotoRating = {
  pose_appropriateness:number;
  selfie_probability:number;
  hard_gates:string[];
+ designer_review_eligible:boolean;
+ disputable_gates:string[];
+ review_block_reason:string;
  quality_defects:QualityDefect[];
  snapshot_signals:{id:string;label:string;weight:number}[];
  issues:string[];
@@ -56,7 +59,7 @@ export const companyProfessionalStandard=["One clearly visible agent, face unobs
 export function isPhotoApproved(rating:PhotoRating){return rating.status==="APPROVED"||(!rating.status&&rating.score>=photoApprovalThresholds.approved)}
 
 const emptyMetrics=["Photo quality","Body & crop usability","Face & subject visibility","Background & editability"];
-export const emptyPhotoRating:PhotoRating={score:0,overall_score:0,base_score:0,raw_score:0,applied_cap:null,score_trace:[],status:"REJECT",label:"Checking photo…",tone:"fair",confidence:0,technical_quality:0,body_usability:0,face_visibility:0,editability:0,body_extent:"unknown",hands:"absent",file_suitability:0,file_status:"OK",file_reason:"Waiting for image analysis.",file_note:"Waiting for image",professionalism:0,composition:0,background_quality:0,face_quality:0,designer_usability:0,pose_appropriateness:0,selfie_probability:0,hard_gates:[],quality_defects:[],snapshot_signals:[],issues:[],strengths:[],recommendation:"Waiting for image analysis.",decision_reason:"Waiting for image analysis.",requirements:[],penalties:[],metrics:emptyMetrics.map(name=>({name,score:0,note:"Waiting for image"}))};
+export const emptyPhotoRating:PhotoRating={score:0,overall_score:0,base_score:0,raw_score:0,applied_cap:null,score_trace:[],status:"REJECT",label:"Checking photo…",tone:"fair",confidence:0,technical_quality:0,body_usability:0,face_visibility:0,editability:0,body_extent:"unknown",hands:"absent",file_suitability:0,file_status:"OK",file_reason:"Waiting for image analysis.",file_note:"Waiting for image",professionalism:0,composition:0,background_quality:0,face_quality:0,designer_usability:0,pose_appropriateness:0,selfie_probability:0,hard_gates:[],designer_review_eligible:false,disputable_gates:[],review_block_reason:"",quality_defects:[],snapshot_signals:[],issues:[],strengths:[],recommendation:"Waiting for image analysis.",decision_reason:"Waiting for image analysis.",requirements:[],penalties:[],metrics:emptyMetrics.map(name=>({name,score:0,note:"Waiting for image"}))};
 
 const clamp=(value:number,min=0,max=100)=>Math.max(min,Math.min(max,value));
 const rounded=(value:number)=>Math.round(clamp(value));
@@ -208,7 +211,7 @@ export function evaluatePhoto(src:string,targetAspect=.8){
     // Technical file facts are reported, never weighted: a valid JPEG is not a good photograph, and a
     // small file is not a bad one.
     const fileNote=`${inferFileNote(src)} · ${image.naturalWidth} × ${image.naturalHeight}`;
-    resolve({score,overall_score:score,base_score:baseScore,raw_score:decision.rawScore,applied_cap:decision.appliedCap,score_trace:decision.scoreTrace,status,label,tone,confidence:decision.confidence,file_note:fileNote,hard_gates:decision.hardGates,quality_defects:decision.qualityDefects,snapshot_signals:decision.snapshotSignals,technical_quality:technicalQuality,body_usability:bodyUsability,face_visibility:faceVisibility,editability,body_extent:body.extent,hands:body.hands,file_suitability:decision.fileSuitability,file_status:decision.fileStatus,file_reason:decision.fileReason,professionalism,composition,background_quality:backgroundQuality,face_quality:faceQuality,designer_usability:designerUsability,pose_appropriateness:poseAppropriateness,selfie_probability:selfieProbability,issues,strengths,recommendation:buildRecommendation(status,issues,decision.fileReason,decision.hardGates,decision.retakeAdvice),decision_reason:decision.decisionReason,requirements:decision.requirements,penalties:decision.penalties,metrics});
+    resolve({score,overall_score:score,base_score:baseScore,raw_score:decision.rawScore,applied_cap:decision.appliedCap,score_trace:decision.scoreTrace,status,label,tone,confidence:decision.confidence,file_note:fileNote,hard_gates:decision.hardGates,designer_review_eligible:decision.designerReviewEligible,disputable_gates:decision.disputableGates,review_block_reason:decision.reviewBlockReason,quality_defects:decision.qualityDefects,snapshot_signals:decision.snapshotSignals,technical_quality:technicalQuality,body_usability:bodyUsability,face_visibility:faceVisibility,editability,body_extent:body.extent,hands:body.hands,file_suitability:decision.fileSuitability,file_status:decision.fileStatus,file_reason:decision.fileReason,professionalism,composition,background_quality:backgroundQuality,face_quality:faceQuality,designer_usability:designerUsability,pose_appropriateness:poseAppropriateness,selfie_probability:selfieProbability,issues,strengths,recommendation:buildRecommendation(status,issues,decision.fileReason,decision.hardGates,decision.retakeAdvice),decision_reason:decision.decisionReason,requirements:decision.requirements,penalties:decision.penalties,metrics});
    }catch(error){reject(error)}
   };
   image.onerror=reject;image.src=src;

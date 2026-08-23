@@ -9,7 +9,7 @@ export type PhotoPenalty = {id:string;label:string;points:number;cap:number|null
 export type SnapshotSignal = {id:string;label:string;weight:number};
 export type GateSignals={minimumDimension:number;resolutionScore:number;sharpnessScore:number;focusScore:number;structureScore:number;fidelityScore:number;faceCount:number;faceClearance:number;faceHeight:number;faceHeightPixels:number;faceClarity:number;selfieProbability:number;lightingScore:number;backgroundQuality:number;designerUsability:number;bodyExtent:BodyExtent;accessoryImpact:number;choppedLimbs:number;photoQuality:number;bodyCrop:number;faceVisibility:number;cropScore:number;hands:HandState;handScore:number;isScreenshot:boolean;letterboxed:boolean;contentCoverage:number;backgroundTexture:number;frameAspect:number;subjectCoverage:number;torsoVisible:number;shoulderTilt:number;handAtFace:boolean};
 export type ScoreCap = {id:string;label:string;cap:number};
-export type PhotoDecision={score:number;rawScore:number;appliedCap:ScoreCap|null;scoreTrace:string[];status:PhotoStatus;hardGates:string[];qualityDefects:QualityDefect[];retakeAdvice:string;snapshotSignals:SnapshotSignal[];fileSuitability:number;fileStatus:FileStatus;fileReason:string;confidence:number;decisionReason:string;requirements:PhotoRequirement[];penalties:PhotoPenalty[]};
+export type PhotoDecision={score:number;rawScore:number;appliedCap:ScoreCap|null;scoreTrace:string[];status:PhotoStatus;hardGates:string[];designerReviewEligible:boolean;disputableGates:string[];reviewBlockReason:string;qualityDefects:QualityDefect[];retakeAdvice:string;snapshotSignals:SnapshotSignal[];fileSuitability:number;fileStatus:FileStatus;fileReason:string;confidence:number;decisionReason:string;requirements:PhotoRequirement[];penalties:PhotoPenalty[]};
 
 const clamp=(value:number,min=0,max=100)=>Math.max(min,Math.min(max,value));
 // Pixel dimensions the marketing outputs actually need on the shortest edge.
@@ -88,6 +88,20 @@ export const scoreCaps:Record<string,number>={
 // and a score is an estimate — so `ready` holds a photo at designer review, and `review` is one half of
 // a retake test whose other half is a confirmed visual defect. Neither number rejects on its own.
 export const categoryFloors={ready:{photoQuality:72,faceVisibility:75,bodyCrop:70},review:{photoQuality:65,faceVisibility:65}} as const;
+
+// Designer review is for challenging AI *judgement*, never for rescuing a bad file. A photo qualifies
+// when nothing measured in the image is wrong with it — see `validateQualityDefects` — and the photo
+// quality clears this floor. It sits deliberately between the two above: 65 reviews, 70 may be
+// disputed, 72 is ready. A photo at 71 is below the ready bar and can argue the point; one at 69
+// cannot, because at that level the weakness is in the photograph rather than in the verdict.
+export const designerReviewFloor=70;
+// Background edge magnitude above which a scene reads as busy. `lived` is the generic "not a plain
+// backdrop" bar; `lostSubjectTexture` is deliberately higher, because concluding that the agent is lost
+// in the scene is a much stronger claim than noticing the background is not seamless paper.
+export const snapshotCueThresholds={lived:8,lostSubjectTexture:14} as const;
+// Gates a measured defect produced. These are the objectively technical failures, and they are the only
+// ones a designer cannot overrule: no judgement recovers detail the file does not carry.
+const defectBackedGates=new Set(["severe_blur","face_unusable","severe_degradation","low_resolution_detail_loss","subject_detail_floor"]);
 
 // --- Validated visual defects ---------------------------------------------------------------------
 //
@@ -210,12 +224,17 @@ export function applyPhotoDecision(baseScore:number,signals:GateSignals):PhotoDe
  // a relaxed pose are each perfectly acceptable alone. Several agreeing cues are what make it a snapshot
  // rather than a portrait somebody set out to take.
  const snapshotCues:(SnapshotSignal&{hit:boolean})[]=[
-  {id:"lived_in_scene",label:"Photographed in a lived-in room rather than set up as a portrait",weight:1,hit:signals.backgroundTexture>=8},
+  {id:"lived_in_scene",label:"Photographed in a lived-in room rather than set up as a portrait",weight:1,hit:signals.backgroundTexture>=snapshotCueThresholds.lived},
   {id:"full_frame_capture",label:"Straight-off-the-phone or webcam framing",weight:.5,hit:signals.frameAspect<=.6||signals.frameAspect>=1.15},
   {id:"camera_close",label:"Camera held close to the face",weight:1,hit:signals.faceHeight>=.28},
-  {id:"hand_at_face",label:"Hand raised into frame at face height",weight:.5,hit:signals.handAtFace&&signals.backgroundTexture>=8},
+  {id:"hand_at_face",label:"Hand raised into frame at face height",weight:.5,hit:signals.handAtFace&&signals.backgroundTexture>=snapshotCueThresholds.lived},
   {id:"camera_tilt",label:"Hand-held camera tilt",weight:.5,hit:signals.shoulderTilt>=10},
-  {id:"subject_lost_in_scene",label:"The agent occupies little of the frame",weight:1,hit:signals.subjectCoverage<.34&&signals.backgroundTexture>=8},
+  // Low coverage on its own means nothing: a standing figure in a 2:3 frame covers about a quarter of
+  // it, and `bodyExtentScores` rates full-body framing at 100. So "small in frame" only reads as lost
+  // when the scene around them is genuinely busy — a measured studio sweep sits near 9, a cluttered
+  // room near 20. Sharing the 8 threshold with `lived_in_scene` made a deliberate full-length portrait
+  // trip both cues at once and reach the blocking weight of 2 on a single borderline measurement.
+  {id:"subject_lost_in_scene",label:"The agent occupies little of the frame",weight:1,hit:signals.subjectCoverage<.34&&signals.backgroundTexture>=snapshotCueThresholds.lostSubjectTexture},
   {id:"torso_cut_short",label:"The frame stops above the waist",weight:.5,hit:signals.torsoVisible>0&&signals.torsoVisible<.9},
  ];
  const snapshotSignals=snapshotCues.filter(cue=>cue.hit).map(({id,label,weight})=>({id,label,weight}));
@@ -263,6 +282,18 @@ export function applyPhotoDecision(baseScore:number,signals:GateSignals):PhotoDe
  const retakeAdvice=gatePenalties.map(penalty=>retakeInstructions[penalty.id]).find(Boolean)??"";
  // File suitability answers "can we ship this particular file?" and is tracked on its own axis.
  const fileSuitability=rounded(signals.resolutionScore),fileStatus:FileStatus=signals.minimumDimension>=fileResolutionTargets.recommended?"OK":signals.minimumDimension>=fileResolutionTargets.usable?"LOW":signals.minimumDimension>=fileResolutionTargets.unusable?"TOO_SMALL":"UNUSABLE",fileReason=fileStatus==="OK"?`${signals.minimumDimension}px shortest edge is large enough for every marketing output.`:fileStatus==="LOW"?`${signals.minimumDimension}px shortest edge works for profile cards but is tight for large banners and print.`:fileStatus==="TOO_SMALL"?`${signals.minimumDimension}px shortest edge is small — usable on screen, but re-supply the original for print or large banners.`:`${signals.minimumDimension}px shortest edge is too small to use anywhere — re-upload the original file.`;
+ // --- Designer review eligibility ---
+ // Three terms, and every one of them is a measurement rather than an estimate. `qualityDefects` is
+ // already the set of failures validated against the pixels, so "no severe blur", "face has usable
+ // detail", "not pixelated or corrupted" and "resolution carries enough detail" all collapse into it.
+ // Note what is deliberately absent: no gate, no verdict and no derived score appears here. A gate
+ // firing is precisely the thing the agent is entitled to argue about.
+ const reviewBlockingDefect=qualityDefects[0]??null;
+ const designerReviewEligible=photoQuality>=designerReviewFloor&&!reviewBlockingDefect&&fileStatus!=="UNUSABLE";
+ const reviewBlockReason=designerReviewEligible?"":reviewBlockingDefect?`${reviewBlockingDefect.label}. ${reviewBlockingDefect.evidence}`:fileStatus==="UNUSABLE"?fileReason:`Photo quality ${rounded(photoQuality)} is below the ${designerReviewFloor} needed for a designer to work from this image.`;
+ // What the agent would actually be challenging: every judgement that changed the verdict, minus the
+ // measured defects, which are not matters of opinion.
+ const disputableGates=penalties.filter(penalty=>penalty.forces_status&&!defectBackedGates.has(penalty.id)).map(penalty=>penalty.label);
  const photoIsUsable=!forcedReject&&rawScore>=photoApprovalThresholds.review;
  // Resolution is advisory: a good photograph in a small file is still a good photograph. Only a file
  // too small to use anywhere becomes a re-upload request, and it never lowers the quality score.
@@ -273,5 +304,5 @@ export function applyPhotoDecision(baseScore:number,signals:GateSignals):PhotoDe
  const scoreTrace=[`Categories: photo quality ${rounded(photoQuality)}, body & crop ${rounded(bodyCrop)}, face visibility ${rounded(faceVisibility)}, background & editability ${rounded(signals.designerUsability)}.`,`Raw score ${rawScore} = those four weighted 30/30/20/20.`,`Validated quality defects: ${qualityDefects.length?qualityDefects.map(item=>`${item.label.toLowerCase()} — ${item.evidence}`).join(" "):"none — no score alone may force a retake."}`,`Critical floors: ${subjectFloorFailed?"FAIL — weak subject scores confirmed by a visual defect":readyFloorFailed||subjectScoresPoor?"below the ready-for-design minimum":"PASS"}.`,caps.length?`Validated gates: ${caps.map(entry=>`${entry.label} (max ${entry.cap})`).join("; ")}.`:"Validated gates: none.",appliedCap?`Final score ${score} = min(${rawScore}, ${appliedCap.cap}) — capped by ${appliedCap.label.toLowerCase()}.`:`Final score ${score} — no cap applied.`];
  const failed=requirements.filter(item=>item.status==="FAIL"),confidence=Number((requirements.reduce((total,item)=>total+item.confidence,0)/requirements.length).toFixed(2)),primaryPenalty=penalties.find(penalty=>penalty.forces_status==="REJECT")??null;
  const decisionReason=status==="REUPLOAD"?`${photoIsUsable&&!penalties.length?"The photograph itself is good":"The photograph is usable"} — only the file is too small. ${fileReason}`:primaryPenalty?`Retake recommended: ${primaryPenalty.label.toLowerCase()}. Marketing readiness ${score}/100${appliedCap?` — capped at ${appliedCap.cap} by that gate, from a raw ${rawScore}`:""}.`:penalties.length?`Usable for design. Noted: ${penalties[0].label.toLowerCase()}.`:failed.find(item=>item.id!=="resolution")?.detail??(fileStatus==="LOW"?fileReason:"Usable for design — nothing blocks a designer.");
- return {score,rawScore,appliedCap,scoreTrace,status,hardGates,qualityDefects,retakeAdvice,snapshotSignals,fileSuitability,fileStatus,fileReason,confidence,decisionReason,requirements,penalties};
+ return {score,rawScore,appliedCap,scoreTrace,status,hardGates,designerReviewEligible,disputableGates,reviewBlockReason,qualityDefects,retakeAdvice,snapshotSignals,fileSuitability,fileStatus,fileReason,confidence,decisionReason,requirements,penalties};
 }

@@ -399,3 +399,91 @@ test("a clean background and a good crop never rescue a genuinely degraded subje
  assert.equal(result.status,"REJECT");
  assert.ok(result.score<65);
 });
+
+// --- Designer review eligibility ------------------------------------------------------------------
+//
+// Designer review exists to challenge AI *judgement*, never to rescue a genuinely bad file. Eligibility
+// is therefore blocked only by defects measured on the pixels, plus a photo-quality floor and a file
+// that is large enough to use at all. Everything driven by a derived score stays disputable, because a
+// derived score is an estimate and an estimate is exactly what a human should be able to overrule.
+
+test("a technically sound photo rejected on judgement can be disputed",()=>{
+ // The reference case: a professional studio shoot mis-read as a snapshot.
+ const result=decide({selfieProbability:.8},88);
+ assert.equal(result.status,"REJECT","the AI rejects it on a judgement call");
+ assert.equal(result.designerReviewEligible,true,"but nothing measured in the image is wrong with it");
+ assert.ok(result.disputableGates.length>0,"the user is told exactly what they are challenging");
+ assert.equal(result.reviewBlockReason,"","nothing blocks review");
+});
+
+test("an approved photo has nothing to dispute",()=>{
+ const result=decide();
+ assert.equal(result.status,"APPROVED");
+ assert.equal(result.disputableGates.length,0);
+});
+
+test("photo quality below the floor blocks designer review",()=>{
+ const result=decide({photoQuality:69},69);
+ assert.equal(result.designerReviewEligible,false);
+ assert.ok(result.reviewBlockReason,"the user is told why review is unavailable");
+});
+
+test("photo quality exactly at the floor is eligible",()=>{
+ assert.equal(decide({photoQuality:70},70).designerReviewEligible,true,"70 is the floor, not the exclusive bound");
+});
+
+// Each measured defect independently blocks review. These are the objectively technical failures:
+// no amount of designer judgement recovers detail the file does not carry.
+for(const [name,overrides] of [
+ ["severe blur",{structureScore:20,focusScore:30,sharpnessScore:30}],
+ ["too little face detail",{faceHeightPixels:60}],
+ ["pixelation or corruption",{structureScore:18,fidelityScore:25}],
+ ["low resolution with visible detail loss",{minimumDimension:480,faceHeightPixels:120,structureScore:40}],
+]) test(`${name} blocks designer review`,()=>{
+ const result=decide(overrides,88);
+ assert.ok(result.qualityDefects.length>0,"the defect is validated against the image");
+ assert.equal(result.designerReviewEligible,false);
+ assert.ok(result.reviewBlockReason,"the message names the defect rather than being generic");
+});
+
+test("a file too small to use anywhere blocks designer review",()=>{
+ assert.equal(decide({minimumDimension:220,resolutionScore:20},88).designerReviewEligible,false);
+});
+
+test("a face the detector could not find is still disputable",()=>{
+ // face_missing is a detector result, not a measurement of the pixels. Turned heads, hijabs, sunglasses
+ // and hard lighting all defeat detection on photos a designer can see a face in perfectly well.
+ const result=decide({faceCount:0},88);
+ assert.equal(result.status,"REJECT");
+ assert.equal(result.designerReviewEligible,true,"a detector miss is exactly what a human should overrule");
+ assert.ok(result.disputableGates.some(gate=>/face/i.test(gate)));
+});
+
+// Every judgement gate stays disputable. These are estimates about composition and intent, not
+// measurements of the file.
+for(const [name,overrides] of [
+ ["an awkward crop",{cropScore:32}],
+ ["not enough body",{bodyExtent:"head_shoulders"}],
+ ["an oversized accessory",{accessoryImpact:.7}],
+ ["a suspected selfie",{selfieProbability:.8}],
+ ["an unusable-for-design score",{designerUsability:30}],
+ ["a difficult background",{backgroundQuality:25}],
+]) test(`${name} remains disputable`,()=>{
+ assert.equal(decide(overrides,88).designerReviewEligible,true);
+});
+
+// --- Snapshot cues must not fire on deliberate wide framing ---------------------------------------
+
+test("a full-body studio portrait is not a lost subject",()=>{
+ // bodyExtentScores.full_body is 100: the system rewards this framing. A standing figure in a 2:3 frame
+ // occupies about a quarter of it, so penalising the same photo for low coverage contradicts that.
+ const result=decide({bodyExtent:"full_body",subjectCoverage:.26,backgroundTexture:9},88);
+ assert.ok(!result.snapshotSignals.some(cue=>cue.id==="subject_lost_in_scene"),"deliberate wide framing is not a snapshot cue");
+ assert.equal(result.status,"APPROVED","a professional full-body shoot must not be called a selfie");
+ assert.equal(result.score,88);
+});
+
+test("a genuinely tiny subject in a cluttered scene still reads as a snapshot",()=>{
+ const result=decide({bodyExtent:"half_body",subjectCoverage:.15,backgroundTexture:14},88);
+ assert.ok(result.snapshotSignals.some(cue=>cue.id==="subject_lost_in_scene"),"the cue must still work where it was meant to");
+});
