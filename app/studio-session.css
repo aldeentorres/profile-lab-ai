@@ -204,6 +204,15 @@
 .session-metric > div > b { color: #fff; font-size: 13px; }
 .session-metric > i { height: 5px; display: block; margin-top: 6px; overflow: hidden; border-radius: 99px; background: #303835; }
 .session-metric > i b { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg,#ef7656,#f3b44d 52%,#5ce493); transition: width 400ms ease; }
+.rating-feedback { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid #ffffff10; border-radius: 10px; background: #ffffff08; }
+.rating-feedback-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rating-feedback-meta span { padding: 4px 7px; border-radius: 5px; background: #ef765620; color: #ffb29d; font-size: 9px; font-weight: 850; letter-spacing: .08em; }
+.rating-feedback.fair .rating-feedback-meta span { background: #f3b44d20; color: #ffd78e; }
+.rating-feedback.good .rating-feedback-meta span { background: #5ce49320; color: #8df0b4; }
+.rating-feedback-meta b { color: #ffffffa8; font-size: 9px; }
+.rating-feedback ul { display: grid; gap: 5px; margin: 0; padding-left: 16px; color: #ffffffb0; font-size: 9px; line-height: 1.4; }
+.rating-feedback > p { color: #ffffff9a; font-size: 9px; line-height: 1.45; }
+.rating-feedback > strong { color: #fff; font-size: 10px; line-height: 1.45; }
 .session-method { display: flex; align-items: flex-start; gap: 10px; margin: 14px 0; padding: 11px 12px; border-radius: 12px; background: #ffffff08; color: #8de9b1; }
 .session-method svg { flex: none; }
 .session-method p { display: flex; flex-direction: column; gap: 3px; }

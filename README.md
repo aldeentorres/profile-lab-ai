@@ -24,7 +24,7 @@ Mock Atlas update + personal gallery
 Permissioned Brand Asset Gallery
 ```
 
-The current on-device readiness check evaluates measurable lighting and resolution from the actual image. The UI is structured to add face count, centring, headroom, sharpness, background, camera angle, and pose through a future vision adapter. It never evaluates beauty or attractiveness.
+The on-device preflight evaluates whether an agent photo is professional, high-quality, and easy for a designer to use. It is deliberately unrelated to festival relevance, beauty, attractiveness, or whether the agent uses a traditionally formal pose. The company standard is one clearly visible agent, clean company-appropriate presentation, even lighting, a distraction-free setting, and enough safe space for brand copy, logos, and CTA. Seated, desk, leaning, smiling, relaxed, and lifestyle poses are acceptable when the finished photo remains professional and editable.
 
 ## Features
 
@@ -76,7 +76,13 @@ The Atlas page demonstrates the agent profile, professional-photo rating, photo-
 
 The profile currently loads Aaron Paul from the public Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Aaron Paul fallback record if Atlas is temporarily unavailable.
 
-The demo photo score is no longer hard-coded. It measures source resolution, exposure, contrast, edge sharpness, and portrait aspect locally in the browser, then displays the weighted breakdown. The enhancement screen uses the bundled MediaPipe person-segmentation and face-detection models to separate the subject, offer studio-style backgrounds, and constrain texture smoothing to the detected face region. Lighting, definition, compositing, and high-quality resizing are performed with the browser canvas. Facial structure is never generated or reshaped.
+The demo photo score is no longer hard-coded. The browser combines pixel measurements with the bundled MediaPipe face-detection and person-segmentation models. It checks resolution, aspect fit, exposure, contrast, sharpness, noise, face count, face size and edge clearance, subject coverage, crop safety, background visual activity, negative space, and selfie-style proximity. Transparent portraits are assessed on white instead of being mistaken for underexposure. The structured result includes the base and final scores, `APPROVED` / `REVIEW` / `REJECT` status, confidence, five category scores, informational `pose_appropriateness`, `selfie_probability`, PASS/FAIL requirements, applied penalties, issues, strengths, and an actionable recommendation.
+
+The base score is Technical Quality 25%, Framing & Composition 25%, Background 15%, Professional Presentation 15%, and Designer Usability 20%. Code then applies hard requirements, selfie deductions, and non-negotiable caps. Severe blur caps the result at 40, a strong selfie at 45, a severe face crop or very low resolution at 50, and severe exposure at 55. Moderate failures force review and cap the result below approval. Scores of 80–100 are ready for design, 60–79 go to designer review, and 0–59 are rejected. A good attribute can never cancel a critical failure.
+
+Pose is reported but has zero weight in the base score and no formal-pose requirement. Sitting, leaning, smiling, and relaxed posture do not trigger a penalty; only the resulting crop, camera angle, selfie proximity, or lack of design usability can affect the decision. “Professional Presentation” means overall presentation and follows the company standard above; the local model does not make beauty judgments or claim to infer character. The 20–50-photo calibration set should include formal, seated, desk, selfie, low-light, blurry, cluttered, and lifestyle portraits and be tuned against actual designer decisions before production use.
+
+The enhancement screen uses the same on-device person and face models to separate the subject, create a shoulder-safe 4:5 or square composition, offer studio-style backgrounds, and constrain texture smoothing to the detected face region. Lighting, definition, compositing, and high-quality resizing up to 2048px are performed with the browser canvas. The professional export is rated again before permissions and approval are granted. Facial structure is never generated or reshaped.
 
 The local 2048px export uses high-quality browser resampling and does not invent missing detail. The optional CodeFormer adapter is a separate generative restoration stage: it reconstructs detected faces and uses Real-ESRGAN for the rest of the image. The original remains available for comparison because extremely small or damaged faces can be plausible rather than identity-accurate.
 

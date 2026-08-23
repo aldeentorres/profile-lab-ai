@@ -43,7 +43,7 @@ test("renders the Atlas profile and booking entry point", async () => {
   const html = await response.text();
   assert.match(html, /Atlas/i);
   assert.match(html, /Aaron Paul/i);
-  assert.match(html, /Photo quality/i);
+  assert.match(html, /Photo quality|Marketing photo preflight/i);
   assert.match(html, /Book studio/i);
 });
 
@@ -53,6 +53,22 @@ test("creates and reloads a studio appointment", async () => {
     session,
     agentId: "71502",
     agentName: "Hackathon Test Agent",
+    agentMobile: "60122070021",
+    agentRenTag: "REN01143",
+    agentOfficePhone: "03-7453 5155",
+    photoPreflight: {
+      base_score: 91,
+      overall_score: 91,
+      status: "APPROVED",
+      confidence: 0.91,
+      designer_usability: 89,
+      pose_appropriateness: 94,
+      selfie_probability: 0.02,
+      decision_reason: "All submission requirements passed.",
+      requirements: [{ id: "resolution", status: "PASS" }],
+      penalties: [],
+      recommendation: "Ready for design.",
+    },
     date: "2026-08-22",
     time: "10:30",
   };
@@ -70,6 +86,10 @@ test("creates and reloads a studio appointment", async () => {
   const record = await loaded.json();
   assert.equal(record.session, session);
   assert.equal(record.agentName, payload.agentName);
+  assert.equal(record.agentMobile, payload.agentMobile);
+  assert.equal(record.agentRenTag, payload.agentRenTag);
+  assert.equal(record.agentOfficePhone, payload.agentOfficePhone);
+  assert.deepEqual(record.photoPreflight, payload.photoPreflight);
   assert.equal(record.status, "confirmed");
 });
 

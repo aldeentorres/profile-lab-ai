@@ -9,8 +9,12 @@ export type EnhanceSettings = {
 };
 
 export type PersonMask = {data:Float32Array;width:number;height:number};
-export type EnhancementAssets = {face:FaceRegion|null;personMask:PersonMask|null};
+export type EnhancementAssets = {face:FaceRegion|null;faces:FaceRegion[];personMask:PersonMask|null};
 export type RenderedPhoto = {dataUrl:string;width:number;height:number};
+export type PortraitComposition = {score:number;note:string};
+type NormalizedCrop = {x:number;y:number;width:number;height:number};
+type ShoulderBounds = {left:number;right:number};
+const enhancementAssetCache=new Map<string,Promise<EnhancementAssets>>();
 
 export function loadImage(src:string){
   return new Promise<HTMLImageElement>((resolve,reject)=>{
@@ -22,14 +26,39 @@ export function loadImage(src:string){
 }
 
 export async function prepareEnhancementAssets(src:string):Promise<EnhancementAssets>{
-  const [faceResult,maskResult]=await Promise.allSettled([detectPrimaryFace(src),segmentPerson(src)]);
-  return {
-    face:faceResult.status==="fulfilled"?faceResult.value:null,
-    personMask:maskResult.status==="fulfilled"?maskResult.value:null,
-  };
+  const cached=enhancementAssetCache.get(src);
+  if(cached)return cached;
+  const pending=Promise.allSettled([detectFaces(src),segmentPerson(src)]).then(([faceResult,maskResult])=>{
+    const faces=faceResult.status==="fulfilled"?faceResult.value:[];
+    return {face:faces[0]??null,faces,personMask:maskResult.status==="fulfilled"?maskResult.value:null};
+  });
+  enhancementAssetCache.set(src,pending);
+  if(enhancementAssetCache.size>4)enhancementAssetCache.delete(enhancementAssetCache.keys().next().value!);
+  return pending;
 }
 
-async function detectPrimaryFace(src:string):Promise<FaceRegion|null>{
+function findShoulderBounds(mask:PersonMask|null,face:FaceRegion|null):ShoulderBounds|null{
+  if(!mask||!face)return null;
+  const startY=Math.max(0,Math.floor((face.y+face.height*1.2)*mask.height)),endY=Math.min(mask.height-1,Math.ceil((face.y+face.height*1.85)*mask.height));
+  if(endY<=startY)return null;
+  const rows=endY-startY+1,counts=new Uint16Array(mask.width);
+  for(let y=startY;y<=endY;y+=1)for(let x=0;x<mask.width;x+=1)if(mask.data[y*mask.width+x]>.38)counts[x]+=1;
+  const minimum=Math.max(2,Math.round(rows*.16));
+  let left=-1,right=-1;
+  for(let x=0;x<mask.width;x+=1)if(counts[x]>=minimum){left=x;break}
+  for(let x=mask.width-1;x>=0;x-=1)if(counts[x]>=minimum){right=x;break}
+  return left>=0&&right>left?{left:left/mask.width,right:(right+1)/mask.width}:null;
+}
+
+export async function analyzePortraitComposition(src:string,targetAspect=.8):Promise<PortraitComposition>{
+  const [assets,image]=await Promise.all([prepareEnhancementAssets(src),loadImage(src)]),face=assets.face;
+  if(!face)return {score:0,note:"Face not detected"};
+  const shoulders=findShoulderBounds(assets.personMask,face),subjectCenter=shoulders?(shoulders.left+shoulders.right)/2:face.x+face.width/2,offset=Math.abs(subjectCenter-.5),centerScore=offset<=.18?100:Math.max(0,100-(offset-.18)*420),headroom=face.y,headroomScore=headroom>=.035&&headroom<=.24?100:Math.max(0,100-Math.min(Math.abs(headroom-.035),Math.abs(headroom-.24))*520),scaleScore=face.height>=.1&&face.height<=.36?100:Math.max(0,100-Math.min(Math.abs(face.height-.1),Math.abs(face.height-.36))*650),sourceAspect=image.naturalWidth/image.naturalHeight,aspectLoss=sourceAspect>targetAspect?1-targetAspect/sourceAspect:1-sourceAspect/targetAspect,aspectScore=Math.max(0,100-aspectLoss*180),faceClearance=Math.min(face.x,face.y,1-face.x-face.width,1-face.y-face.height),cropSafety=faceClearance>=.025?100:Math.max(0,100-(.025-faceClearance)*2200),score=Math.round(centerScore*.2+headroomScore*.2+scaleScore*.2+cropSafety*.25+aspectScore*.15);
+  const note=faceClearance<.02?"Leave more room around the face":face.height<.1?"Agent is small, but lifestyle framing is allowed":face.height>.36?"Frame wider to avoid selfie-style proximity":offset>.25?"Reposition the agent or preserve intentional copy space":score>=75?"Marketing-safe framing · relaxed poses welcome":"Reframe for cleaner design space";
+  return {score,note};
+}
+
+async function detectFaces(src:string):Promise<FaceRegion[]>{
   const [image,vision]=await Promise.all([loadImage(src),import("@mediapipe/tasks-vision")]);
   const files=await vision.FilesetResolver.forVisionTasks("/mediapipe");
   const detector=await vision.FaceDetector.createFromOptions(files,{
@@ -38,14 +67,15 @@ async function detectPrimaryFace(src:string):Promise<FaceRegion|null>{
     minDetectionConfidence:.5,
   });
   try{
-    const box=detector.detect(image).detections[0]?.boundingBox;
-    if(!box)return null;
-    return {
-      x:box.originX/image.naturalWidth,
-      y:box.originY/image.naturalHeight,
-      width:box.width/image.naturalWidth,
-      height:box.height/image.naturalHeight,
-    };
+    return detector.detect(image).detections.flatMap(detection=>{
+      const box=detection.boundingBox;
+      return box?[{
+        x:box.originX/image.naturalWidth,
+        y:box.originY/image.naturalHeight,
+        width:box.width/image.naturalWidth,
+        height:box.height/image.naturalHeight,
+      }]:[];
+    }).sort((a,b)=>b.width*b.height-a.width*a.height);
   }finally{
     detector.close();
   }
@@ -80,16 +110,20 @@ function makeCanvas(width:number,height:number){
   return canvas;
 }
 
-function measureLight(image:HTMLImageElement){
+function measureLight(image:CanvasImageSource){
   const sample=makeCanvas(48,48),context=sample.getContext("2d",{willReadFrequently:true});
   if(!context)return 145;
+  context.fillStyle="#fff";
+  context.fillRect(0,0,48,48);
   context.drawImage(image,0,0,48,48);
   const pixels=context.getImageData(0,0,48,48).data;
-  let total=0;
-  for(let index=0;index<pixels.length;index+=4){
+  let total=0,count=0;
+  for(let y=4;y<22;y+=1)for(let x=11;x<31;x+=1){
+    const index=(y*48+x)*4;
     total+=.2126*pixels[index]+.7152*pixels[index+1]+.0722*pixels[index+2];
+    count+=1;
   }
-  return total/(pixels.length/4);
+  return total/count;
 }
 
 function applyFaceRetouch(canvas:HTMLCanvasElement,face:FaceRegion|null,strength:number){
@@ -119,7 +153,7 @@ function applyFaceRetouch(canvas:HTMLCanvasElement,face:FaceRegion|null,strength
   context.restore();
 }
 
-function createPersonMask(mask:PersonMask,targetWidth:number,targetHeight:number){
+function createPersonMask(mask:PersonMask,targetWidth:number,targetHeight:number,crop:NormalizedCrop={x:0,y:0,width:1,height:1}){
   const source=makeCanvas(mask.width,mask.height),sourceContext=source.getContext("2d"),image=sourceContext?.createImageData(mask.width,mask.height);
   if(!sourceContext||!image)return null;
   for(let index=0;index<mask.data.length;index+=1){
@@ -137,11 +171,11 @@ function createPersonMask(mask:PersonMask,targetWidth:number,targetHeight:number
   targetContext.imageSmoothingEnabled=true;
   targetContext.imageSmoothingQuality="high";
   targetContext.filter=`blur(${Math.max(1,Math.min(targetWidth,targetHeight)*.0012)}px)`;
-  targetContext.drawImage(source,0,0,targetWidth,targetHeight);
+  targetContext.drawImage(source,crop.x*mask.width,crop.y*mask.height,crop.width*mask.width,crop.height*mask.height,0,0,targetWidth,targetHeight);
   return target;
 }
 
-function paintBackground(context:CanvasRenderingContext2D,image:HTMLImageElement,mode:BackgroundMode,width:number,height:number){
+function paintBackground(context:CanvasRenderingContext2D,image:CanvasImageSource,mode:BackgroundMode,width:number,height:number){
   if(mode==="blur"){
     const overscan=1.06,drawWidth=width*overscan,drawHeight=height*overscan;
     context.save();
@@ -161,6 +195,36 @@ function paintBackground(context:CanvasRenderingContext2D,image:HTMLImageElement
   context.fillRect(0,0,width,height);
 }
 
+function portraitCrop(image:HTMLImageElement,assets:EnhancementAssets,targetAspect:number):NormalizedCrop{
+  const sourceWidth=image.naturalWidth,sourceHeight=image.naturalHeight,face=assets.face,shoulders=findShoulderBounds(assets.personMask,face);
+  let cropHeight=sourceHeight,cropWidth=cropHeight*targetAspect;
+  if(cropWidth>sourceWidth){cropWidth=sourceWidth;cropHeight=cropWidth/targetAspect}
+  if(face){
+    const targetFaceHeight=targetAspect===1?.24:.22;
+    cropHeight=Math.min(sourceHeight,face.height*sourceHeight/targetFaceHeight);
+    cropWidth=cropHeight*targetAspect;
+    if(shoulders){
+      const requiredWidth=(shoulders.right-shoulders.left)*sourceWidth/.88;
+      if(requiredWidth>cropWidth){cropWidth=requiredWidth;cropHeight=cropWidth/targetAspect}
+    }
+    if(cropWidth>sourceWidth){cropWidth=sourceWidth;cropHeight=cropWidth/targetAspect}
+    if(cropHeight>sourceHeight){cropHeight=sourceHeight;cropWidth=cropHeight*targetAspect}
+  }
+  const subjectCenter=(shoulders?(shoulders.left+shoulders.right)/2:face?face.x+face.width/2:.5)*sourceWidth,idealY=face?face.y*sourceHeight-cropHeight*.09:(sourceHeight-cropHeight)/2,x=Math.max(0,Math.min(sourceWidth-cropWidth,subjectCenter-cropWidth/2)),y=Math.max(0,Math.min(sourceHeight-cropHeight,idealY));
+  return {x:x/sourceWidth,y:y/sourceHeight,width:cropWidth/sourceWidth,height:cropHeight/sourceHeight};
+}
+
+function frameSource(image:HTMLImageElement,crop:NormalizedCrop){
+  const width=Math.max(1,Math.round(image.naturalWidth*crop.width)),height=Math.max(1,Math.round(image.naturalHeight*crop.height)),canvas=makeCanvas(width,height),context=canvas.getContext("2d");
+  if(context)context.drawImage(image,crop.x*image.naturalWidth,crop.y*image.naturalHeight,crop.width*image.naturalWidth,crop.height*image.naturalHeight,0,0,width,height);
+  return canvas;
+}
+
+function cropFace(face:FaceRegion|null,crop:NormalizedCrop):FaceRegion|null{
+  if(!face)return null;
+  return {x:(face.x-crop.x)/crop.width,y:(face.y-crop.y)/crop.height,width:face.width/crop.width,height:face.height/crop.height};
+}
+
 function addRelight(context:CanvasRenderingContext2D,width:number,height:number,strength:number,mask:HTMLCanvasElement|null){
   if(!strength)return;
   const light=makeCanvas(width,height),lightContext=light.getContext("2d");
@@ -178,24 +242,24 @@ function addRelight(context:CanvasRenderingContext2D,width:number,height:number,
   context.restore();
 }
 
-export async function renderProfessionalPhoto(src:string,settings:EnhanceSettings,assets:EnhancementAssets,preview=false):Promise<RenderedPhoto>{
-  const image=await loadImage(src),sourceLongEdge=Math.max(image.naturalWidth,image.naturalHeight),desiredLongEdge=preview?Math.min(sourceLongEdge,1400):settings.highResolution?Math.min(2048,sourceLongEdge*2):sourceLongEdge,scale=desiredLongEdge/sourceLongEdge,width=Math.max(1,Math.round(image.naturalWidth*scale)),height=Math.max(1,Math.round(image.naturalHeight*scale));
+export async function renderProfessionalPhoto(src:string,settings:EnhanceSettings,assets:EnhancementAssets,preview=false,targetAspect=.8):Promise<RenderedPhoto>{
+  const image=await loadImage(src),crop=portraitCrop(image,assets,targetAspect),framed=frameSource(image,crop),sourceLongEdge=Math.max(framed.width,framed.height),desiredLongEdge=preview?Math.min(sourceLongEdge,1400):settings.highResolution?Math.min(2048,Math.max(1600,sourceLongEdge)):sourceLongEdge,scale=desiredLongEdge/sourceLongEdge,width=Math.max(1,Math.round(framed.width*scale)),height=Math.max(1,Math.round(framed.height*scale));
   const canvas=makeCanvas(width,height),context=canvas.getContext("2d");
   if(!context)return {dataUrl:src,width:image.naturalWidth,height:image.naturalHeight};
   const tone=makeCanvas(width,height),toneContext=tone.getContext("2d");
   if(!toneContext)return {dataUrl:src,width:image.naturalWidth,height:image.naturalHeight};
-  const meanLight=measureLight(image),exposureStrength=settings.light/70,brightness=1+((145-meanLight)/255)*.62*exposureStrength;
+  const meanLight=measureLight(framed),exposureStrength=settings.light/70,brightness=1+((145-meanLight)/255)*.62*exposureStrength;
   toneContext.imageSmoothingEnabled=true;
   toneContext.imageSmoothingQuality="high";
   toneContext.filter=`brightness(${brightness}) contrast(${1+settings.definition*.00105}) saturate(${1+settings.definition*.00028})`;
-  toneContext.drawImage(image,0,0,width,height);
+  toneContext.drawImage(framed,0,0,width,height);
   toneContext.filter="none";
-  applyFaceRetouch(tone,assets.face,settings.skin);
+  applyFaceRetouch(tone,cropFace(assets.face,crop),settings.skin);
 
-  const personMask=assets.personMask?createPersonMask(assets.personMask,width,height):null;
+  const personMask=assets.personMask?createPersonMask(assets.personMask,width,height,crop):null;
   const canReplaceBackground=settings.background!=="original"&&personMask;
   if(canReplaceBackground){
-    paintBackground(context,image,settings.background,width,height);
+    paintBackground(context,framed,settings.background,width,height);
     if(settings.background!=="blur"){
       context.save();
       context.globalAlpha=.22;
