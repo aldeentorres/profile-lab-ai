@@ -66,7 +66,7 @@ if (failures.length) {
   console.error("\nFix these items before relying on the demo.\n");
   process.exitCode = 1;
 } else {
-  console.log("\nPhotoStudio+ hackathon preflight passed:\n");
+  console.log("\nStudio+ hackathon preflight passed:\n");
   for (const note of notes) console.log(`  ✓ ${note}`);
   console.log("\nRun `npm run dev`, then open the address shown in the terminal.\n");
 }

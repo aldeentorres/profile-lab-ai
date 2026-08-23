@@ -1,6 +1,6 @@
-# PhotoStudio+ Hackathon Runbook
+# Studio+ Hackathon Runbook
 
-This is the repeatable operating plan for presenting the same validated PhotoStudio+ build on hackathon day. The app completes its core portrait journey locally; Atlas live data is an enhancement, not a dependency.
+This is the repeatable operating plan for presenting the same validated Studio+ build on hackathon day. The app completes its core portrait journey locally; Atlas live data is an enhancement, not a dependency.
 
 ## The exact build
 
@@ -29,7 +29,7 @@ Atlas profile
   → Low photo-quality prompt
   → Book studio appointment
   → QR code or manual appointment code
-  → PhotoStudio+ session loaded
+  → Studio+ session loaded
   → Guided camera or file import
   → On-device quality and crop check
       ├─ Not ready → clear corrections → retake
@@ -46,7 +46,7 @@ Atlas profile
 Walk-in fallback:
 
 ```text
-PhotoStudio+ home → Take a photo → guided capture → enhance → consent → Photos
+Studio+ home → Take a photo → guided capture → enhance → consent → Photos
 ```
 
 Hardware fallback:
@@ -85,7 +85,7 @@ Printer unavailable → Download image or choose Save as PDF in the system print
 Recommended freeze commands after the final commit:
 
 ```bash
-git tag -a hackathon-demo-v1 -m "Validated PhotoStudio+ hackathon demo"
+git tag -a hackathon-demo-v1 -m "Validated Studio+ hackathon demo"
 git archive --format=zip --output=photostudio-plus-hackathon.zip hackathon-demo-v1
 ```
 

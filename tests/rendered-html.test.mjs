@@ -20,13 +20,13 @@ function request(path, init) {
   return worker.fetch(new Request(`http://localhost${path}`, init), environment, context);
 }
 
-test("renders the PhotoStudio+ check-in experience", async () => {
+test("renders the Studio+ check-in experience", async () => {
   const response = await request("/", { headers: { accept: "text/html" } });
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>PhotoStudio\+ · IQI<\/title>/i);
+  assert.match(html, /<title>Studio\+ · IQI<\/title>/i);
   assert.match(html, /Take a photo or scan QR/i);
   assert.match(html, /Open Atlas/i);
   assert.match(html, /Enter code/i);

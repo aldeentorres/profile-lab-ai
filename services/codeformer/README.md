@@ -1,6 +1,6 @@
 # CodeFormer restoration service
 
-This service runs the official CodeFormer repository pinned to commit `b33cc7d639d6545bfcccc7e0bc6ae51f24e79c2b`, with Real-ESRGAN enabled for the non-face regions. PhotoStudio+ sends the original image to this service before applying its local background, relighting, and export stages.
+This service runs the official CodeFormer repository pinned to commit `b33cc7d639d6545bfcccc7e0bc6ae51f24e79c2b`, with Real-ESRGAN enabled for the non-face regions. Studio+ sends the original image to this service before applying its local background, relighting, and export stages.
 
 ## Start locally
 

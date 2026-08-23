@@ -1,8 +1,8 @@
-# PhotoStudio+
+# Studio+
 
 For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [HACKATHON_RUNBOOK.md](./HACKATHON_RUNBOOK.md).
 
-PhotoStudio+ is a demo-ready, white-label AI portrait studio for IQI. It helps agents replace missing or weak Atlas profile photos, gives friendly technical retake guidance, records profile and brand-use consent separately, and makes approved high-resolution portraits available to the IQI brand team.
+Studio+ is a demo-ready, white-label AI portrait studio for IQI. It helps agents replace missing or weak Atlas profile photos, gives friendly technical retake guidance, records profile and brand-use consent separately, and makes approved high-resolution portraits available to the IQI brand team.
 
 The app is deliberately offline-first. Browser camera capture, image upload, local photo assessment, enhancement, gallery storage, downloads, and printing work without external APIs. Atlas, IQPilot, n8n, hardware tethering, payments, and notifications remain clearly labelled integration adapters.
 
@@ -68,11 +68,11 @@ Open the local address printed in the terminal, normally [http://localhost:3000]
 The repository contains two separate demo surfaces:
 
 - **Atlas agent profile:** [http://localhost:3000/atlas](http://localhost:3000/atlas)
-- **PhotoStudio+ check-in:** [http://localhost:3000](http://localhost:3000)
+- **Studio+ check-in:** [http://localhost:3000](http://localhost:3000)
 
 Atlas also supports dynamic agent URLs using the IQI API slug: `http://localhost:3000/atlas/{agent}`. For example, Aaron Paul is available at [http://localhost:3000/atlas/aaron-paul](http://localhost:3000/atlas/aaron-paul). Agent slugs are validated before being passed to the IQI API.
 
-The Atlas page demonstrates the agent profile, professional-photo rating, photo-quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the PhotoStudio+ first screen. A manual appointment-code field is included as a fallback.
+The Atlas page demonstrates the agent profile, professional-photo rating, photo-quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Studio+ first screen. A manual appointment-code field is included as a fallback.
 
 The profile currently loads Aaron Paul from the public IQI Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Aaron Paul fallback record if Atlas is temporarily unavailable.
 
@@ -93,7 +93,7 @@ Copy `.env.example` to `.env.local`, or set `CODEFORMER_SERVICE_URL` and `CODEFO
 
 CodeFormer is released under the S-Lab License 1.0 for non-commercial use. Commercial use requires permission from the project contributors, so this integration must remain experimental/non-commercial until the required rights are obtained.
 
-Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the PhotoStudio+ check-in URL and opaque appointment ID. PhotoStudio+ validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
+Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the Studio+ check-in URL and opaque appointment ID. Studio+ validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
 
 For a production check:
 
@@ -159,7 +159,7 @@ npx skills add https://github.com/anthropics/skills --skill web-artifacts-builde
 
 Suggested Claude visual-review prompt:
 
-> Act as the design director for a premium, accessible physical photo studio product. Review PhotoStudio+. It must be easy for older and non-technical users, yet polished enough to sell to companies. Identify the five highest-impact visual and UX improvements. Preserve the screens and core flow. Give practical, screen-specific recommendations only.
+> Act as the design director for a premium, accessible physical photo studio product. Review Studio+. It must be easy for older and non-technical users, yet polished enough to sell to companies. Identify the five highest-impact visual and UX improvements. Preserve the screens and core flow. Give practical, screen-specific recommendations only.
 
 Suggested Claude demo-review prompt:
 
