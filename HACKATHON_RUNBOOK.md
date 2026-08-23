@@ -12,6 +12,9 @@ The reproducible baseline is defined by:
 - bundled portrait, face-detection, segmentation, and WebAssembly assets
 - one automated verification command: `npm run verify`
 
+`npm run verify` must end with a passing preflight, 86 passing tests, and 0 lint errors
+(17 lint warnings are the known-good state).
+
 On a fresh computer, run:
 
 ```bash
@@ -88,6 +91,17 @@ Recommended freeze commands after the final commit:
 git tag -a hackathon-demo-v1 -m "Validated Studio+ hackathon demo"
 git archive --format=zip --output=photostudio-plus-hackathon.zip hackathon-demo-v1
 ```
+
+## Working with AI agents during the freeze
+
+Claude Code, Codex and any other agent used on this repository must read
+[CLAUDE.md](./CLAUDE.md) (served as `AGENTS.md`) first. Two project skills carry the rules:
+
+- `studio-plus-hackathon` — smallest verified fix, no new dependencies, no touching the frozen
+  assets, never remove a fallback, and gate every change on `npm run verify`.
+- `photo-scoring-invariants` — the rules the verdict engine must keep before any threshold moves.
+
+Both live in `.claude/skills/` and are symlinked into `.agents/skills/`.
 
 ## Event-day checklist
 
