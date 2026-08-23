@@ -27,4 +27,4 @@ The CPU image works everywhere but is slow. On an NVIDIA host, build with `TORCH
 
 ## License boundary
 
-CodeFormer uses the S-Lab License 1.0, which permits non-commercial redistribution and use. Commercial use requires contacting the CodeFormer contributors. This service is therefore an experimental, non-commercial integration until IQI obtains the appropriate rights. Real-ESRGAN and other dependencies retain their own licenses.
+CodeFormer uses the S-Lab License 1.0, which permits non-commercial redistribution and use. Commercial use requires contacting the CodeFormer contributors. This service is therefore an experimental, non-commercial integration until the appropriate rights are obtained. Real-ESRGAN and other dependencies retain their own licenses.

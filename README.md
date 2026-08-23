@@ -2,7 +2,7 @@
 
 For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [HACKATHON_RUNBOOK.md](./HACKATHON_RUNBOOK.md).
 
-Studio+ is a demo-ready, white-label AI portrait studio for IQI. It helps agents replace missing or weak Atlas profile photos, gives friendly technical retake guidance, records profile and brand-use consent separately, and makes approved high-resolution portraits available to the IQI brand team.
+Studio+ is a demo-ready, white-label AI portrait studio. It helps agents replace missing or weak profile photos, gives friendly technical retake guidance, records profile and brand-use consent separately, and makes approved high-resolution portraits available to the brand team.
 
 The app is deliberately offline-first. Browser camera capture, image upload, local photo assessment, enhancement, gallery storage, downloads, and printing work without external APIs. Atlas, IQPilot, n8n, hardware tethering, payments, and notifications remain clearly labelled integration adapters.
 
@@ -38,7 +38,7 @@ The current on-device readiness check evaluates measurable lighting and resoluti
 - No more than two friendly instructions for a retake
 - Optional professional enhancement with on-device person segmentation, studio background replacement, adaptive relighting, face-aware texture smoothing, definition controls, and up-to-2048px export
 - Optional genuine CodeFormer face restoration with Real-ESRGAN whole-image upscaling through a private self-hosted service
-- Separate consent for Atlas profile use and IQI brand materials
+- Separate consent for Atlas profile use and brand materials
 - Local Atlas demo update, persistent personal gallery, real downloads, and system-printer output with photo-paper presets
 - Searchable Brand Asset Gallery with visible consent status
 - Operator console for camera, printer, payment, and print systems
@@ -70,11 +70,11 @@ The repository contains two separate demo surfaces:
 - **Atlas agent profile:** [http://localhost:3000/atlas](http://localhost:3000/atlas)
 - **Studio+ check-in:** [http://localhost:3000](http://localhost:3000)
 
-Atlas also supports dynamic agent URLs using the IQI API slug: `http://localhost:3000/atlas/{agent}`. For example, Aaron Paul is available at [http://localhost:3000/atlas/aaron-paul](http://localhost:3000/atlas/aaron-paul). Agent slugs are validated before being passed to the IQI API.
+Atlas also supports dynamic agent URLs using the source API slug: `http://localhost:3000/atlas/{agent}`. For example, Aaron Paul is available at [http://localhost:3000/atlas/aaron-paul](http://localhost:3000/atlas/aaron-paul). Agent slugs are validated before being passed to the source API.
 
 The Atlas page demonstrates the agent profile, professional-photo rating, photo-quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Studio+ first screen. A manual appointment-code field is included as a fallback.
 
-The profile currently loads Aaron Paul from the public IQI Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Aaron Paul fallback record if Atlas is temporarily unavailable.
+The profile currently loads Aaron Paul from the public Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Aaron Paul fallback record if Atlas is temporarily unavailable.
 
 The demo photo score is no longer hard-coded. It measures source resolution, exposure, contrast, edge sharpness, and portrait aspect locally in the browser, then displays the weighted breakdown. The enhancement screen uses the bundled MediaPipe person-segmentation and face-detection models to separate the subject, offer studio-style backgrounds, and constrain texture smoothing to the detected face region. Lighting, definition, compositing, and high-quality resizing are performed with the browser canvas. Facial structure is never generated or reshaped.
 
@@ -110,7 +110,7 @@ npm run start
 4. Point out that the AI checks professional photo readiness—not attractiveness—and gives only two direct corrections.
 5. Select **Try again**, then **Take photo**. The guided countdown produces the studio-ready sample.
 6. Select the original portrait or turn on the optional light enhancement.
-7. Show that Atlas profile consent and IQI brand-use consent are independent controls.
+7. Show that Atlas profile consent and brand-use consent are independent controls.
 8. Confirm the local Atlas demo update and open **Your portraits**.
 9. Open **Brand assets**, search for an agent, verify the approval badge, and download the real high-resolution image.
 10. Finish in **Studio console**. Show camera discovery for webcams, phone-webcam modes, and DSLR capture cards; then show that printing uses any USB, Wi-Fi, network, or AirPrint printer installed in the operating system.

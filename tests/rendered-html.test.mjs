@@ -26,7 +26,7 @@ test("renders the Studio+ check-in experience", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Studio\+ · IQI<\/title>/i);
+  assert.match(html, /<title>Studio\+<\/title>/i);
   assert.match(html, /Take a photo or scan QR/i);
   assert.match(html, /Open Atlas/i);
   assert.match(html, /Enter code/i);

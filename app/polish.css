@@ -74,11 +74,12 @@ select {
 }
 
 .app-wordmark b {
-  color: #9ba49f;
-  font-size: 10px;
-  font-weight: 600;
+  color: #fff;
+  font-family: "DIN Alternate", "Avenir Next Condensed", sans-serif;
+  font-size: 17px;
+  font-weight: 750;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.04em;
 }
 
 .app-wordmark sup {
@@ -2067,10 +2068,12 @@ select:focus-visible {
 }
 
 .app-wordmark b {
-  color: #9ba49f;
-  font-size: 10px;
-  font-weight: 600;
+  color: #fff;
+  font-family: "DIN Alternate", "Avenir Next Condensed", sans-serif;
+  font-size: 17px;
+  font-weight: 750;
   line-height: 1;
+  letter-spacing: -0.04em;
 }
 
 .app-wordmark sup {
