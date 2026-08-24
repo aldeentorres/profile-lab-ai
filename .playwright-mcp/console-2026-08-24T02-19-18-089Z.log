@@ -1,0 +1,26 @@
+[     370ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/favicon.ico:0
+[     503ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=7fe7eee2:14337
+[    8268ms] [LOG] I0824 02:19:26.355000 1922656 gl_context.cc:386] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8269ms] [WARNING] W0824 02:19:26.357000 1922656 gl_context.cc:1072] OpenGL error checking is disabled @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8270ms] [LOG] Graph successfully started running. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8283ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8292ms] [WARNING] W0824 02:19:26.381000 1922656 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8293ms] [LOG] I0824 02:19:26.381000 1922656 segmentation_postprocessor_gl.cc:388] NONE activation function chosen on GPU @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8348ms] [LOG] Graph finished closing successfully. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8349ms] [LOG] I0824 02:19:26.437000 1922656 gl_context_webgl.cc:140] Successfully destroyed WebGL context with handle 1 @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8365ms] [LOG] I0824 02:19:26.453000 1922656 gl_context.cc:386] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8365ms] [WARNING] W0824 02:19:26.454000 1922656 gl_context.cc:1072] OpenGL error checking is disabled @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8366ms] [LOG] Graph successfully started running. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8372ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8373ms] [WARNING] W0824 02:19:26.461000 1922656 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8383ms] [LOG] Graph finished closing successfully. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8383ms] [LOG] I0824 02:19:26.472000 1922656 gl_context_webgl.cc:140] Successfully destroyed WebGL context with handle 1 @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8419ms] [LOG] I0824 02:19:26.507000 1922656 gl_context.cc:386] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8419ms] [WARNING] W0824 02:19:26.508000 1922656 gl_context.cc:1072] OpenGL error checking is disabled @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8420ms] [LOG] Graph successfully started running. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8425ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8460ms] [WARNING] W0824 02:19:26.548000 1922656 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8467ms] [WARNING] W0824 02:19:26.555000 1922656 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8523ms] [WARNING] W0824 02:19:26.611000 1922656 landmark_projection_calculator.cc:189] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE_DIMENSIONS or use PROJECTION_MATRIX. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8525ms] [LOG] Graph finished closing successfully. @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
+[    8525ms] [LOG] I0824 02:19:26.614000 1922656 gl_context_webgl.cc:140] Successfully destroyed WebGL context with handle 1 @ http://localhost:3000/mediapipe/vision_wasm_internal.js:9
