@@ -42,7 +42,7 @@ test("renders the Atlas profile and booking entry point", async () => {
 
   const html = await response.text();
   assert.match(html, /Atlas/i);
-  assert.match(html, /Aaron Paul/i);
+  assert.match(html, /Nat Kingston/i);
   assert.match(html, /Photo quality|Marketing photo preflight/i);
   assert.match(html, /Book studio/i);
 });

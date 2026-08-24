@@ -9,9 +9,9 @@ import "./atlas.css";
 import "./skeleton-fix.css";
 
 type Agent={id:string;name:string;role:string;office:string;phone:string;officePhone:string;email:string;avatar:string;renTag:string};
-const fallbackAgent:Agent={id:"71502",name:"Aaron Paul",role:"Negotiator · REN76860",office:"Ipoh, Malaysia",phone:"60126791098",officePhone:"03-7453 5155",email:"aaronyuva1017@gmail.com",avatar:"",renTag:"REN76860"};
+const fallbackAgent:Agent={id:"6",name:"Nat Kingston",role:"Negotiator · REN1000X",office:"Millerz, Malaysia",phone:"60183638167",officePhone:"03-7453 5155",email:"niel.kingston@iqiglobal.com",avatar:"",renTag:"REN1000X"};
 
-export default function AtlasProfile({agentSlug="aaron-paul"}:{agentSlug?:string}){
+export default function AtlasProfile({agentSlug="niel-kingston"}:{agentSlug?:string}){
  const [agent,setAgent]=useState<Agent>(fallbackAgent); const [live,setLive]=useState(false); const [photo,setPhoto]=useState(""); const [rating,setRating]=useState<PhotoRating>(emptyPhotoRating); const [showAssessment,setShowAssessment]=useState(false); const [booking,setBooking]=useState(false); const [confirmed,setConfirmed]=useState(false); const [qr,setQr]=useState(""); const [qrError,setQrError]=useState(""); const [date,setDate]=useState("2026-08-22"); const [time,setTime]=useState("10:30"); const file=useRef<HTMLInputElement>(null);
  useEffect(()=>{fetch(`/api/atlas-agent?slug=${encodeURIComponent(agentSlug)}`).then(r=>r.ok?r.json():Promise.reject()).then(data=>{const mapped:Agent={id:String(data.id),name:data.display_name||data.full_name,role:[data.designation,data.ren_tag].filter(Boolean).join(" · ")||data.role,office:`${data.branch_name||data.branch_region_name}, ${data.country}`,phone:data.mobile_contact_number||data.work_contact_number||"Not provided",officePhone:data.office_contact_number||data.branch_contact_number||data.branch_phone_number||"03-7453 5155",email:data.email||"Not provided",avatar:`/api/atlas-avatar?slug=${encodeURIComponent(agentSlug)}`,renTag:data.ren_tag||""};setAgent(mapped);setLive(true);setPhoto(mapped.avatar);evaluatePhoto(mapped.avatar).then(setRating).catch(()=>setRating({...emptyPhotoRating,label:"Could not assess"}))}).catch(()=>{})},[agentSlug]);
  const session=useMemo(()=>`PS-${agent.id}-${date.replaceAll("-","")}-${time.replace(":","")}`,[agent.id,date,time]);

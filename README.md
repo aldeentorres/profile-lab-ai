@@ -74,11 +74,11 @@ The repository contains two separate demo surfaces:
 - **Atlas agent profile:** [http://localhost:3000/atlas](http://localhost:3000/atlas)
 - **Studio+ check-in:** [http://localhost:3000](http://localhost:3000)
 
-Atlas also supports dynamic agent URLs using the source API slug: `http://localhost:3000/atlas/{agent}`. For example, Aaron Paul is available at [http://localhost:3000/atlas/aaron-paul](http://localhost:3000/atlas/aaron-paul). Agent slugs are validated before being passed to the source API.
+Atlas also supports dynamic agent URLs using the source API slug: `http://localhost:3000/atlas/{agent}`. For example, Niel Kingston is available at [http://localhost:3000/atlas/niel-kingston](http://localhost:3000/atlas/niel-kingston). Agent slugs are validated before being passed to the source API.
 
 The Atlas page demonstrates the agent profile, photo preflight, quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Studio+ first screen. A manual appointment-code field is included as a fallback.
 
-The profile loads Aaron Paul from the public Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Aaron Paul fallback record if Atlas is temporarily unavailable.
+The profile loads Niel Kingston from the public Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Niel Kingston fallback record if Atlas is temporarily unavailable.
 
 Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the Studio+ check-in URL and an opaque appointment ID. Studio+ validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
 

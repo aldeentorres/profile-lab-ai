@@ -57,7 +57,7 @@ Hardware fallback:
 ```text
 Camera blocked or unavailable → Import photo → local assessment → continue or retake
 QR scanner blocked → Enter the appointment code → Load
-Atlas API unavailable → bundled Aaron Paul fallback → mock-agent/photo flow still works
+Atlas API unavailable → bundled Niel Kingston fallback → mock-agent/photo flow still works
 Printer unavailable → Download image or choose Save as PDF in the system print dialog
 ```
 
