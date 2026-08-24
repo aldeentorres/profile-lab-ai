@@ -1,0 +1,13 @@
+services:
+  codeformer:
+    build:
+      context: .
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    ports:
+      - "7861:7861"
+    environment:
+      CODEFORMER_SERVICE_TOKEN: ${CODEFORMER_SERVICE_TOKEN:-local-codeformer-demo}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      CODEFORMER_TIMEOUT_SECONDS: ${CODEFORMER_TIMEOUT_SECONDS:-300}
+    restart: unless-stopped
