@@ -1,2 +1,88 @@
 @layer components {
+
+/* Task 13 (Set A): Button primitives + Badge/Eyebrow.
+   Each rule below reproduces the value that was actually winning in the old cascade -- later
+   app/*.css file wins for equal specificity -- not the union of every declaration ever written
+   for the selector. Declaration order inside a rule matters too: `padding` then `padding-inline`
+   preserves the same override the original file order produced (padding-inline wins the inline
+   edges, padding keeps the block edges). Tokens replace every colour/radius a variable already
+   carries; a literal stays only where no token holds that exact value, each with a comment
+   saying so, per the colour lock. */
+
+/* .primary/.gold: ONLY the properties below are converted. `.app-content .primary`,
+   `.app-content .gold`, the `.photos-toolbar .primary` / `.photos-toolbar .photos-actions
+   .primary` chain, `.batch-review>footer .primary` and the `.primary.session-start` combo
+   (studio-session.css) all outrank bare `.primary`/`.gold` today by specificity, for
+   background, min-height, padding, border-radius, box-shadow and font-weight -- confirmed by
+   walking getComputedStyle across all 10 studio views: NOT ONE rendered `.primary` in the app
+   is ever showing the bare selector's own value for any of those six properties. Moving them
+   into `components` would make every one of those context rules go inert (a legacy declaration
+   can never outrank one here, whatever its specificity), which is a real, visible regression,
+   not a theoretical one -- it is what produced the non-zero screenshot diffs on the first pass
+   at this selector. Converting them correctly means converting that whole family of selectors
+   together, which is outside the six selectors this task assigns. Declined; reported in the
+   task report for a follow-up. display/flex layout, border and colour are unaffected by any of
+   those overrides (verified the same way) and convert cleanly. */
+.primary,.gold,.link,.upload {
+ display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+ white-space: nowrap; line-height: 1;
+ border: 0;
+}
+
+.primary,.gold { color: #fff; }
+
+.link,.upload { min-height: 50px; font-weight: 650; }
+
+.gold {
+ /* Not part of the .app-content override family above (only min-height/border-radius/box-shadow
+    are -- verified via the same wide-selector search) -- .gold's own background and margin-top
+    are safe to convert. */
+ background: #f36b3d; /* literal: distinct from --color-gold (#ee6538); no token holds this value */
+ margin-top: 15px;
+}
+
+.link {
+ background: none; padding: 0 16px;
+ border-radius: var(--radius-control);
+ color: #52565a; /* literal: distinct muted grey, no token holds this value */
+}
+
+.upload {
+ background: none; padding: 0 16px;
+ border: 1px solid #ffffff30; /* literal: translucent white border, no token holds this value */
+ margin-top: 12px;
+ color: #fff;
+}
+
+.badge {
+ display: inline-flex; align-items: center; gap: 5px;
+ position: absolute; top: 15px; left: 15px;
+ padding: 7px 10px;
+ border-radius: 8px;
+ background: var(--color-green);
+ color: #fff;
+ font-size: 12px;
+}
+/* Both of these move with the base rule -- left behind in legacy their overrides would go inert:
+   a legacy declaration can never outrank a components-layer one, however much more specific it
+   is. Neither is one of Task 13's listed selectors, but both are required for a faithful
+   conversion of .badge (confirmed via getComputedStyle: a badge inside .photo-card renders at
+   11px today, not the bare selector's 12px). */
+.badge.pending { background: #e69a1f; }
+.photo-card .badge { width: auto; color: #fff; font-size: 11px; font-weight: 700; }
+
+/* .eyebrow: colour and font-size are deliberately NOT set here. Every rendered .eyebrow across
+   all 10 studio views sits inside a more specific selector for at least one of the two
+   (.app-content .eyebrow, .session-loaded-title .eyebrow / .crop-workbench .eyebrow /
+   .session-quality .eyebrow, .batch-review header .eyebrow, .enhance-header .eyebrow -- four
+   different literal colours across those, one of them also overriding font-size to 9px) --
+   confirmed the same way as .primary above. Bare .eyebrow never wins colour or font-size in the
+   app as it stands today, so there is no single correct value to give it here; the properties
+   that ARE uniform (family/weight/letter-spacing) convert cleanly. */
+.eyebrow {
+ font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+ font-weight: 750;
+ letter-spacing: .13em;
+}
+
 }

@@ -415,13 +415,6 @@ select {
   outline-offset: -3px;
 }
 
-.photo-card .badge {
-  width: auto;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-
 @media (max-width: 700px) {
   .app-shell .app-nav {
     grid-template-columns: minmax(0, 1fr) 92px;
@@ -1203,7 +1196,6 @@ select:focus-visible {
   --ps-shadow-lg: 0 10px 32px rgba(20, 29, 24, 0.09);
 }
 
-.eyebrow,
 .app-content .eyebrow,
 .atlas-app small,
 .session-profile-check .eyebrow,
