@@ -109,12 +109,60 @@ whole `:root`, so this costs nothing. It would matter the day someone wants two
 brands on one page — per-agent theming, a side-by-side preview — and that day the
 token layer needs literals plus a scoped override block, not this indirection.
 
-**Existing class names are the component API. Nothing is renamed.**
-`iq-theme.css` overrides roughly 120 selectors by name. Renaming `.primary` to
-`.ps-button` would silently disable the white-label layer — the page would still
-render, just permanently unbranded, which is the worst kind of regression
-because nothing fails. Keeping the names also makes the zero-diff contract in
-pass 1 achievable by construction rather than by care.
+**Existing class names are the component API. Nothing is renamed.** Renaming
+`.primary` to `.ps-button` would strand every rule that targets it across eleven
+stylesheets. Keeping the names also makes the zero-diff contract in pass 1
+achievable by construction rather than by care.
+
+## Correction: how white-label actually works
+
+This spec originally asserted that `app/iq-theme.css` is a brand layer that wins
+the cascade, and that its ~120 selector overrides are the white-label mechanism.
+**That is wrong, and it shaped the original pass 2 design.**
+
+`iq-theme.css` loads **second of eleven**. `app-ui.css`, `camera-v2.css`,
+`studio-session.css`, `polish.css` and `studio-enhance.css` all load after it and
+redefine the same classes. Its selector overrides are therefore partly dead —
+confirmed empirically during Task 12, where `polish.css`'s `.eyebrow` font-size
+beats `iq-theme.css`'s on source order.
+
+What actually carries the brand is `iq-theme.css`'s `:root` block. It is the last
+`:root` declared — `globals.css` has the only other one, and no later file
+declares any — so its custom properties win outright. Rebranding works because
+every rule reads `var(--blue)`, `var(--ink)` and friends.
+
+Two consequences:
+
+- **The token layer is already the correct brand mechanism.** `--color-brand:
+  var(--blue)` participates in the real mechanism, not a decorative copy of it.
+- **`iq-theme.css`'s selector rules are legacy, not sacred.** They may be merged
+  into `components.css` and deleted like any other file's, provided the merged
+  rule preserves what actually painted. The earlier "never edit `iq-theme.css`"
+  constraint was protecting a mechanism that does not exist.
+
+## Cascade layers
+
+Pass 2's first design moved rules into `@layer components` while every legacy
+stylesheet stayed unlayered. Unlayered declarations beat layered ones regardless
+of specificity or source order, so those moved rules could never paint — they
+became a shadow copy annotated with comments explaining why they had no effect.
+
+The corrected design declares the order explicitly:
+
+```css
+@layer legacy, components;
+```
+
+`legacy` holds all eleven existing stylesheets **in their current import order**,
+which preserves every relative precedence among them. `components` holds
+`app/ui/components.css` and wins. `:root` custom properties are unaffected and
+keep carrying the brand.
+
+Converting a selector therefore means gathering **all** of its rules across every
+file — `iq-theme.css` included — merging them into one tokenised rule whose
+computed result matches what painted before, and deleting the originals. A
+selector that is not fully gathered will regress, because the merged rule now
+outranks the leftovers instead of losing to them.
 
 **Entry order** in `app/globals.css`, all before any rule, since CSS requires
 imports first:
