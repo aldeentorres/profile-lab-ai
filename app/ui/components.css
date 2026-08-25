@@ -85,4 +85,48 @@
  letter-spacing: .13em;
 }
 
+/* Task 14 (Set B): container primitives.
+   .narrow, .empty-state and .gallery-head are NOT converted -- see the task report.
+   .narrow: every declared property (max-width/margin/padding/border-radius/box-shadow) is won
+   today by `.app-content .narrow` (app-ui.css + polish.css, 2-class, always present -- .narrow
+   only ever renders inside .app-content), the same inversion risk as .primary's six properties
+   in Set A. Its one untouched property, min-height:auto, is the CSS initial value -- moving it
+   would be a pure no-op, not a real conversion.
+   .empty-state and .gallery-head: dead. Neither class appears in any .tsx in this app --
+   confirmed with a repo-wide search, not inferred from the CSS. Their rules are left exactly as
+   they were. */
+
+.photo-card {
+ border: 1px solid #e3e6e9; /* literal: no token holds this grey */
+ border-radius: var(--radius-control);
+ box-shadow: none;
+ overflow: hidden;
+ background: #fff;
+ transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.photos-section { margin-bottom: 36px; }
+/* Required alongside the base rule -- on the personal view's single-section case this is also
+   the ONLY .photos-section, so :last-child applies there today; left in legacy it goes inert. */
+.photos-section:last-child { margin-bottom: 0; }
+
+.photos-toolbar {
+ display: flex; align-items: center; justify-content: space-between; gap: 20px;
+ margin-bottom: 20px; padding-bottom: 16px;
+ border-bottom: 1px solid var(--ps-line);
+}
+@media (max-width: 700px) {
+ .photos-toolbar { align-items: stretch; flex-direction: column; gap: 14px; margin-bottom: 14px; padding-bottom: 15px; }
+}
+
+/* No bare .photos-heading rule exists anywhere in the app -- PageHeader always renders inside
+   Toolbar (className="photos-toolbar"), so this compound is the selector's only home. Moved
+   verbatim, not stripped to a bare class, per "no selector renamed". */
+.photos-toolbar .photos-heading { display: flex; align-items: baseline; gap: 12px; }
+
+.console-title { display: flex; justify-content: space-between; align-items: flex-start; }
+@media (max-width: 620px) {
+ .console-title { display: block; }
+}
+
 }
