@@ -582,7 +582,11 @@ git commit -m "refactor: extract Card and Panel containers"
 
 - [ ] **Step 1: Write `Toolbar`**
 
-Absorbs `.photos-toolbar`, `.filters`, `.gallery-head`, `.console-title`.
+Absorbs `.photos-toolbar` and `.console-title` — two sites, both `<div>`.
+
+`.filters` and `.gallery-head` have **zero** call sites in `app/studio.tsx`. Dead entries in the inventory; ignore them.
+
+`.console-title` is claimed by both `Toolbar` and `PageHeader` in the inventory. It belongs to `Toolbar`: it is a two-column row — an inner unclassed `<div>` holding eyebrow/`h1`/`p`, and a sibling `<span>` status pill — not a header block. Leave its inner `<div>` alone; it carries no class, so wrapping it would add markup for nothing.
 
 ```tsx
 import type {ReactNode} from "react";
@@ -594,25 +598,22 @@ export function Toolbar({className,children}:{className?:string;children?:ReactN
 
 - [ ] **Step 2: Write `PageHeader`**
 
-Absorbs `.photos-heading`, `.qr-intro`, `.title`, `.console-title`.
+Absorbs `.photos-heading` and `.qr-intro` — two sites, both `<div>`. `.title` has **zero** call sites; ignore it.
+
+**Children only. No `eyebrow`/`title`/`lead` prop API.**
 
 ```tsx
 import type {ReactNode} from "react";
 
-// eyebrow / title / lead is the shape every studio page header already has, in that order.
-// Taking them as named props rather than children is what lets pass 2 restyle the three parts
-// independently without every call site re-nesting its markup.
-export function PageHeader({eyebrow,title,lead,className,children}:{eyebrow?:ReactNode;title?:ReactNode;lead?:ReactNode;className?:string;children?:ReactNode}){
- return <div className={className||undefined}>
-  {eyebrow?<span className="eyebrow">{eyebrow}</span>:null}
-  {title?<h1>{title}</h1>:null}
-  {lead?<p>{lead}</p>:null}
-  {children}
- </div>;
+// Deliberately a plain wrapper. An eyebrow/title/lead prop API was specified here and is wrong
+// on two counts: the eyebrows became <Badge tone="eyebrow"> in Task 5, so a prop that renders its
+// own <span className="eyebrow"> would double-wrap them, and .photos-heading has no eyebrow at
+// all -- it is an h1 and a count. Structuring content through props means restructuring markup,
+// which this pass forbids. Pass 2 styles these classes in CSS; the component only has to name them.
+export function PageHeader({className,children}:{className?:string;children?:ReactNode}){
+ return <div className={className||undefined}>{children}</div>;
 }
 ```
-
-Check each call site's actual element order before converting. `.console-title` puts its eyebrow inside a nested `<div>` alongside a sibling `<span>`; if a header does not match the eyebrow/title/lead shape, pass its markup as `children` rather than bending the component to fit.
 
 - [ ] **Step 3: Replace call sites**
 
