@@ -9,8 +9,9 @@ export type ButtonVariant="primary"|"gold"|"link"|"upload"|"take-photo"|"remove-
 
 type ButtonProps=ButtonHTMLAttributes<HTMLButtonElement>&{variant?:ButtonVariant};
 
-// `type` defaults to "button". Every call site in studio.tsx passes it explicitly today, and a
-// bare <button> inside the consent <form> would submit it instead of toggling a permission.
+// `type` defaults to "button" because a bare <button> defaults to type="submit"; an unmarked
+// button that later ends up inside a <form> would then become a silent submit bug that renders
+// identically. `session-start` is the one call site that gains an explicit type from this today.
 export function Button({variant,className,type="button",...rest}:ButtonProps){
  // Variant leads, caller classes follow — the order the un-extracted markup already emits
  // (`class="primary session-start"`), preserved because the markup test asserts it.
