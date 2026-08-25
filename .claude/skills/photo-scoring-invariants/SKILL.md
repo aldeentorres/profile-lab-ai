@@ -1,6 +1,6 @@
 ---
 name: photo-scoring-invariants
-description: The rules the Studio+ photo verdict engine must keep. Use before editing app/photo-decision.ts, photo-score.ts, photo-quality.ts, photo-body.ts or photo-artifacts.ts, and when a photo is scored, approved, rejected, capped or sent to designer review in a way that looks wrong.
+description: The rules the Profile Lab AI photo verdict engine must keep. Use before editing app/photo-decision.ts, photo-score.ts, photo-quality.ts, photo-body.ts or photo-artifacts.ts, and when a photo is scored, approved, rejected, capped or sent to designer review in a way that looks wrong.
 metadata:
   author: studio-plus
   version: "1.0.0"
@@ -47,8 +47,20 @@ face visibility .20, editability .20. Pose has **zero** weight.
 7. **Designer review is for challenging AI judgement, never for rescuing a bad file.**
    `designerReviewEligible = photoQuality >= 70 AND no defect-backed gate AND file is usable`.
    Detector results (including `face_missing`) stay disputable; measurements do not.
-8. **A REVIEW verdict is agreement, not a dispute.** Sending a REVIEW photo to a designer
-   needs no challenge checkbox; only REJECT does.
+8. **Two designer workflows, never mixed.** "Request Designer Approval" sends the ORIGINAL only
+   (`kind: original_approval`, status `PENDING DESIGNER APPROVAL`) and needs the agent's explicit
+   tick "use this original photo as-is" — the tick is a choice not to enhance, not an accusation.
+   "Send to Designer Review" after an AI portrait sends both images and both ratings
+   (`kind: enhanced_review`, status `PENDING DESIGNER REVIEW`). Neither modifies the photo or the
+   original rating.
+10. **AI usability is a separate axis** (`app/ai-usability.ts`). It measures identity detail on the
+   face only — face pixels, clarity, structure, focus, fidelity, single face, face in frame, no
+   validated defect. Crop, body, selfie and background cues carry zero weight, and it never feeds the
+   marketing score. `aiEnhancementEligible = score >= 70 AND single face AND no defect AND face ≥ 150px`.
+11. **An AI-enhanced portrait is held to the same bar as an upload** (`app/portrait-checks.ts`): the
+   same `evaluatePhoto`, `enhancedMarketingReadiness >= 80`, identity similarity confirmed (not
+   merely unverified), no artefact, hand or proportion failure. Anything else is "Designer Review
+   Required". The original score is stored beside it and never overwritten.
 9. **Advice is actionable and short.** Every gate maps to an instruction in
    `retakeInstructions` that names the fix, not the failure.
 
@@ -71,6 +83,6 @@ Do not duplicate these numbers into components or tests — import them.
   without its comments; keep that standard.
 - Every scoring change needs a test in `tests/photo-decision.test.mjs`, `photo-score.test.mjs`
   or `photo-body.test.mjs`, with an assertion message stating the rule it protects.
-- Run `npm run verify` (86 tests at last check) before reporting the change.
+- Run `npm run verify` (108 tests at last check) before reporting the change.
 - If a real photo is scored wrongly, find the signal that is wrong before moving a threshold.
   Thresholds are calibrated against designer decisions, not against one disappointing result.

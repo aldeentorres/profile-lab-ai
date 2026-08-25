@@ -10,5 +10,5 @@ import "./polish.css";
 import "./device-portability.css";
 import "./studio-enhance.css";
 import "./brand-assets.css";
-export const metadata: Metadata = { title: "Studio+", description: "AI-guided portraits and a permissioned Brand Asset Gallery." };
+export const metadata: Metadata = { title: "Profile Lab AI", description: "AI-guided portraits and a permissioned Brand Asset Gallery." };
 export default function RootLayout({children}:{children:React.ReactNode}) { return <html lang="en"><body>{children}</body></html>; }

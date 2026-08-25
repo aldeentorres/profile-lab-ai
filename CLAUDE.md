@@ -1,6 +1,6 @@
-# Studio+ — instructions for AI coding agents
+# Profile Lab AI — instructions for AI coding agents
 
-Studio+ is an offline-first, white-label AI portrait studio built for a live product demo.
+Profile Lab AI is an offline-first, white-label AI portrait studio built for a live product demo.
 The whole product journey — capture, scoring, enhancement, consent, galleries, banner
 artwork, download and print — runs in the browser with no API keys and no network.
 
@@ -18,7 +18,7 @@ npm run lint         # eslint (warnings are tolerated, errors are not)
 npm run demo:setup   # npm ci + verify, for a clean machine
 ```
 
-Last verified state: preflight passes, 86/86 tests pass, lint reports 17 warnings and 0
+Last verified state: preflight passes, 131/131 tests pass, lint reports 19 warnings and 0
 errors (`<img>` usage and two `react-hooks/exhaustive-deps`). Do not "fix" those warnings
 during the freeze — `next/image` is not wired up and the effect deps are deliberate.
 
@@ -28,15 +28,21 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
 | --- | --- |
 | `app/studio.tsx` | The whole studio flow: views `profile → session → capture → batch → review → select → consent → success → personal → assets → console` |
 | `app/atlas/` | Atlas agent profile demo, booking, QR handoff |
+| `app/designer/` | Internal designer desk: overview, review queue, approved assets, agent directory, history |
+| `app/designer-records.ts`, `app/designer-store.ts`, `app/agent-directory.ts` | Designer domain rules, IndexedDB/local-memory persistence, IQI directory normalization and search |
 | `app/photo-quality.ts` | Orchestrates the browser-side assessment and produces `PhotoRating` |
 | `app/photo-decision.ts` | Verdict engine: thresholds, score caps, validated defects, gates, retake advice |
 | `app/photo-score.ts` | The four category scores as pure functions |
 | `app/photo-body.ts` | Pose/mask reading: body extent, crop, hands, accessories |
 | `app/photo-artifacts.ts` | Source forensics: structure, focus, screenshot and letterbox detection |
+| `app/ai-usability.ts` | AI usability: does the file carry enough identity detail for enhancement (separate axis, pure) |
+| `app/portrait-generation.ts`, `app/portrait-prompt.ts` | "Generate AI Portrait" adapter — generative via `/api/portrait-generation` when `OPENAI_API_KEY` is set, on-device pipeline otherwise; identity signature and body-proportion reads |
+| `app/portrait-checks.ts` | Automatic checks on an enhanced portrait: identity, face integrity, artefacts, hands, proportion (pure) |
 | `app/image-enhancement.ts` | Segmentation, composition, relighting, retouch, export |
 | `app/brand-assets.tsx` | Background removal, subsale banner composition, print ordering |
+| `app/portrait-matting.ts` | Classical matting behind background removal: backdrop surface fit, cast-shadow removal, four-border hole fill, sampling alpha, decontamination (pure, no DOM) |
 | `app/print-orders.ts`, `app/photo-review-requests.ts` | Local order book and designer review queue |
-| `app/api/` | `atlas-agent`, `atlas-avatar`, `studio-sessions`, `codeformer` (server-only proxy) |
+| `app/api/` | `atlas-agent`, `atlas-avatar`, `agents`, `designer-access`, `studio-sessions`, `codeformer`, `portrait-generation` (server-only proxies) |
 | `services/codeformer/` | Optional, self-hosted CodeFormer + Real-ESRGAN container |
 | `tests/` | `node:test` suites in `.mjs`, importing `.ts` directly via `--experimental-strip-types` |
 | `scripts/demo-preflight.mjs` | Frozen-asset and environment check |
@@ -50,9 +56,11 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
    reproducing the demo.
 3. **Frozen assets.** The seven files hashed in `scripts/demo-preflight.mjs` (portraits,
    MediaPipe models, WASM) must not be re-encoded or replaced.
-4. **Enhancement is non-generative.** The local pipeline never invents or reshapes facial
-   structure. Only the optional, clearly-labelled CodeFormer adapter reconstructs faces, and
-   the original always stays available for comparison.
+4. **Local enhancement is non-generative.** The local pipeline never invents or reshapes facial
+   structure. Generation happens only behind clearly-labelled optional adapters — CodeFormer
+   (face restoration) and the portrait-generation adapter behind "Generate AI Portrait"
+   (`app/api/portrait-generation`, prompt in `app/portrait-prompt.ts`, face locked by prompt and
+   verified by `app/portrait-checks.ts`) — and the original always stays available for comparison.
 5. **Scoring rules.** See `.claude/skills/photo-scoring-invariants/SKILL.md`. In short: the
    only arithmetic between raw and final score is `min(rawScore, lowest applicable cap)`, a
    retake needs a validated visual defect, and a good attribute never cancels a critical one.
@@ -61,6 +69,11 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
    so a full or unavailable store cannot block the agent.
 7. **The app scores the photograph, not the person.** No beauty, attractiveness, formality or
    character judgements. Pose is reported and carries zero weight.
+8. **Keeping the original and AI enhancement are separate workflows.** A technically usable photo
+   the AI did not approve always offers both: "Request Designer Approval" (original only, status
+   `PENDING DESIGNER APPROVAL`) and "Review & Enhance" (only when `ai_enhancement_eligible`). An
+   enhanced portrait is re-scored with the same engine, checked for identity/artefacts, and can
+   always be sent to designer review with the original (`PENDING DESIGNER REVIEW`) instead of used.
 
 ## Conventions
 

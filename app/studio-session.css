@@ -240,9 +240,8 @@
   font-weight: 800;
 }
 .session-start:hover { background: #f17753; transform: translateY(-1px); }
-.uploaded-photo-check .session-profile-grid { align-items: stretch; }
-.uploaded-photo-check .crop-workbench { display: flex; flex-direction: column; }
-.uploaded-photo-check .crop-preview { flex: 1; min-height: 360px; }
+/* Crop preview keeps its own aspect-ratio-driven size (see .crop-preview.square/.portrait below) —
+   it must not stretch to match the score column's height, which grows with issues/feedback text. */
 .uploaded-photo-check .crop-preview img { object-position: center 28%; }
 .upload-review-actions { display: grid; gap: 9px; }
 .upload-review-actions .session-start,

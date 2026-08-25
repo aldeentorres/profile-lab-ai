@@ -9,6 +9,7 @@
 
 /* Atlas-specific actions must not inherit PhotoStudio gallery icon-button rules. */
 .atlas-photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:0 22px 22px}
+.atlas-photo-actions .atlas-login{grid-column:1/-1;border-color:#263b37;background:#263b37;color:#fff}.atlas-photo-actions .atlas-login:hover{border-color:#1a2b27;box-shadow:0 8px 18px #1c2c2730}
 .atlas-photo-actions button{position:relative;width:100%;min-width:0;min-height:48px;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid var(--line);border-radius:11px;background:#fff;color:#303633;font-size:12px;font-weight:750;line-height:1.2;white-space:nowrap;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
 .atlas-photo-actions button svg{width:17px;flex:none}.atlas-photo-actions button:hover{transform:translateY(-1px);border-color:#cbd5d0;box-shadow:0 7px 16px #25352e14}
 .atlas-photo-actions .studio-book{border-color:#e55b36;background:#e55b36;color:#fff}.atlas-photo-actions .studio-book:hover{border-color:#cf4d2b;box-shadow:0 8px 18px #db56342c}

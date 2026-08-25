@@ -1,8 +1,8 @@
-# Studio+
+# Profile Lab AI
 
 For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md). For the rules AI coding agents must follow in this repository, use [CLAUDE.md](./CLAUDE.md) (also served as `AGENTS.md`).
 
-Studio+ is a demo-ready, white-label AI portrait studio. It helps agents replace missing or weak profile photos, gives friendly technical retake guidance, lets an agent challenge a verdict they believe is wrong, records profile and brand-use consent separately, and turns approved high-resolution portraits into ready-to-print marketing artwork.
+Profile Lab AI is a demo-ready, white-label AI portrait studio. It helps agents replace missing or weak profile photos, gives friendly technical retake guidance, lets an agent challenge a verdict they believe is wrong, records profile and brand-use consent separately, and turns approved high-resolution portraits into ready-to-print marketing artwork.
 
 The app is deliberately offline-first. Browser camera capture, image upload, photo assessment, enhancement, background removal, banner composition, gallery storage, downloads, and printing work without external APIs. Atlas, IQPilot, n8n, hardware tethering, payments, and notifications remain clearly labelled integration adapters.
 
@@ -30,7 +30,7 @@ The on-device preflight answers one question: **can a designer use this file to 
 
 ## Features
 
-- Atlas-style profile prompt, photo preflight breakdown, booking, and QR handoff into Studio+
+- Atlas-style profile prompt, photo preflight breakdown, booking, and QR handoff into Profile Lab AI
 - Live browser camera discovery and switching with permission handling, viewfinder guidance, and countdown
 - Built-in, USB, phone-webcam, and DSLR/mirrorless capture-card support through standard browser camera devices
 - Camera/phone file import fallback for USB storage, AirDrop, cloud transfers, and memory-card readers
@@ -63,7 +63,7 @@ npm install
 npm run dev
 ```
 
-For a clean, lockfile-reproducible demo setup, use `npm run demo:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify` — it runs the preflight, the build, 86 tests, and lint.
+For a clean, lockfile-reproducible demo setup, use `npm run demo:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify` — it runs the preflight, the build, 131 tests, and lint.
 
 Open the local address printed in the terminal, normally [http://localhost:3000](http://localhost:3000).
 
@@ -72,15 +72,31 @@ Open the local address printed in the terminal, normally [http://localhost:3000]
 The repository contains two separate demo surfaces:
 
 - **Atlas agent profile:** [http://localhost:3000/atlas](http://localhost:3000/atlas)
-- **Studio+ check-in:** [http://localhost:3000](http://localhost:3000)
+- **Profile Lab AI check-in:** [http://localhost:3000](http://localhost:3000)
+- **Designer desk:** [http://localhost:3000/designer](http://localhost:3000/designer)
 
 Atlas also supports dynamic agent URLs using the source API slug: `http://localhost:3000/atlas/{agent}`. For example, Niel Kingston is available at [http://localhost:3000/atlas/niel-kingston](http://localhost:3000/atlas/niel-kingston). Agent slugs are validated before being passed to the source API.
 
-The Atlas page demonstrates the agent profile, photo preflight, quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Studio+ first screen. A manual appointment-code field is included as a fallback.
+The Atlas page demonstrates the agent profile, photo preflight, quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Profile Lab AI first screen. A manual appointment-code field is included as a fallback.
 
 The profile loads Niel Kingston from the public Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Niel Kingston fallback record if Atlas is temporarily unavailable.
 
-Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the Studio+ check-in URL and an opaque appointment ID. Studio+ validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
+Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the Profile Lab AI check-in URL and an opaque appointment ID. Profile Lab AI validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
+
+### Designer desk
+
+`/designer` is an unlisted internal workspace for original-photo approvals, AI-enhanced review, agent images, approved assets, IQI agent lookup, and the decision history. Its photo library can be grouped by team or individual and filtered by pending or approved status. The directory exposes the same photo state for every agent. Kiosk review requests, approved portraits, and background-removed assets flow into its browser-local IndexedDB library; full image Blobs are kept out of `localStorage`. Use **Load demo data** on a fresh browser to rehearse the complete desk without network access. Set `DESIGNER_ACCESS_CODE` to require a server-checked access code; leave it unset for the local demo.
+
+#### SMTP reminder test
+
+Photo reminders remain local mocks unless SMTP test delivery is explicitly enabled. To deliver every personalised reminder to one safe inbox, add the SMTP settings from `.env.example` to `.env.local`, set `EMAIL_TEST_MODE=true`, set `TEST_EMAIL_OVERRIDE` to the test inbox, and keep the app-specific SMTP password only in that ignored local file. Then run the two local processes in separate terminals:
+
+```bash
+npm run smtp:bridge
+npm run dev
+```
+
+The bridge binds only to `127.0.0.1`, authenticates to the configured SMTP server with TLS, and ignores agent directory addresses. It sends one separate `[TEST]` email per agent to `TEST_EMAIL_OVERRIDE`; the original recipient is retained only as audit metadata. Port 587 uses `SMTP_SECURITY=starttls`; port 465 uses `SMTP_SECURITY=implicit`. If the bridge or SMTP service is unavailable, the dashboard records a failed attempt without creating a sent event. Set `EMAIL_TEST_MODE=false` to return to the network-free mock workflow.
 
 ## How a photo is scored
 
@@ -125,6 +141,8 @@ cd services/codeformer
 docker compose up --build
 ```
 
+**Generate AI Portrait** (Review & Enhance) is a second optional adapter: set `OPENAI_API_KEY` (and optionally `PORTRAIT_IMAGE_MODEL`, default `gpt-image-1`) and `/api/portrait-generation` sends the agent's photo as Image 1 with the two bundled references in `public/portrait-references/` and the identity-locked prompt in `app/portrait-prompt.ts`. Without a key the on-device studio pipeline runs instead; either way the result is re-scored and checked for identity, artefacts, hands and proportion before it can be used.
+
 Copy `.env.example` to `.env.local`, or set `CODEFORMER_SERVICE_URL` and `CODEFORMER_SERVICE_TOKEN` in the hosting environment. The browser calls `/api/codeformer`; the service URL and bearer token are never exposed to client JavaScript. Requests are limited to 12 MB, inference is serialized, and the local enhancement path remains available when the service is offline. See [services/codeformer/README.md](./services/codeformer/README.md) for CPU/GPU setup and API details.
 
 CodeFormer is released under the S-Lab License 1.0 for non-commercial use. Commercial use requires permission from the project contributors, so this integration must remain experimental/non-commercial until the required rights are obtained.
@@ -157,6 +175,10 @@ app/
   page.tsx              Route entry
   studio.tsx            Camera, upload, assessment, review requests, consent, galleries, output
   atlas/                Atlas profile, photo preflight, booking, QR handoff
+  designer/             Internal review queue, approved assets, agent directory, history
+  designer-store.ts     IndexedDB persistence with an in-memory test implementation
+  designer-records.ts   Designer domain records, status transitions, search and grouping
+  agent-directory.ts    IQI directory normalization and slim-index search
   photo-quality.ts      Assessment orchestration and the PhotoRating shape
   photo-decision.ts     Verdict engine: thresholds, caps, validated defects, retake advice
   photo-score.ts        The four category scores as pure functions
@@ -164,7 +186,7 @@ app/
   photo-artifacts.ts    Structure, focus, screenshot and letterbox forensics
   image-enhancement.ts  Segmentation, composition, relighting, retouch, export
   brand-assets.tsx      Background removal, subsale banner, print ordering
-  api/                  Atlas proxies, studio sessions, server-only CodeFormer proxy
+  api/                  Atlas, agent directory, designer access, sessions and model adapters
 services/codeformer/    Pinned CodeFormer + Real-ESRGAN FastAPI container
 scripts/                Demo preflight
 tests/                  node:test suites for the scoring engine and rendered HTML
@@ -195,7 +217,7 @@ npx skills add https://github.com/anthropics/skills --skill web-artifacts-builde
 
 Suggested Claude visual-review prompt:
 
-> Act as the design director for a premium, accessible physical photo studio product. Review Studio+. It must be easy for older and non-technical users, yet polished enough to sell to companies. Identify the five highest-impact visual and UX improvements. Preserve the screens and core flow. Give practical, screen-specific recommendations only.
+> Act as the design director for a premium, accessible physical photo studio product. Review Profile Lab AI. It must be easy for older and non-technical users, yet polished enough to sell to companies. Identify the five highest-impact visual and UX improvements. Preserve the screens and core flow. Give practical, screen-specific recommendations only.
 
 Suggested Claude demo-review prompt:
 

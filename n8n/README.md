@@ -1,6 +1,6 @@
-# Studio+ backup on n8n (no-code fallback)
+# Profile Lab AI backup on n8n (no-code fallback)
 
-If the code path cannot be built on the day, this workflow reproduces the Studio+ product
+If the code path cannot be built on the day, this workflow reproduces the Profile Lab AI product
 journey with n8n forms and the **same verdict engine**. Import
 `studio-plus-backup.workflow.json`, connect three credentials, fill one Config node, and you
 have: portrait preflight → transparent verdict → designer review queue → separate consent →
@@ -58,7 +58,7 @@ portrait at 240px → **Re-upload at Higher Resolution**.
 ## Node map
 
 ```
-Studio+ Form ─ Config ─ Portrait to base64 ─ Image information ─ Atlas agent ─ Resolve agent
+Profile Lab AI Form ─ Config ─ Portrait to base64 ─ Image information ─ Atlas agent ─ Resolve agent
   ─ Claude reads signals ─ Score photograph ─ Route verdict
         ├─ APPROVED / REUPLOAD ───────────────────────────────┐
         └─ REVIEW / REJECT ─ Review request row ─ Designer review queue ┤

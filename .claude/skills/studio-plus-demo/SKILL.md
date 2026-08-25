@@ -1,12 +1,12 @@
 ---
 name: studio-plus-demo
-description: Operating rules for changing the Studio+ demo while it is frozen for the demo. Use before editing, debugging, rehearsing or presenting this repository — especially for "fix this before the demo", "the camera failed", "add X to the demo", or any request that touches the judge flow.
+description: Operating rules for changing the Profile Lab AI demo while it is frozen for the demo. Use before editing, debugging, rehearsing or presenting this repository — especially for "fix this before the demo", "the camera failed", "add X to the demo", or any request that touches the judge flow.
 metadata:
   author: studio-plus
   version: "1.0.0"
 ---
 
-# Studio+ demo mode
+# Profile Lab AI demo mode
 
 The repository is a validated demo build. Every change is a risk to a rehearsed
 three-minute pitch, so the bar is "smallest verified fix", not "best refactor".
@@ -29,7 +29,7 @@ three-minute pitch, so the bar is "smallest verified fix", not "best refactor".
 - **Do not remove a fallback.** Camera blocked → import photo. QR blocked → manual code.
   Atlas down → bundled agent record. Printer missing → download or Save as PDF. CodeFormer
   offline → local enhancement. Every one of these is part of the pitch's safety net.
-- **Do not clear lint warnings** as a side quest: 17 warnings (`<img>`, two deliberate
+- **Do not clear lint warnings** as a side quest: 21 warnings (`<img>`, two deliberate
   `react-hooks/exhaustive-deps`) are the known-good state. 0 errors is the bar.
 - Gate every change on `npm run verify`, then re-rehearse the affected step of the flow.
 

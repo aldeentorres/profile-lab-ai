@@ -1,6 +1,6 @@
-# Studio+ Demo Runbook
+# Profile Lab AI Demo Runbook
 
-This is the repeatable operating plan for presenting the same validated Studio+ build on demo day. The app completes its core portrait journey locally; Atlas live data is an enhancement, not a dependency.
+This is the repeatable operating plan for presenting the same validated Profile Lab AI build on demo day. The app completes its core portrait journey locally; Atlas live data is an enhancement, not a dependency.
 
 ## The exact build
 
@@ -12,8 +12,8 @@ The reproducible baseline is defined by:
 - bundled portrait, face-detection, segmentation, and WebAssembly assets
 - one automated verification command: `npm run verify`
 
-`npm run verify` must end with a passing preflight, 86 passing tests, and 0 lint errors
-(17 lint warnings are the known-good state).
+`npm run verify` must end with a passing preflight, 109 passing tests, and 0 lint errors
+(21 lint warnings are the known-good state).
 
 On a fresh computer, run:
 
@@ -32,7 +32,7 @@ Atlas profile
   → Low photo-quality prompt
   → Book studio appointment
   → QR code or manual appointment code
-  → Studio+ session loaded
+  → Profile Lab AI session loaded
   → Guided camera or file import
   → On-device quality and crop check
       ├─ Not ready → clear corrections → retake
@@ -49,7 +49,7 @@ Atlas profile
 Demo (no appointment) fallback:
 
 ```text
-Studio+ home → Take a photo → guided capture → enhance → consent → Photos
+Profile Lab AI home → Take a photo → guided capture → enhance → consent → Photos
 ```
 
 Hardware fallback:
@@ -88,7 +88,7 @@ Printer unavailable → Download image or choose Save as PDF in the system print
 Recommended freeze commands after the final commit:
 
 ```bash
-git tag -a demo-v2 -m "Validated Studio+ demo build"
+git tag -a demo-v2 -m "Validated Profile Lab AI demo build"
 git archive --format=zip --output=photostudio-plus-demo.zip demo-v2
 ```
 

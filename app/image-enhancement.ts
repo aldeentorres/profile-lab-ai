@@ -1,5 +1,7 @@
+import {mattePortrait, type PersonMask as MatteMask} from "./portrait-matting";
+
 export type FaceRegion = {x:number;y:number;width:number;height:number;confidence?:number};
-export type BackgroundMode = "original"|"blur"|"gray"|"ivory";
+export type BackgroundMode = "original"|"blur"|"gray"|"ivory"|"white";
 export type EnhanceSettings = {
   skin:number;
   light:number;
@@ -268,7 +270,49 @@ function addRelight(context:CanvasRenderingContext2D,width:number,height:number,
   context.restore();
 }
 
-export async function renderProfessionalPhoto(src:string,settings:EnhanceSettings,assets:EnhancementAssets,preview=false,targetAspect=.8):Promise<RenderedPhoto>{
+// Same classical matting the Brand Assets subsale-banner cutout uses (background surface fit, cast-shadow
+// removal, hole fill, colour decontamination) instead of the crude confidence-threshold mask below — run
+// once per source image and reused for every slider tweak, rather than the earlier per-render mask.
+export async function computePortraitMatte(src:string,mask:PersonMask|null):Promise<HTMLCanvasElement|null>{
+  if(!mask)return null;
+  const image=await loadImage(src),source=makeCanvas(image.naturalWidth,image.naturalHeight),sourceContext=source.getContext("2d",{willReadFrequently:true});
+  if(!sourceContext)return null;
+  sourceContext.drawImage(image,0,0);
+  const pixels=sourceContext.getImageData(0,0,source.width,source.height);
+  const matte=mattePortrait({data:pixels.data,width:pixels.width,height:pixels.height},mask as MatteMask);
+  const output=makeCanvas(matte.width,matte.height),outputContext=output.getContext("2d");
+  if(!outputContext)return null;
+  const result=outputContext.createImageData(matte.width,matte.height);
+  result.data.set(matte.data);
+  outputContext.putImageData(result,0,0);
+  return output;
+}
+
+function cropMatteCanvas(source:HTMLCanvasElement,crop:NormalizedCrop,targetWidth:number,targetHeight:number){
+  const target=makeCanvas(targetWidth,targetHeight),targetContext=target.getContext("2d");
+  if(!targetContext)return null;
+  targetContext.imageSmoothingEnabled=true;
+  targetContext.imageSmoothingQuality="high";
+  targetContext.drawImage(source,crop.x*source.width,crop.y*source.height,crop.width*source.width,crop.height*source.height,0,0,targetWidth,targetHeight);
+  return target;
+}
+
+// A standalone counterpart to computePortraitMatte for images that were never run through the crop
+// pipeline above — an AI-generated portrait, say — where the composite must stay at the source's own
+// framing rather than being re-cropped. Same matting algorithm, no relight or retouch, background always
+// white; falls back to the untouched source when no person is detected.
+export async function compositeOnWhite(src:string,personMask:PersonMask|null):Promise<RenderedPhoto>{
+  const image=await loadImage(src),matte=await computePortraitMatte(src,personMask).catch(()=>null);
+  if(!matte)return {dataUrl:src,width:image.naturalWidth,height:image.naturalHeight};
+  const canvas=makeCanvas(image.naturalWidth,image.naturalHeight),context=canvas.getContext("2d");
+  if(!context)return {dataUrl:src,width:image.naturalWidth,height:image.naturalHeight};
+  context.fillStyle="#fff";
+  context.fillRect(0,0,canvas.width,canvas.height);
+  context.drawImage(matte,0,0);
+  return {dataUrl:canvas.toDataURL("image/jpeg",.93),width:canvas.width,height:canvas.height};
+}
+
+export async function renderProfessionalPhoto(src:string,settings:EnhanceSettings,assets:EnhancementAssets,preview=false,targetAspect=.8,matte:HTMLCanvasElement|null=null):Promise<RenderedPhoto>{
   const image=await loadImage(src),crop=portraitCrop(image,assets,targetAspect),framed=frameSource(image,crop),sourceLongEdge=Math.max(framed.width,framed.height),desiredLongEdge=preview?Math.min(sourceLongEdge,1400):settings.highResolution?Math.min(2048,Math.max(1600,sourceLongEdge)):sourceLongEdge,scale=desiredLongEdge/sourceLongEdge,width=Math.max(1,Math.round(framed.width*scale)),height=Math.max(1,Math.round(framed.height*scale));
   const canvas=makeCanvas(width,height),context=canvas.getContext("2d");
   if(!context)return {dataUrl:src,width:image.naturalWidth,height:image.naturalHeight};
@@ -282,27 +326,35 @@ export async function renderProfessionalPhoto(src:string,settings:EnhanceSetting
   toneContext.filter="none";
   applyFaceRetouch(tone,cropFace(assets.face,crop),settings.skin);
 
-  const personMask=assets.personMask?createPersonMask(assets.personMask,width,height,crop):null;
-  const canReplaceBackground=settings.background!=="original"&&personMask;
+  // A precomputed matte (the subsale-banner cutout algorithm) takes priority over the plain confidence
+  // mask: its edges already account for cast shadows, hair strands and colour spill, so it needs no extra
+  // blur or feathering here.
+  const cutoutMask=matte?cropMatteCanvas(matte,crop,width,height):assets.personMask?createPersonMask(assets.personMask,width,height,crop):null;
+  const canReplaceBackground=settings.background!=="original"&&cutoutMask;
   if(canReplaceBackground){
-    paintBackground(context,framed,settings.background,width,height);
-    if(settings.background!=="blur"){
-      context.save();
-      context.globalAlpha=.22;
-      context.filter=`blur(${Math.max(10,width*.015)}px)`;
-      context.drawImage(personMask!,width*.012,height*.015);
-      context.restore();
+    if(settings.background==="white"){
+      context.fillStyle="#fff";
+      context.fillRect(0,0,width,height);
+    }else{
+      paintBackground(context,framed,settings.background,width,height);
+      if(settings.background!=="blur"){
+        context.save();
+        context.globalAlpha=.22;
+        context.filter=`blur(${Math.max(10,width*.015)}px)`;
+        context.drawImage(cutoutMask!,width*.012,height*.015);
+        context.restore();
+      }
     }
     const subject=makeCanvas(width,height),subjectContext=subject.getContext("2d");
     if(subjectContext){
       subjectContext.drawImage(tone,0,0);
       subjectContext.globalCompositeOperation="destination-in";
-      subjectContext.drawImage(personMask!,0,0);
+      subjectContext.drawImage(cutoutMask!,0,0);
       context.drawImage(subject,0,0);
     }
   }else{
     context.drawImage(tone,0,0);
   }
-  addRelight(context,width,height,exposureStrength,personMask);
+  addRelight(context,width,height,exposureStrength,cutoutMask);
   return {dataUrl:canvas.toDataURL("image/jpeg",preview?.88:.93),width,height};
 }

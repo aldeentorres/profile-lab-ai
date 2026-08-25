@@ -20,20 +20,27 @@ function request(path, init) {
   return worker.fetch(new Request(`http://localhost${path}`, init), environment, context);
 }
 
-test("renders the Studio+ check-in experience", async () => {
+test("renders the Profile Lab AI Photos landing page", async () => {
   const response = await request("/", { headers: { accept: "text/html" } });
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Studio\+<\/title>/i);
-  assert.match(html, /Take a photo or scan QR/i);
-  assert.match(html, /Open Atlas/i);
-  assert.match(html, /Enter code/i);
+  assert.match(html, /<title>Profile Lab AI<\/title>/i);
+  assert.match(html, /Approved Photos/i);
+  assert.match(html, /Import photo/i);
   assert.match(html, /Photos/i);
   assert.match(html, /Assets/i);
-  assert.match(html, /Studio/i);
+  assert.match(html, /Profile Lab AI/i);
   assert.doesNotMatch(html, /Building your site|codex-preview|react-loading-skeleton/i);
+});
+
+test("renders the unlisted designer dashboard",async()=>{
+ const response=await request("/designer",{headers:{accept:"text/html"}});
+ assert.equal(response.status,200);
+ const html=await response.text();
+ assert.match(html,/Profile Lab AI Designer/i);
+ assert.match(html,/Preparing designer desk|Portrait desk/i);
 });
 
 test("renders the Atlas profile and booking entry point", async () => {
@@ -110,4 +117,13 @@ test("reports CodeFormer as optional when the private service is not configured"
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(await response.json(), { available: false, reason: "not_configured" });
+});
+
+test("reports portrait generation as optional when no key is configured", async () => {
+  const response = await request("/api/portrait-generation");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), { available: false, reason: "not_configured" });
+  const attempt = await request("/api/portrait-generation", { method: "POST", body: new FormData() });
+  assert.equal(attempt.status, 503, "generation is refused, never attempted, without a key");
 });

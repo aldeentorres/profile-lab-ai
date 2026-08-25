@@ -1,0 +1,20 @@
+import {extractIqiAgents,extractIqiMeta,matchAgents,normaliseIqiAgent,slimAgent,type RawIqiAgent} from "../../agent-directory";
+import type {DesignerAgent} from "../../designer-records";
+
+const origin="https://api.iqiglobal.com/api/web/agents",pageSize=100;
+type IndexState={agents:DesignerAgent[];indexing:boolean;progress:number;totalPages:number;error:string;build?:Promise<void>};
+const shared=globalThis as typeof globalThis&{__studioDesignerAgents?:IndexState};
+const state=shared.__studioDesignerAgents??={agents:[],indexing:false,progress:0,totalPages:0,error:""};shared.__studioDesignerAgents=state;
+
+async function fetchPayload(url:string){const response=await fetch(url,{headers:{Accept:"application/json"},next:{revalidate:300},signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error(`Agent directory returned ${response.status}`);return response.json()}
+async function fetchPage(page:number){const payload=await fetchPayload(`${origin}?page=${page}&per_page=${pageSize}`),agents=extractIqiAgents(payload).map(normaliseIqiAgent).map(slimAgent),meta=extractIqiMeta(payload);return{agents,meta}}
+function startIndex(){if(state.indexing||state.agents.length)return;state.indexing=true;state.error="";state.progress=0;state.build=(async()=>{try{const first=await fetchPage(1),count=first.meta.count??first.agents.length,totalPages=first.meta.total_pages??Math.max(1,Math.ceil(count/pageSize)),pages=new Array<DesignerAgent[]>(totalPages);pages[0]=first.agents;state.totalPages=totalPages;state.progress=Math.round(100/totalPages);let next=2;const worker=async()=>{while(next<=totalPages){const page=next++;pages[page-1]=(await fetchPage(page)).agents;state.progress=Math.round(page/totalPages*100)}};await Promise.all(Array.from({length:Math.min(4,totalPages)},()=>worker()));state.agents=pages.flat();state.progress=100}catch(error){state.error=error instanceof Error?error.message:"Agent directory unavailable";state.agents=[]}finally{state.indexing=false}})()}
+
+export async function GET(request:Request){
+ const params=new URL(request.url).searchParams,id=params.get("id")?.trim(),search=params.get("search")?.trim(),teams=params.has("teams");
+ try{
+  if(id){if(!/^[a-zA-Z0-9-]{1,80}$/.test(id))return Response.json({error:"Invalid agent ID"},{status:400});const payload=await fetchPayload(`${origin}/${encodeURIComponent(id)}`),raw=(payload&&typeof payload==="object"&&"data" in payload?(payload as {data:RawIqiAgent}).data:payload) as RawIqiAgent;return Response.json({agent:normaliseIqiAgent(raw)},{headers:{"Cache-Control":"public, max-age=60, stale-while-revalidate=300"}})}
+  if(search||teams){if(params.get("retry")==="1"&&state.error){state.error="";state.agents=[]}startIndex();if(state.indexing||!state.agents.length)return Response.json({agents:[],teams:[],indexing:state.indexing,progress:state.progress,error:state.error||undefined},{status:state.error?502:202,headers:{"Cache-Control":"no-store"}});if(teams){const counts=new Map<string,number>();state.agents.forEach(agent=>counts.set(agent.teamName,(counts.get(agent.teamName)??0)+1));return Response.json({teams:[...counts].map(([name,count])=>({name,count})).sort((a,b)=>a.name.localeCompare(b.name)),indexing:false,progress:100},{headers:{"Cache-Control":"public, max-age=300"}})}return Response.json({agents:matchAgents(state.agents,search||""),indexing:false,progress:100},{headers:{"Cache-Control":"public, max-age=60"}})}
+  const page=Math.max(1,Math.min(1000,Number(params.get("page")??1)||1)),perPage=Math.max(1,Math.min(100,Number(params.get("per_page")??24)||24)),payload=await fetchPayload(`${origin}?page=${page}&per_page=${perPage}`),agents=extractIqiAgents(payload).map(normaliseIqiAgent),meta=extractIqiMeta(payload);return Response.json({agents,meta},{headers:{"Cache-Control":"public, max-age=60, stale-while-revalidate=300"}});
+ }catch(error){console.error("Designer agent directory failed",error);return Response.json({error:"Agent directory is unavailable. Local photo records still work."},{status:502,headers:{"Cache-Control":"no-store"}})}
+}

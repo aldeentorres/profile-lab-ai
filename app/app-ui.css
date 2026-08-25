@@ -29,6 +29,13 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .photos-toolbar .photos-actions button:focus-visible,.photos-empty .photos-actions button:focus-visible{outline:3px solid #ef653d55;outline-offset:2px}
 @media(max-width:700px){.photos-toolbar{align-items:stretch;flex-direction:column;gap:14px}.photos-toolbar .photos-actions,.photos-empty .photos-actions{width:100%}.photos-toolbar .photos-actions button,.photos-empty .photos-actions button{flex:1;min-width:0}.photos-empty .photos-actions{max-width:360px}}
 
+/* Photos tab: Approved Photos always first, Pending Designer Review beneath it */
+.photos-section{margin-bottom:36px}.photos-section:last-child{margin-bottom:0}.photos-section-head{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}.photos-section-head h2{margin:0;font-size:20px;font-weight:700;color:#1f262c}.photos-section-head span{color:#85898e;font-size:13px}.photos-section-empty{margin:0;padding:22px;border:1px dashed #d9dde1;border-radius:14px;background:#fff;color:#81858a;text-align:center}
+.photo-type-tag{display:inline-flex;width:max-content;padding:2px 8px;border-radius:999px;background:#eef2f6;color:#4a5560;font-size:10px;font-weight:700;letter-spacing:.03em;text-transform:uppercase}
+.badge.pending{background:#e69a1f}.pending-card{border-color:#f3d9a6!important}.pending-note{display:flex;align-items:flex-start;gap:7px;margin:0;padding:12px 14px;border-top:1px solid #f3ebd6;background:#fff8ec;color:#8a5a12;font-size:12.5px;line-height:1.4}.pending-note svg{flex:none;margin-top:1px}
+.action-card{border-color:#f3b7a6!important}.action-note{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0;padding:12px 14px 14px;border-top:1px solid #f6d7ce;background:#fff3ef;color:#7a2b13}.action-note strong{font-size:13.5px;font-weight:700}.action-note p{margin:0;font-size:12.5px;line-height:1.4;color:#8a4127}.action-note .designer-feedback{font-size:12px;font-style:italic;color:#96543a}.action-cta{display:inline-flex!important;align-items:center;gap:6px;min-height:38px!important;height:38px!important;padding:0 14px!important;margin-top:2px;border:0!important;border-radius:9px!important;background:var(--blue)!important;color:#fff!important;font-size:12.5px;font-weight:650;cursor:pointer}
+@media(max-width:700px){.photos-section-head h2{font-size:18px}}
+
 /* Home: one-screen, low-copy task */
 .home-screen{height:100%;min-height:0!important;display:flex;flex-direction:column}.home-screen .welcome{flex:none;padding:0 4px 16px}.home-screen .welcome h1{margin-top:4px}.home-screen .session-card{flex:1;min-height:0;max-height:calc(100dvh - 168px)}.home-screen .session-card>div:first-child{padding:clamp(30px,4vw,58px)}.home-screen .session-card h2{max-width:520px;margin:16px 0 10px;font-size:clamp(30px,3.2vw,43px)}.home-screen .session-card p{max-width:500px;margin:0 0 20px;font-size:17px}.home-screen .session-card .hero-photo{min-height:0;height:100%}.home-screen .hero-actions{margin-bottom:18px}.compact-privacy{display:inline-flex;align-items:center;gap:8px;color:#4d6f61;font-size:13px;font-weight:650}.compact-privacy svg{color:#35966f}.home-screen .id{padding:14px 18px}.home-screen .id strong{font-size:20px}.home-screen .id span{font-size:12px}
 @media(max-width:1024px){.home-screen .session-card{max-height:calc(100dvh - 148px)}}
@@ -49,7 +56,7 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .profile-details>span i{width:7px;height:7px;border-radius:50%;background:#43a47d}
 @media(max-width:700px){.home-screen .session-card{grid-template-columns:1fr}.home-screen .profile-preview{order:-1;width:132px;max-width:132px;margin:12px auto 0;border-radius:14px}.home-screen .profile-preview .hero-photo{height:auto;min-height:0;aspect-ratio:4/5}.home-screen .profile-details{display:block;padding:8px 9px;text-align:center}.home-screen .profile-details small{display:none}.home-screen .profile-details strong{font-size:13px}.home-screen .profile-details>span{justify-content:center;margin-top:3px;font-size:10px}}
 
-/* Studio+ appointment check-in */
+/* Profile Lab AI appointment check-in */
 .qr-home{height:100%;min-height:0!important;display:grid;grid-template-columns:minmax(280px,.72fr) minmax(420px,1.1fr);grid-template-rows:1fr auto;gap:22px;padding:clamp(28px,4vw,56px)!important;background:linear-gradient(135deg,#fff 0 54%,#f4f7f5 54%)!important}
 .qr-intro{align-self:center;max-width:440px}.qr-intro h1{margin:12px 0 12px;font-size:clamp(38px,4vw,56px);line-height:1.02}.qr-intro p{margin:0 0 24px;color:#68716d;font-size:17px;line-height:1.5}.qr-intro a{display:inline-flex;align-items:center;gap:7px;color:#bd4b2e;font-size:14px;font-weight:750;text-decoration:none}.qr-scanner{position:relative;grid-row:1/3;grid-column:2;min-height:0;overflow:hidden;border-radius:22px;background:#17201d;box-shadow:0 18px 44px rgba(28,38,34,.2)}.qr-scanner video{width:100%;height:100%;display:block;object-fit:cover}.qr-scanner:not(.live) video{opacity:.12}.scan-shade{position:absolute;inset:0;background:radial-gradient(circle at center,transparent 0 27%,rgba(10,16,14,.58) 28%)}.scan-frame{position:absolute;left:50%;top:50%;width:min(54%,310px);aspect-ratio:1;display:grid;place-items:center;translate:-50% -50%;color:#ffffffa0}.scan-frame i{position:absolute;width:45px;height:45px;border-color:#fff}.scan-frame i:nth-child(1){left:0;top:0;border-left:4px solid;border-top:4px solid;border-radius:12px 0 0}.scan-frame i:nth-child(2){right:0;top:0;border-right:4px solid;border-top:4px solid;border-radius:0 12px 0 0}.scan-frame i:nth-child(3){left:0;bottom:0;border-left:4px solid;border-bottom:4px solid;border-radius:0 0 0 12px}.scan-frame i:nth-child(4){right:0;bottom:0;border-right:4px solid;border-bottom:4px solid;border-radius:0 0 12px}.scan-frame span{position:absolute;bottom:-34px;color:#fff;font-size:13px;font-weight:700}.qr-scanner.live .scan-frame:after{position:absolute;left:8%;right:8%;top:10%;height:2px;background:#ef6843;box-shadow:0 0 14px #ef6843;content:"";animation:qr-scan 2.2s ease-in-out infinite}.scanner-start{position:absolute;left:50%;bottom:34px;min-height:50px;display:flex;align-items:center;gap:8px;translate:-50% 0;padding:0 20px;border:0;border-radius:12px;background:#e85d38;color:#fff;font-weight:750;box-shadow:0 10px 24px #0005}.manual-checkin{align-self:end;padding:17px;border:1px solid #e0e5e2;border-radius:15px;background:#fff}.manual-checkin>div{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:#66706b}.manual-checkin>div span{display:flex;flex-direction:column;font-size:12px}.manual-checkin form{display:grid;grid-template-columns:1fr auto;gap:8px}.manual-checkin input{min-width:0;height:44px;padding:0 12px;border:1px solid #dce2df;border-radius:10px}.manual-checkin button{display:flex;align-items:center;gap:7px;padding:0 14px;border:0;border-radius:10px;background:#293a34;color:#fff;font-weight:700}.manual-checkin>p{margin:9px 0 0;color:#bc4b31;font-size:12px}.qr-scanner.error{box-shadow:0 0 0 2px #d95a3d}.qr-scanner.starting .scanner-start{opacity:.65;pointer-events:none}@keyframes qr-scan{0%,100%{top:10%}50%{top:88%}}
 .qr-main-actions{display:flex;align-items:center;flex-wrap:wrap;gap:14px}.qr-main-actions .main-photo-action{min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border:0;border-radius:10px;background:#293a34;color:#fff;font-size:14px;font-weight:750;box-shadow:0 8px 20px rgba(28,44,37,.16)}.qr-main-actions .main-photo-action:hover{background:#354b42;transform:translateY(-1px)}.qr-main-actions .main-photo-action:focus-visible{outline:3px solid #e85d3866;outline-offset:3px}
@@ -117,3 +124,110 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .final-quality .appeal-note textarea{border-color:#d5ddd8;background:#fff;color:#17211d}
 .final-quality .appeal-blocked{background:#fbeae6;color:#9d3a22}
 .final-quality .appeal-sent{background:#e8f7ee;color:#1f6b3f}
+
+/* Two paths when the AI did not approve. "Keep original" and "Or improve with AI" are laid out as
+   siblings with the same weight: neither is the default, and the enhancement is never the only exit. */
+.appeal-eyebrow{display:block;margin:0 0 6px;color:#ef8968;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.appeal-eyebrow.good{color:#5ce493}
+.appeal-eyebrow.low{color:#ffb29d}
+.appeal.keep-original .appeal-lead{margin:0 0 10px;color:#ffffffa8}
+.appeal.keep-original .appeal-lead b{display:block;margin-bottom:2px;color:#fff;font-size:12.5px}
+.appeal-sent b{display:block;margin-bottom:2px;font-size:12.5px}
+.appeal-blocked b{display:block;margin-bottom:2px;font-size:12.5px}
+.appeal-send:disabled{background:#ffffff14;color:#ffffff5a;cursor:not-allowed}
+.improve-ai{margin:12px 0 0;padding:12px;border:1px solid #6f8cff2c;border-radius:12px;background:linear-gradient(145deg,#6685ff10,#ffffff05)}
+.improve-ai.unavailable{border-color:#ffffff12;background:#ffffff06}
+.improve-ai.unavailable .appeal-blocked{margin:8px 0 0}
+.improve-ai>p{margin:0 0 10px;color:#ffffffa8;font-size:12px;line-height:1.45}
+.ai-usability-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #ffffff10}
+.ai-usability-row>span{display:flex;flex-direction:column;gap:2px}
+.ai-usability-row small{color:#ffffff70;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.ai-usability-row strong{color:#fff;font-size:22px;line-height:1;letter-spacing:-.04em}
+.ai-usability-row strong i{margin-left:3px;color:#ffffff5d;font-size:10px;font-style:normal;letter-spacing:0}
+.ai-usability-row>b{padding:4px 8px;border-radius:6px;font-size:9px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}
+.ai-usability-row>b.good{background:#5ce49320;color:#8df0b4}
+.ai-usability-row>b.low{background:#ef765620;color:#ffb29d}
+.improve-ai-open{min-height:42px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;border:1px solid #91a7ff55;border-radius:9px;background:#6685ff1c;color:#dbe3ff;font-size:12px;font-weight:800;cursor:pointer}
+.improve-ai-open:hover{border-color:#91a7ff;background:#6685ff2e;color:#fff}
+
+/* Review & Enhance tab: original and AI-enhanced side by side, both scored the same way, with the
+   automatic checks listed before any "use it" control appears. */
+.enhance-review .session-loaded-title{gap:12px}
+.enhance-review .session-loaded-title .enhance-back{min-height:36px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;border:1px solid #ffffff1c;border-radius:9px;background:#ffffff08;color:#ffffffc7;font-size:12px;font-weight:700;cursor:pointer}
+.enhance-review .session-loaded-title .enhance-back:hover{border-color:#ffffff30;background:#ffffff10;color:#fff}
+.enhance-result-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1}
+.enhance-result-pair figure{display:flex;flex-direction:column;gap:8px;margin:0;padding:10px;border:1px solid #ffffff12;border-radius:14px;background:#0b0e0d}
+.enhance-result-pair figure.enhanced{border-color:#6f8cff55;background:linear-gradient(160deg,#6685ff12,#0b0e0d)}
+.enhance-result-pair img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;object-position:center 28%;border-radius:10px;background:#000}
+.enhance-result-pair figcaption{display:flex;flex-direction:column;gap:2px}
+.enhance-result-pair figcaption span{color:#ef8968;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.enhance-result-pair figure.enhanced figcaption span{color:#91a7ff}
+.enhance-result-pair figcaption b{color:#fff;font-size:12.5px}
+.enhance-scores{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px 0;border-bottom:1px solid #ffffff0d}
+.enhance-score{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border-radius:12px;background:#ffffff08}
+.enhance-score small{color:#ffffff70;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.enhance-score strong{color:#fff;font-size:28px;line-height:1;letter-spacing:-.05em}
+.enhance-score strong i{margin-left:4px;color:#ffffff5d;font-size:10px;font-style:normal;letter-spacing:0}
+.enhance-score b{color:#f3b44d;font-size:11px}
+.enhance-score.good b{color:#5ce493}
+.enhance-score.low b{color:#ef8b6f}
+.enhance-explainer{margin:12px 0 0;color:#ffffff8c;font-size:11.5px;line-height:1.5}
+.enhance-available,.enhance-passed,.enhance-required{margin:12px 0 0;padding:12px;border-radius:12px;background:#ffffff08}
+.enhance-available{border:1px solid #5ce49330}
+.enhance-passed{border:1px solid #5ce49330;background:#5ce4930d}
+.enhance-required{border:1px solid #ef765640;background:#ef76560f}
+.enhance-available p,.enhance-passed p,.enhance-required p{margin:0 0 10px;color:#ffffffb0;font-size:12px;line-height:1.45}
+.enhance-required ul{margin:0;padding-left:16px;display:grid;gap:4px;color:#ffb29d;font-size:11.5px;line-height:1.4}
+.enhance-scope{margin:0 0 12px;padding:0;list-style:none;display:grid;gap:5px}
+.enhance-scope li{padding:6px 9px;border-radius:8px;background:#0000002a;color:#ffffff9a;font-size:11px;line-height:1.4}
+.enhance-scope li b{color:#fff}
+.enhance-available .session-start,.enhance-passed .session-start{width:100%;min-height:50px;display:flex;align-items:center;justify-content:center;gap:8px;margin:0;border:0;border-radius:12px;background:#ef653d;color:#fff;box-shadow:0 12px 28px #ef653d26;font-weight:800}
+.enhance-available .session-start:disabled,.enhance-passed .session-start:disabled{background:#ffffff14;color:#ffffff5a;box-shadow:none;cursor:not-allowed;transform:none}
+.enhance-passed .appeal-toggle{margin:0 0 12px}
+.enhance-decision{margin:12px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.enhance-decision .appeal{margin:0;padding:12px;border:1px solid #ffffff14;border-top:1px solid #ffffff14;border-radius:12px;background:#ffffff08}
+@media (max-width:580px){.enhance-decision{grid-template-columns:1fr}}
+.enhance-error{margin:10px 0 0;color:#ff9a7c;font-size:11.5px;line-height:1.45}
+.portrait-checks{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:6px}
+.portrait-checks li{display:grid;grid-template-columns:22px 1fr auto;align-items:start;gap:8px;padding:8px 10px;border-radius:9px;background:#ffffff08}
+.portrait-checks li i{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:#ffffff12;color:#fff}
+.portrait-checks li.pass i{background:#5ce49328;color:#8df0b4}
+.portrait-checks li.fail i{background:#ef765630;color:#ffb29d}
+.portrait-checks li.unverified i{background:#f3b44d28;color:#ffd78e}
+.portrait-checks li span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.portrait-checks li b{color:#fff;font-size:12px}
+.portrait-checks li small{color:#ffffff7a;font-size:10.5px;line-height:1.4}
+.portrait-checks li em{padding:3px 6px;border-radius:5px;background:#ffffff10;color:#ffffffb0;font-size:9px;font-style:normal;font-weight:850;letter-spacing:.06em}
+.portrait-checks li.pass em{background:#5ce49320;color:#8df0b4}
+.portrait-checks li.fail em{background:#ef765620;color:#ffb29d}
+.enhance-review .upload-review-secondary{margin-top:10px}
+/* The final-review card sits on white. */
+.final-quality .appeal.keep-original .appeal-lead{color:#41504a}
+.final-quality .appeal.keep-original .appeal-lead b{color:#17211d}
+.final-quality .appeal-send:disabled{background:#e4e9e6;color:#8a948f}
+@media (max-width:580px){.enhance-result-pair{grid-template-columns:1fr}.enhance-scores{grid-template-columns:1fr}}
+
+/* Which bundled presentation reference to send as Image 2 — an explicit pick, never inferred from the
+   photo: it only ever steers pose, wardrobe and lighting, and the prompt itself forbids it touching
+   identity, but the choice of which reference to start from is still the agent's own. */
+.reference-picker{min-width:0;margin:0 0 12px;padding:0;border:0}
+.reference-picker legend{margin-bottom:7px;color:#ffffff72;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.reference-picker>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.reference-picker button{min-height:44px;padding:0 10px;border:1px solid #ffffff14;border-radius:10px;background:#ffffff05;color:#ffffff9a;font-size:11.5px;font-weight:700;cursor:pointer}
+.reference-picker button:hover{border-color:#ffffff2c;color:#fff}
+.reference-picker button.active{border-color:#ef896878;background:#ef653d14;color:#fff}
+
+.reminder-home-banner{grid-column:1/-1;display:flex;align-items:flex-start;gap:12px;margin:0 0 16px;padding:14px 16px;border:1px solid #e7cfaa;border-radius:14px;background:#fff8ec;color:#7b571e}.reminder-home-banner>span{display:flex;flex-direction:column;gap:3px}.reminder-home-banner small{font-size:9px;font-weight:900;letter-spacing:.12em}.reminder-home-banner b{color:#3d3529}.reminder-home-banner p{margin:2px 0 0;color:#706659;font-size:11px;line-height:1.45}.qr-main-actions .reminder-home-optout{border:0;background:transparent;color:#737b77;font-size:11px;text-decoration:underline;text-underline-offset:3px}.reminder-optout{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(145deg,#edf2ef,#f8faf8)}.reminder-optout>section{width:min(500px,100%);padding:34px;border:1px solid #dce6e0;border-radius:22px;background:#fff;box-shadow:0 24px 70px #1f32291a;text-align:center}.reminder-optout-mark{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 15px;border-radius:17px;background:#eef6f1;color:#487563}.reminder-optout h1{margin:7px 0 9px;font-size:30px;letter-spacing:-.04em}.reminder-optout p{margin:0 auto 23px;max-width:390px;color:#69736e;line-height:1.55}.reminder-optout>section>div{display:grid;gap:9px}.reminder-optout button{min-height:47px;border-radius:10px;font-weight:800}.reminder-optout .primary{border:0;background:#365f4e;color:#fff}.reminder-confirm-optout{border:1px solid #d6ddd9;background:#fff;color:#676f6b}
+
+/* One-time, staff-only action to sign this device into Puter for free browser-side generation. Deliberately
+   understated — quiet text-button, not a competing call-to-action next to Generate AI Portrait. */
+.puter-connect{width:100%;margin:10px 0 0;padding:8px 10px;border:1px dashed #ffffff1c;border-radius:9px;background:transparent;color:#ffffff62;font-size:10.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.puter-connect:hover:not(:disabled){border-color:#ffffff38;color:#ffffffb0}
+.puter-connect:disabled{cursor:not-allowed;opacity:.6}
+.puter-connected{display:flex;align-items:center;gap:6px;margin:10px 0 0;color:#8df0b4;font-size:10.5px;font-weight:700}
+.puter-connected svg{flex:none}
+
+/* Upload is the priority action on the home screen; Take a photo sits beside it as the secondary option. */
+.qr-main-actions .qr-secondary-action{min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border:1px solid #d8ddda;border-radius:10px;background:#fff;color:#26332d;font-size:14px;font-weight:750}
+.qr-main-actions .qr-secondary-action:hover{border-color:#aebbb5;background:#f2f5f3}
+@media(max-width:700px){.qr-main-actions .qr-secondary-action{min-height:44px;padding-inline:15px}}
