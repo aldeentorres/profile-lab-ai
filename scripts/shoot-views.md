@@ -304,6 +304,36 @@ weight instead.
    screenshots are 2880×1800 device pixels at this machine's DPR of 2. Re-baseline on the machine
    you are testing on; a baseline captured elsewhere will differ on text everywhere.
 
+## The shared scripts are a hazard if more than one run is live at once
+
+`gen.sh`/`init.js`/`shoot.template.mjs`/`shoot.mjs` in `.playwright-mcp/` are shared files on
+disk, and the Playwright MCP browser they drive is a single shared `page`. Task 3 hit this
+directly: mid-run, `shoot.mjs`'s contents changed underneath it — another process had regenerated
+it with a different `OUT` directory and an `ONLY` filter that were never asked for — and a
+following capture attempt's `capture` view silently rendered the console DOM instead of the camera
+view. **`magick compare -metric AE` did not catch it**: the corrupted frame was a real, fully-
+rendered screenshot (just of the wrong view), not noise, so nothing about it looked like a failed
+capture until it was compared to the wrong baseline frame.
+
+What did catch it: hashing every captured PNG with `shasum -a 256` and comparing against the
+baseline's hashes for the *same* view name. The corrupted run's `capture.png` was byte-identical to
+the baseline's `console.png` — proof the wrong content had landed in the wrong file, something an
+AE diff against `capture.png` alone would never surface (it would just report "very different,"
+indistinguishable from an ordinary regression).
+
+Two takeaways for whoever runs this harness next:
+
+- **Don't run against the shared `.playwright-mcp/shoot.mjs` if anything else might be touching
+  it.** Copy `init.js` and `shoot.template.mjs` to privately-named files (e.g.
+  `.playwright-mcp/<task>-shoot.template.mjs`) before generating, and generate into a
+  distinctly-named `.playwright-mcp/<task>-shoot.mjs`. The MCP code-execution tool restricts
+  script files to `.playwright-mcp/` or the repo root, so the private copy still has to live under
+  `.playwright-mcp/` — just not under the shared filename.
+- **Hash every frame, not just the metric.** Run `shasum -a 256` over the new run's directory and
+  the baseline directory and compare line-for-line, alongside (not instead of) `magick compare`.
+  A clean `AE=0` on every frame plus matching SHA-256 on every frame is the only combination that
+  rules out both a rendering regression and a corrupted capture.
+
 ## The scripts
 
 Three files, none of them in the repository and none of them installed. On the machine this was
