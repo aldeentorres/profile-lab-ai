@@ -439,7 +439,14 @@ The `{icon?" ":null}` is not cosmetic — the un-extracted markup has a literal 
 
 - [ ] **Step 2: Write `StatTile`**
 
-Absorbs `.camera-rating`, `.checks span`, `.final-quality-metrics span`, `.live-pose-card`. Move `CameraRating` from `app/studio.tsx:40` verbatim into this file — it is the most-used instance of the shape.
+Absorbs `.final-quality-metrics span` **only**. Move `CameraRating` from `app/studio.tsx:40` verbatim into this file — co-located for pass 2, not because it shares `StatTile`'s shape.
+
+The inventory originally claimed `StatTile` also absorbs `.camera-rating`, `.checks span` and `.live-pose-card`. Verified against the CSS, that is false, and acting on it would break the pass:
+
+- `.camera-rating` and `.live-pose-card` (`app/camera-v2.css:156-171`) are structurally richer — a score ring, a progress bar (`<i><b/></i>`), several text nodes. A `<span><small/><b/></span>` cannot represent them without restructuring, and restructuring changes pixels.
+- `.checks span` has rules in `app/globals.css` but **zero JSX call sites**. It is dead CSS, not a shape to absorb. Task 15's sweep owns it.
+
+So `StatTile` fits one class family. Do not force the other three through it.
 
 ```tsx
 import type {PhotoRating} from "../photo-quality";
@@ -930,7 +937,9 @@ git commit -m "refactor: rebuild the container primitives on tokens"
 
 - [ ] **Step 1: Convert each selector, one at a time**
 
-`.camera-rating`, `.checks span`, `.final-quality-metrics span`, `.device-field`, `.search input`, `.consents label`, `.steps`, `.photo-media`, `.user-photo`.
+`.camera-rating`, `.final-quality-metrics span`, `.device-field`, `.search input`, `.consents label`, `.steps`, `.photo-media`, `.user-photo`.
+
+**`.camera-rating` is converted as `CameraRating`'s own markup, not through `StatTile`.** They do not share a shape — see Task 5 Step 2. Routing it through `StatTile` here would be a structural edit, and this pass permits none. `.checks span` is omitted deliberately: it has no call sites, so Task 15's dead-CSS sweep owns it rather than this task.
 
 - [ ] **Step 2: Give `.consents label` extra attention**
 

@@ -107,7 +107,7 @@ imports first:
 | `Badge` | `.badge` `.photo-type-tag` `.photo-category-tag` `.eyebrow` |
 | `Panel` | `.photos-section` `.narrow` `.empty-state` `.privacy` |
 | `Toolbar` | `.photos-toolbar` `.filters` `.gallery-head` `.console-title` |
-| `StatTile` | `.camera-rating` `.checks span` `.final-quality-metrics span` `.live-pose-card` |
+| `StatTile` | `.final-quality-metrics span`. `CameraRating` is co-located but keeps its own markup; `.camera-rating` and `.live-pose-card` are structurally richer and cannot be represented by it, and `.checks span` is dead CSS with no call sites |
 | `Field` | `.search input` `.device-field` `.manual-checkin form` |
 | `PageHeader` | `.photos-heading` `.qr-intro` `.title` `.console-title` |
 | `Toggle` | `.consents label` |
