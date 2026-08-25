@@ -107,6 +107,8 @@ Record the output. Every class it lists is lockable; anything absent is screensh
 
 Use the class list from Step 1. The point is not to assert every class — it is to assert the ones the extraction will touch, so the test fails when an extraction drops or reorders one.
 
+Assert **exact occurrence counts**, not mere presence. A class that renders at three call sites and survives at one still satisfies a presence check, so a presence lock passes through a partial drop. Derive every expected count from observed output — a hand-written number is a guess, and a count tuned until the test goes green is weaker than the presence check it replaced while looking stronger.
+
 ```javascript
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -137,7 +139,13 @@ for (const locked of [
   "take-photo",
 ]) {
   test(`SSR markup still emits .${locked}`, () => {
-    assert.match(html, new RegExp(`class="[^"]*\\b${locked}\\b`),
+    // Do NOT match with \b — `-` is a non-word character, so `\bapp-nav\b` happily matches
+    // `class="app-nav-main"`. Two affix pairs in this very list (app-nav / app-nav-main,
+    // photos-section / photos-section-head) sit in nested JSX the extraction will split, so a
+    // \b lock would stay green through exactly the drop it exists to catch. Split the attribute
+    // and compare tokens exactly.
+    const tokens = [...html.matchAll(/class="([^"]*)"/g)].flatMap(m => m[1].split(/\s+/));
+    assert.ok(tokens.includes(locked),
       `.${locked} vanished from the rendered page — a component dropped or renamed it, and the CSS that targets it no longer applies`);
   });
 }
