@@ -427,6 +427,8 @@ export function Badge({tone="badge",className,icon,children}:{tone?:BadgeTone;cl
 
 The `{icon?" ":null}` is not cosmetic — the un-extracted markup has a literal space between icon and text (`<Check size={14}/> {badge}`). Dropping it closes a gap the screenshot diff will catch.
 
+`MediaFrame` (Task 4) also emits `.badge` markup inline. **Leave it inline.** Rewiring it through `Badge` would be a structural change in a pass whose whole guarantee is that no structure changes. Both sites converge in pass 2, where `.badge` is styled once in CSS and serves them equally.
+
 - [ ] **Step 2: Write `StatTile`**
 
 Absorbs `.camera-rating`, `.checks span`, `.final-quality-metrics span`, `.live-pose-card`. Move `CameraRating` from `app/studio.tsx:40` verbatim into this file — it is the most-used instance of the shape.
@@ -514,7 +516,11 @@ Both components are deliberately thin. In pass 1 they carry no styling opinion a
 
 - [ ] **Step 3: Replace call sites**
 
-`<article className="photo-card">` → `<Card className="photo-card">`, and so on. `<article className={selected?"selected":""}>` in the batch grid becomes `<Card className={selected?"selected":""}>` — note this one currently emits `class=""` when unselected, and `Card`'s `className||undefined` would drop the attribute. Pass `className={selected?"selected":undefined}` and confirm against the screenshot diff, or keep the empty string if the diff objects.
+`<article className="photo-card">` → `<Card className="photo-card">`, and so on.
+
+One case needs a decision rather than a substitution. The batch grid's `<article className={selected?"selected":""}>` emits `class=""` when unselected, and `Card`'s `className||undefined` drops the attribute entirely. Use `className={selected?"selected":undefined}`.
+
+`class=""` and no `class` attribute style identically — no selector can match either — so this cannot move a pixel, and the screenshot diff will confirm `0`. It does change the HTML string, so if a Task 1 lock ever covers this element, update the lock deliberately rather than reverting to the empty string.
 
 - [ ] **Step 4: Export from the barrel**
 
@@ -546,7 +552,7 @@ git commit -m "refactor: extract Card and Panel containers"
 - Modify: `app/studio.tsx`, `app/ui/index.ts`
 
 **Interfaces:**
-- Consumes: `Badge` (Task 5) for the eyebrow slot
+- Consumes: nothing. `PageHeader` emits `<span className="eyebrow">` directly rather than composing `Badge` — pass 1 preserves existing markup verbatim, and routing it through `Badge` would be a structural change wearing a refactor's clothes.
 - Produces: `Toolbar`, `PageHeader` from `app/ui`
 
 - [ ] **Step 1: Write `Toolbar`**
@@ -734,6 +740,14 @@ State the diff results, the rehearsal outcome, and the verify numbers. Pass 2 be
 ---
 
 # PASS 2 — Tokens and component classes
+
+Two rules bind every task in this pass. Restated in full because tasks are read out of order.
+
+**`app/iq-theme.css` is never edited.** Not one rule, in any task. It is the brand layer — the thing white-label swaps — and every class this pass touches has rules in it. Only the *base* definitions in `globals.css`, `polish.css`, `app-ui.css` and `camera-v2.css` move. Confirmed by inspection: `.badge`, `.eyebrow`, `.steps`, `.consents`, `.photo-media` and `.user-photo` all carry `iq-theme.css` rules that must survive untouched.
+
+**Moving a rule into `@layer components` lowers its cascade priority.** Unlayered CSS beats layered CSS regardless of source order or specificity. That is *desirable* against `iq-theme.css` — the brand layer should keep winning, and it will. But it also means a converted rule now loses to every *other* unlayered rule that previously lost to it on source order. A rule that moves into the layer can therefore stop applying for reasons that have nothing to do with how it was rewritten.
+
+This is exactly why conversion is one selector at a time with a screenshot diff after each. A batch of five conversions with one diff at the end tells you something broke; it does not tell you which of the five, and the cascade interaction is not visible by reading the rewritten rule.
 
 ### Task 10: The `color-mix()` spike
 

@@ -45,3 +45,6 @@ __pycache__/
 /outputs/
 /work/
 /tmp/
+
+# superpowers subagent workspace (ledger, briefs, review packages)
+/.superpowers/
