@@ -53,6 +53,13 @@ const lockedClassCounts = {
   "photos-page": 1,
   "photos-toolbar": 1,
   "photos-heading": 1,
+  // New in the personal-view redesign: the toolbar's count/agent span now states context first
+  // ("Synced to your Atlas profile...") instead of only a number, fixing "the toolbar states no
+  // context before offering controls" from the brief. photos-summary (the new state-at-a-glance
+  // strip) is gated on gallery.length>0 and never renders for SSR's empty-gallery default view,
+  // so -- consistent with this file's own stated policy of not locking classes SSR never emits --
+  // it is left to the screenshot harness, same as personal-grid/photo-card already were.
+  "photos-context": 1,
   "photos-actions": 2,
   "photos-section": 1,
   "photos-section-head": 1,

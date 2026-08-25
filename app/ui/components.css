@@ -257,4 +257,72 @@
    nothing contests any property here. Converts in full. */
 .user-photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
+/* Photos library redesign (personal view only -- every selector below is either scoped under
+   .photos-page-only classes or, for .personal-grid/.badge.action, confirmed to render nowhere
+   else in the app). Three ideas carry the screen:
+   1. A summary strip beside the toolbar (.photos-summary) so the library's state -- how many
+      need action, how many are approved, how many are waiting -- reads in one glance instead of
+      three separate section headings found by scrolling.
+   2. The three sections carry different visual weight instead of three identical panels: Action
+      Required and Pending get a quiet wash: literally the same tint/border already used by
+      .action-note/.pending-note (app-ui.css) for the per-card explanation footers, now extended
+      to the whole section so the colour means one thing everywhere it appears -- no new hue.
+      Approved stays plain white: it is the resolved, celebrated state, and per the office-ui
+      skill's stat-card guidance the strongest treatment belongs on the state that most needs the
+      agent's attention, not the one that already succeeded.
+   3. MediaFrame's badge now distinguishes "you must act" from "waiting on us" -- both rendered
+      identically today (badgeTone="pending" on both the Action Required and Pending cards). The
+      new "action" tone (media-frame.tsx) reuses --color-brand, already the page's one primary-
+      action colour, so "act on this" stays visually consistent with the Import/Take a photo
+      buttons that ask for the same thing. */
+
+.photos-toolbar .photos-heading { flex-direction: column; align-items: flex-start; gap: 5px; }
+.photos-heading .photos-context { color: var(--color-muted); font-size: 14px; }
+
+.photos-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+.photos-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+}
+.photos-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.photos-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+/* literals below reuse exact existing tints (.action-note/.pending-note) or a tint/shade of
+   --green computed the same way -- see the block comment above. */
+.photos-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.photos-summary-stat.action b { color: #7a2b13; }
+.photos-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.photos-summary-stat.pending b { color: #8a5a12; }
+.photos-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.photos-summary-stat.approved b { color: #1f6b4c; }
+/* A count of zero should read as "nothing here", not as a fourth accent colour. */
+.photos-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.photos-summary-stat.zero b { color: var(--color-muted); }
+
+.photos-section.action-required, .photos-section.pending {
+ padding: 20px clamp(16px, 3vw, 26px) 24px;
+ border-radius: var(--radius-card);
+}
+.photos-section.action-required { background: #fff3ef; border: 1px solid #f6d7ce; }
+.photos-section.pending { background: #fff8ec; border: 1px solid #f3ebd6; }
+.photos-section.action-required .photos-section-head h2 { color: #7a2b13; }
+.photos-section.pending .photos-section-head h2 { color: #8a5a12; }
+
+/* Consistent card size across all three sections (rather than each section's row stretching to
+   its own item count) is what makes the page read as one designed grid instead of three unrelated
+   ones -- repetition the office-ui skill calls out directly. */
+.personal-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 290px)); }
+.personal-grid .photo-media { height: 340px; }
+
+.badge.action { background: var(--color-brand); }
+
+@media (max-width: 700px) {
+ .photos-summary { gap: 8px; }
+ .photos-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .photos-summary-stat b { font-size: 20px; }
+}
+
 }
