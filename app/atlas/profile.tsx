@@ -5,8 +5,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import {BarChart3, Bell, CalendarDays, Camera, Check, ChevronDown, Globe2, Handshake, Headphones, LayoutDashboard, LogIn, MapPin, Menu, MessageSquare, QrCode, Radar, ShieldCheck, Upload, Users, X} from "lucide-react";
 import {emptyPhotoRating, evaluatePhoto, isPhotoApproved, PhotoRating} from "../photo-quality";
-import "./atlas.css";
-import "./skeleton-fix.css";
+import "./entry.css";
 
 type Agent={id:string;name:string;role:string;office:string;phone:string;officePhone:string;email:string;avatar:string;renTag:string};
 const fallbackAgent:Agent={id:"6",name:"Nat Kingston",role:"Negotiator · REN1000X",office:"Millerz, Malaysia",phone:"60183638167",officePhone:"03-7453 5155",email:"niel.kingston@iqiglobal.com",avatar:"",renTag:"REN1000X"};

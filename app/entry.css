@@ -23,8 +23,14 @@
 @import "./studio-enhance.css" layer(legacy);
 @import "./brand-assets.css" layer(legacy);
 
-/* Tailwind owns where `@theme` lands, so tokens.css stays unlayered. components.css already
-   self-declares `@layer components { ... }`, so it is imported plainly too -- annotating the
-   import itself would nest a second `components` sub-layer inside the first for no benefit. */
+/* Tailwind owns where `@theme` lands, so tokens.css stays unlayered. Self-declaring inside a
+   file (`@layer components { ... }`) and annotating its import (`layer(components)`) are two
+   equivalent ways to assign a layer -- for a file of bare rules either one alone lands them in
+   the same top-level `components` layer. components.css already does the former internally, so
+   the import is left bare: doing *both* would nest one `components` inside the other, and a
+   nested layer's qualified name is its own distinct layer ("components.components", not a merge
+   with the top-level one -- the same mechanism that produced the duplicate legacy.theme/
+   legacy.base sub-layers this task's spike had to remove from globals.css). Picking one
+   mechanism avoids that; self-declaration was already there, so the import stays plain. */
 @import "./ui/tokens.css";
 @import "./ui/components.css";

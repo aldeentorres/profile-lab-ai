@@ -1,0 +1,10 @@
+/* Same fix as app/entry.css, scoped to this route's own CSS chunk. `legacy` is already
+   positioned relative to theme/base/components/utilities by app/entry.css -- layer names are
+   document-global, and the root layout's stylesheet always loads first -- so this file only
+   needs to put atlas.css and skeleton-fix.css into the *same* `legacy` bucket, not redeclare the
+   order. Original import order preserved (atlas.css, then skeleton-fix.css) so skeleton-fix's
+   overrides still land after atlas.css's base rules within `legacy`. Kept as its own small entry
+   (not folded into app/entry.css) so these stylesheets keep loading only on this route instead
+   of on every page. */
+@import "./atlas.css" layer(legacy);
+@import "./skeleton-fix.css" layer(legacy);
