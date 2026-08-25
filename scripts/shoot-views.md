@@ -43,19 +43,26 @@ Nothing here is installed. The three scripts are printed in full under
 A single capture run takes roughly two and a half minutes; a full baseline-plus-two-comparisons
 protocol takes about eight.
 
-**1. Serve the build you intend to photograph.**
+**1. Serve the build you intend to photograph, with the live API blocked.**
 
 ```bash
 git checkout main                # or the branch under test
 npm run build
-npm run start                    # http://localhost:3000, in the background
+NODE_OPTIONS="--import=/abs/path/to/block-atlas.mjs" npm run start   # http://localhost:3000, in the background
 ```
 
+`block-atlas.mjs` is [section 4](#4-network-block-script) below — copy it out like the other three
+scripts. Starting the server without it reintroduces item 15 of the nondeterminism table: the
+`session` view's photo depends on whether `https://api.iqiglobal.com` answers, which the harness
+does not control. See [that entry](#every-source-of-nondeterminism-and-what-neutralises-it) before
+skipping this flag.
+
 The server loads `dist/` at boot, so **if you rebuild while it is running you must restart it** —
-otherwise you are photographing the previous build and every number below is meaningless. If a
-server is already up from an earlier session, restart it rather than trusting it. Check with
-`lsof -nP -iTCP:3000 -sTCP:LISTEN`, not `lsof -ti tcp:3000` — the latter also matches client
-sockets, including the browser's own, and will report a dead server as alive.
+otherwise you are photographing the previous build and every number below is meaningless (and the
+block, being a launch-time `--import`, has to be passed again on every restart — it is not part of
+the build). If a server is already up from an earlier session, restart it with the flag rather than
+trusting it. Check with `lsof -nP -iTCP:3000 -sTCP:LISTEN`, not `lsof -ti tcp:3000` — the latter
+also matches client sockets, including the browser's own, and will report a dead server as alive.
 
 Then **warm it before capturing**:
 
@@ -142,7 +149,7 @@ server, keep the machine quiet during a capture, and re-run the odd frame.
 
 A separate signature worth recognising: if nearly every differing pixel is off by exactly `1/255`
 and they cluster in large low-contrast gradients, that is renderer noise, not the app. Do not reach
-for a fuzz threshold; find which of the fourteen items in the table below has come loose.
+for a fuzz threshold; find which of the fifteen items in the table below has come loose.
 
 ### Fixed capture settings — all of these matter
 
@@ -210,7 +217,9 @@ is client state with no URL.
 Found empirically, one break at a time. Items 1–7 and 13 live in an init script registered with
 `context.addInitScript`, so they run **before any app JS** — a `Date` stub applied after the page
 has already formatted a timestamp is worthless. Items 8–12 live in the recipe's `settle()`. Item 14
-is not fully neutralisable and is the reason baselines cannot be shared between machines.
+is not fully neutralisable and is the reason baselines cannot be shared between machines. Item 15
+lives outside the browser entirely: it is a server launch flag plus two CDP calls made once at
+context setup, before the first navigation.
 
 | # | Source | Neutralisation | Evidence it mattered |
 | --- | --- | --- | --- |
@@ -228,6 +237,7 @@ is not fully neutralisable and is the reason baselines cannot be shared between 
 | 12 | **Scroll position.** `go()` scrolls `#app-content` and `window` with `behavior:"smooth"`. | Both reset to 0 and settled before the shot; the scrolled frame then sets `scrollTop = scrollHeight` explicitly. | |
 | 13 | **Overlay scrollbars.** They fade in on scroll and are still repainting when the scrolled frame is taken. | `::-webkit-scrollbar{width:0!important;height:0!important}`. They are overlay on this platform, so hiding them moves no layout. | 3145 pixels down the right edge of `console-scrolled`. |
 | 14 | **Fonts.** No `@font-face`, no remote font; the app asks for `"Atkinson Hyperlegible","Avenir Next",Arial,sans-serif` and Georgia. | `document.fonts.ready` awaited. Not fully neutralisable — rendering depends on which faces are installed locally, so **baselines are only comparable on the same machine**. | |
+| 15 | **A live external API.** The `session` view's `SessionProfile` component sources its photo from `agent.agentPhoto \|\| "/api/atlas-avatar?slug=niel-kingston"`. That route (`app/api/atlas-avatar/route.ts`) is a server-side proxy that fetches `https://api.iqiglobal.com/api/web/agents/{slug}`, then fetches and streams the avatar it names — a real, uncontrolled third party, not a fixture. This is correct product behaviour: the offline-first invariant requires Atlas to be an adapter with a documented fallback (fetch throws → `catch` → `502` "Avatar unavailable" → the `<img>` fails to load), never a hard dependency. But it means the captured pixels of `session` and `session-scrolled` silently depend on whether that third party answers, and on *what* it answers with — invisible in any single run, because nothing about the harness signals a network call happened. | Two parts, both required. (a) Launch the server with `NODE_OPTIONS="--import=<path>/block-atlas.mjs"` — [section 4](#4-network-block-script) — a preload script that overrides `globalThis.fetch` to reject any request whose URL contains `api.iqiglobal.com`, passing every other host through untouched. This forces the route's own real, documented failure path on every run instead of stubbing a fake avatar image over it; the offline path is the one the product already promises, so pinning the harness to it tests something true. (b) In the recipe, immediately after creating the CDP session and before any navigation: `await cdp.send('Network.setCacheDisabled', { cacheDisabled: true }); await cdp.send('Network.clearBrowserCache');`. The block alone is not sufficient — the route sends `Cache-Control: public, max-age=3600`, and a long-lived Playwright browser session (many captures across many tasks in one browser process) had already cached a *successful* response for that exact URL from before the block existed. With the block but without the CDP calls, `curl` against the server correctly returned `502` while the browser's `<img>` kept rendering the old cached photo from disk cache — a false negative that looks like the block did nothing. | Diffing the accepted baseline (captured live, before this was understood) against a network-blocked recapture of the identical commit: **1146080 (0.221081)** on `session`, **1634060 (0.315212)** on `session-scrolled` — 22–32% of the frame. A separate false start on this same investigation, network-blocked but without the CDP cache calls, still showed a real photo (not a broken-image icon) and matched the old baseline's hash exactly, which is what exposed the caching problem. With both parts in place, three consecutive captures of `session`/`session-scrolled` were byte-identical (SHA-256) — see the recapture note below. |
 
 ### If a browser API behaves impossibly, suspect your own stub first
 
@@ -315,6 +325,15 @@ console-scrolled            0          0
 count from 24228 to 19 — that is the sort of green gate that stops noticing a `#e7552a → #e7552b`
 palette drift, which is exactly what the design-system work locks. The fix was to make the
 renderer deterministic, not the comparison lenient.
+
+**These `run2`/`run3` numbers predate item 15.** They landed `0` on `session` because the network
+happened to answer identically at those two moments, not because anything neutralised it — item 15
+only shows up when network state changes *between* runs, and a same-session sweep can easily not
+hit that window. The accepted baseline used by every task after the design-system pass's Task 4 was
+recaptured with the block in place, from `main` at the same commit (`84d991e`) the original baseline
+came from, so its provenance is unchanged and only `session`/`session-scrolled` differ from the
+original baseline — every other frame matched the pre-recapture baseline byte-for-byte, confirming
+the block touches nothing else. See item 15 in the table above for the measured before/after drift.
 
 ## Known gaps
 
@@ -528,6 +547,12 @@ async (page) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
   const cdp = await ctx.newCDPSession(page);
+  // Item 15: without this, a `session` capture can silently serve a disk-cached response from
+  // before the server-side api.iqiglobal.com block existed (Cache-Control: public,
+  // max-age=3600), even though the block itself is working -- curl would show 502 while the
+  // <img> still renders the old cached photo. Must run before the first navigation.
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+  await cdp.send('Network.clearBrowserCache');
 
   // A clean origin, then seed only what this recipe needs, then the real navigation.
   const fresh = async (url, seed) => {
@@ -620,3 +645,43 @@ async (page) => {
   await shoot('assets');
 }
 ```
+
+### 4. Network block script
+
+Item 15 of the nondeterminism table. Passed to the server, not the browser: `page.route()` /
+`context.route()` only intercept requests the *page* makes, and the page only ever talks to
+`localhost:3000` — the outbound call to `https://api.iqiglobal.com` happens inside
+`app/api/atlas-avatar/route.ts`, server-side, in response to that request. The only way to make
+that call fail deterministically without editing app code is to intercept it where it actually
+runs: a `--import` preload on the Node process serving `:3000`, which overrides `globalThis.fetch`
+before any app or framework code loads.
+
+```javascript
+// block-atlas.mjs -- forces app/api/atlas-avatar/route.ts's documented failure path (fetch
+// throws -> catch -> 502 "Avatar unavailable" -> UI falls back) on every request, instead of
+// leaving the captured pixels dependent on whether a live third party answers and with what.
+const BLOCKED = "api.iqiglobal.com";
+const realFetch = globalThis.fetch;
+globalThis.fetch = (input, init) => {
+  const url = typeof input === "string" ? input : (input && input.url) ? input.url : String(input);
+  if (url.includes(BLOCKED)) return Promise.reject(new TypeError(`fetch failed (blocked by screenshot harness: ${BLOCKED})`));
+  return realFetch(input, init);
+};
+```
+
+Start the server with it (see [step 1](#running-it)):
+
+```bash
+NODE_OPTIONS="--import=/abs/path/to/block-atlas.mjs" npm run start
+```
+
+Verify it landed before capturing, the same way item 4's camera stub is verified by reading the
+device label: `curl -s -o /dev/null -w '%{http_code}\n' 'http://localhost:3000/api/atlas-avatar?slug=niel-kingston'`
+should print `502`. If it prints `200`, the server was not restarted with the flag, or was started
+in a different shell that did not inherit `NODE_OPTIONS`.
+
+This does not, by itself, guarantee the *browser* observes the block — see the CDP calls in
+[section 3](#3-recipe-script) and the caching note in item 15 of the table. A `curl` `502` with a
+browser `<img>` still showing a real photo means the block reached the server but a stale
+`Cache-Control: public, max-age=3600` disk cache entry from an earlier, unblocked run is answering
+the page without a new network request at all.
