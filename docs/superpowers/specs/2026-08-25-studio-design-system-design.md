@@ -80,6 +80,21 @@ common rebrand; selector overrides remain available for the long tail.
 }
 ```
 
+**Verified: the `var()` indirection survives Tailwind's `color-mix()`.** Tailwind v4
+compiles `bg-brand/50` to `color-mix()`, and the spike confirmed it resolves
+identically whether `--color-brand` is a literal or `var(--blue)` — both computed
+to `oklab(0.639202 0.152423 0.112551 / 0.5)`. A later `:root` rule redefining
+`--blue`, which is exactly how `iq-theme.css` overrides `globals.css`, propagates
+through correctly.
+
+**One limit, worth knowing before anyone relies on it:** a *nested-selector*
+override does **not** propagate. `.theme-swap{--blue:…}` wrapping a subtree leaves
+`--color-brand` unchanged, because its `var()` substitution resolves once at the
+`:root` declaration site rather than per subtree. Today's white-label swaps a
+whole `:root`, so this costs nothing. It would matter the day someone wants two
+brands on one page — per-agent theming, a side-by-side preview — and that day the
+token layer needs literals plus a scoped override block, not this indirection.
+
 **Existing class names are the component API. Nothing is renamed.**
 `iq-theme.css` overrides roughly 120 selectors by name. Renaming `.primary` to
 `.ps-button` would silently disable the white-label layer — the page would still
