@@ -1,0 +1,30 @@
+/* Declares the cascade instead of relying on JS import order. `@layer` must be the first
+   statement -- it fixes precedence once; a later re-declaration would not reorder it.
+   `theme`, `base`, `utilities` are Tailwind v4's own layers. `legacy` holds all eleven
+   pre-existing stylesheets, in their original app/layout.tsx order, so their relative
+   precedence among each other is unchanged. `components` sits above `legacy`, which is the
+   whole point: a rule moved into app/ui/components.css during a later conversion outranks
+   every legacy rule regardless of source order or specificity, the guarantee the reverted
+   pass-2 attempt lacked (it moved rules into `@layer components` while every legacy sheet
+   stayed unlayered, and unlayered always beats layered). */
+@layer theme, base, legacy, components, utilities;
+
+@import "tailwindcss";
+
+@import "./globals.css" layer(legacy);
+@import "./iq-theme.css" layer(legacy);
+@import "./app-ui.css" layer(legacy);
+@import "./studio-camera.css" layer(legacy);
+@import "./camera-pro.css" layer(legacy);
+@import "./camera-v2.css" layer(legacy);
+@import "./studio-session.css" layer(legacy);
+@import "./polish.css" layer(legacy);
+@import "./device-portability.css" layer(legacy);
+@import "./studio-enhance.css" layer(legacy);
+@import "./brand-assets.css" layer(legacy);
+
+/* Tailwind owns where `@theme` lands, so tokens.css stays unlayered. components.css already
+   self-declares `@layer components { ... }`, so it is imported plainly too -- annotating the
+   import itself would nest a second `components` sub-layer inside the first for no benefit. */
+@import "./ui/tokens.css";
+@import "./ui/components.css";
