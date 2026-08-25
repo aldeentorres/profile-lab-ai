@@ -7,8 +7,15 @@ screenshot can see it.
 
 **Status: the determinism gate passes.** Three full runs against unmodified `main` — two in one
 browser process, a third after restarting the browser — produced `0` differing pixels on every
-frame at full precision. No fuzz threshold is used anywhere. Numbers in
-[Determinism gate](#determinism-gate-the-numbers).
+frame at full precision. No fuzz threshold is used anywhere, and nothing about the app's own
+rendering is suppressed. Numbers in [Determinism gate](#determinism-gate-the-numbers).
+
+**Baselines are machine-specific and cannot be shared.** The app uses locally installed fonts
+(`"Atkinson Hyperlegible"`, `"Avenir Next"`, Arial, Georgia) with no `@font-face` and no remote
+font, and the screenshots are 2880×1800 device pixels at this machine's device pixel ratio of 2.
+Whoever runs this gate has to capture their own baseline first, on the machine they are testing on.
+That is a real constraint on who can run it: it is a local pre-merge check, not something to wire
+into CI as-is.
 
 Playwright is deliberately **not** a project dependency. The harness runs through the Playwright
 MCP browser channel, so nothing is added to `package.json` and `npm ci` keeps reproducing the demo
@@ -60,16 +67,38 @@ machine-specific.
 | capture | CDP `Page.captureScreenshot` with **`fromSurface: false`**, `captureBeyondViewport: false` | see below — this one is the difference between a gate that works and one that does not |
 | permissions | `camera` granted for `http://localhost:3000` | otherwise `getUserMedia` rejects and every camera view becomes an error panel |
 
-**The capture path is the single most important setting.** Playwright's `page.screenshot()` — and
+### `fromSurface: false` is the load-bearing setting
+
+Change nothing else here before you understand this one. Playwright's `page.screenshot()` — and
 CDP's default `fromSurface: true` — reads the browser's *composited surface*. That path lands on
-one of two GPU raster states depending on tile history: **47209 differing pixels on `console`
-between two runs of identical code**, 99.9% of them at one part in 255, concentrated in large
-low-contrast gradients. `fromSurface: false` reads the renderer's own compositor and was
-byte-identical (same PNG length, same hash) across six reloads on which the surface path flipped.
-`fullPage: true` is worse still, because it re-rasterises into an off-screen surface — and it buys
-nothing here: `document.scrollHeight === innerHeight` on every view, since the app scrolls
-`#app-content` (or the view's own `<main>`), not the document. Below-the-fold content is captured
-by a second frame instead, named `<view>-scrolled.png`.
+one of two GPU raster states depending on tile history, and which one you get is a coin flip per
+page load: **47209 differing pixels on `console` between two runs of identical code**, 99.9% of
+them at one part in 255, concentrated in large low-contrast gradients.
+
+`fromSurface: false` reads the renderer's own compositor instead. Six fresh loads of the same view,
+hashing the returned PNG:
+
+```
+i0 fromSurface=false 4db03a5f8a0bd24d:195372   fromSurface=true 6cc7d3c6e0c5ed32:217984
+i1 fromSurface=false 4db03a5f8a0bd24d:195372   fromSurface=true 2debb4d9e3b236d3:218000
+i2 fromSurface=false 4db03a5f8a0bd24d:195372   fromSurface=true 2debb4d9e3b236d3:218000
+i3 fromSurface=false 4db03a5f8a0bd24d:195372   fromSurface=true 2debb4d9e3b236d3:218000
+i4 fromSurface=false 4db03a5f8a0bd24d:195372   fromSurface=true 2debb4d9e3b236d3:218000
+i5 fromSurface=false 4db03a5f8a0bd24d:195372   fromSurface=true 2debb4d9e3b236d3:218000
+```
+
+Byte-identical six times over, including on the load where the surface path flipped. This is what
+lets the whole gate run at full precision with nothing suppressed. It cost a detour: `page.screenshot()`
+has no `fromSurface` option, so the harness calls `Page.captureScreenshot` over CDP and POSTs the
+base64 to a small sidecar, because the MCP code sandbox has no `fs`, no `Buffer` and no dynamic
+`import`. That detour is the price of the only setting that makes the numbers mean anything.
+
+`fullPage: true` is worse still, because it re-rasterises into an off-screen surface
+(`captureBeyondViewport`) — eight reloads of `console` gave `0 0 47209 47209 0 47209 47209` against
+the first. And it buys nothing here: `document.scrollHeight === innerHeight` on every view, since
+the app scrolls `#app-content` (or the view's own `<main>`), not the document, so `fullPage` was
+capturing the same 1440×900 region all along, just through a flakier path. Below-the-fold content
+is captured by a second frame instead, named `<view>-scrolled.png`.
 
 ## The routes
 
@@ -92,9 +121,10 @@ is client state with no URL.
 
 ## Every source of nondeterminism, and what neutralises it
 
-Found empirically. Items 1–6 live in an init script registered with `context.addInitScript`, so
-they run **before any app JS** — a `Date` stub applied after the page has already formatted a
-timestamp is worthless. Items 7–13 live in the recipe's `settle()`.
+Found empirically, one break at a time. Items 1–7 and 13 live in an init script registered with
+`context.addInitScript`, so they run **before any app JS** — a `Date` stub applied after the page
+has already formatted a timestamp is worthless. Items 8–12 live in the recipe's `settle()`. Item 14
+is not fully neutralisable and is the reason baselines cannot be shared between machines.
 
 | # | Source | Neutralisation | Evidence it mattered |
 | --- | --- | --- | --- |
@@ -111,18 +141,43 @@ timestamp is worthless. Items 7–13 live in the recipe's `settle()`.
 | 11 | **Toasts.** `setToast` self-clears after 2600 ms. | Every shot waits for `.toast` to detach first. | |
 | 12 | **Scroll position.** `go()` scrolls `#app-content` and `window` with `behavior:"smooth"`. | Both reset to 0 and settled before the shot; the scrolled frame then sets `scrollTop = scrollHeight` explicitly. | |
 | 13 | **Overlay scrollbars.** They fade in on scroll and are still repainting when the scrolled frame is taken. | `::-webkit-scrollbar{width:0!important;height:0!important}`. They are overlay on this platform, so hiding them moves no layout. | 3145 pixels down the right edge of `console-scrolled`. |
-| 14 | **Gradient dither on `.enhance-editor`.** Its two decorative `radial-gradient`s (`circle at 8% 0%`, `circle at 96% 88%` in `app/studio-enhance.css`) dithered differently between page loads. | Screenshot-mode stylesheet flattens that one background to its own base colour `#0f1412`, applied identically to the baseline and every comparison run. | 24228 pixels on `select` under the old capture path. **See the note below — this may now be redundant.** |
-| 15 | **Fonts.** No `@font-face`, no remote font; the app asks for `"Atkinson Hyperlegible","Avenir Next",Arial,sans-serif` and Georgia. | `document.fonts.ready` awaited. Not fully neutralisable — rendering depends on which faces are installed locally, so **baselines are only comparable on the same machine**. | |
+| 14 | **Fonts.** No `@font-face`, no remote font; the app asks for `"Atkinson Hyperlegible","Avenir Next",Arial,sans-serif` and Georgia. | `document.fonts.ready` awaited. Not fully neutralisable — rendering depends on which faces are installed locally, so **baselines are only comparable on the same machine**. | |
 
-### Note on item 14
+### If a browser API behaves impossibly, suspect your own stub first
 
-The `.enhance-editor` flattening was ordered while the dither was believed to be the root cause.
-It was not: the root cause was the `fromSurface: true` capture path (see "Fixed capture settings").
-With `fromSurface: false` in place, one `main`-vs-`main` pair run **without** the flattening also
-came back `0` on `select` and `select-scrolled`. The flattening is kept because it was an explicit
-ruling and one pair is thin evidence, but it costs the harness its view of two real colour-carrying
-rules, so it is a reasonable thing to drop later — the only change needed is setting `flatten` to
-the empty string in the init script.
+This cost a ruling. For several runs the face detector appeared to report `ready` for a flat grey
+frame containing no face — an impossible result that got `batch` written off as uncoverable. The
+detector was fine. An edit to the init script had silently dropped the
+`navigator.mediaDevices.getUserMedia` override, so the harness had been running against the
+machine's actual webcam, pointed at a real scene.
+
+Two things let it pass unnoticed, both fixed here:
+
+- The init script used to open with `if (globalThis.__harnessInit) return`. `addInitScript`
+  **accumulates per browser context**, and every registration runs on every navigation — so the
+  *oldest* one won and every later edition short-circuited itself out of existence. There is no
+  guard now; the last registration wins.
+- Nothing asserted the stub was in effect. The tell was in plain sight the whole time: the Studio
+  view's device `<select>` read `FaceTime HD Camera (3A71:F4B5)` instead of `Harness Camera`. The
+  run log now surfaces that label, and it is the first thing to check when a camera view misbehaves.
+
+With the override restored the detector tracks stream content exactly as it should — flat grey →
+`center`, the reference portrait at 1.35× → `ready` → `batch`, the same portrait at 0.55× →
+`checking` — so `batch` is reachable, deterministic, and covered.
+
+### Nothing about the app's rendering is suppressed
+
+An earlier edition of this harness flattened `.enhance-editor`'s two decorative `radial-gradient`s
+(`circle at 8% 0%`, `circle at 96% 88%` in `app/studio-enhance.css`), because the dither looked like
+it came from them — 24228 pixels on `select`. It did not; it came from the capture path. Once
+`fromSurface: false` was in place the flattening was put through the full three-run protocol with it
+**disabled** and every frame came back `0`, so it was removed. It had been hiding two real
+colour-carrying rules from the gate, which is exactly the class of regression the design-system
+colour lock exists to catch.
+
+The lesson generalises: if a view drifts, look for the harness's own contribution before reaching
+for a stylesheet that suppresses part of the app. Every entry in the table above is a property of
+the browser or the driver, not of the design.
 
 ## Determinism gate: the numbers
 
@@ -131,23 +186,23 @@ with the baseline; run 3 was taken after closing and relaunching the browser. `m
 -metric AE`, no fuzz.
 
 ```
-view                       run2         run3
-profile             NOT COVERED  NOT COVERED
-session                       0            0
-session-scrolled              0            0
-capture                       0            0
-batch                         0            0
-review                        0            0
-review-scrolled               0            0
-select                        0            0
-select-scrolled               0            0
-consent                       0            0
-consent-scrolled              0            0
-success                       0            0
-personal                      0            0
-assets                        0            0
-console                       0            0
-console-scrolled              0            0
+view                     run2       run3
+profile               NOT COV    NOT COV
+session                     0          0
+session-scrolled            0          0
+capture                     0          0
+batch                       0          0
+review                      0          0
+review-scrolled             0          0
+select                      0          0
+select-scrolled             0          0
+consent                     0          0
+consent-scrolled            0          0
+success                     0          0
+personal                    0          0
+assets                      0          0
+console                     0          0
+console-scrolled            0          0
 ```
 
 **No fuzz threshold is used.** For the record, `-fuzz 0.4%` would have collapsed the old `select`
@@ -165,15 +220,13 @@ weight instead.
    the blank stream, so `placement-center` is what the baseline holds. The `ready`, `close` and
    `far` variants are not covered: reaching `ready` starts a 5-second countdown 700 ms later, and
    no screenshot can catch a countdown at the same digit twice.
-2. **`.enhance-editor`'s two decorative radial gradients** are flattened for the screenshot, so a
-   change to those two rules would not be caught on the `select` view. See the note on item 14.
-3. **Overlay scrollbars** are hidden, so scrollbar styling is not compared.
-4. **`<video>` content** is masked black and paused, so nothing about the live preview itself is
+2. **Overlay scrollbars** are hidden, so scrollbar styling is not compared.
+3. **`<video>` content** is masked black and paused, so nothing about the live preview itself is
    compared — only the chrome around it.
-5. **`profile`** does not exist and is not covered.
-6. **Cross-machine comparison is meaningless.** The app relies on locally installed fonts, and the
-   screenshots are 2880×1800 device pixels at this machine's DPR. Re-baseline on the machine you
-   are testing on.
+4. **`profile`** does not exist and is not covered.
+5. **Cross-machine comparison is meaningless.** The app relies on locally installed fonts, and the
+   screenshots are 2880×1800 device pixels at this machine's DPR of 2. Re-baseline on the machine
+   you are testing on; a baseline captured elsewhere will differ on text everywhere.
 
 ## The scripts
 
@@ -239,13 +292,11 @@ Three files. In this repo they live in `.playwright-mcp/` (already git-excluded 
     style.id = "harness-style";
     // transition: prefers-reduced-motion (emulated by the harness) covers @keyframes through the
     //   app's own media query, but not transitions.
-    // flatten: .enhance-editor's two decorative radial gradients dither differently per page
-    //   load. Applied identically to baseline and comparison runs. See "Note on item 14".
     // noscrollbar: overlay scrollbars fade in on scroll and repaint under the scrolled frame.
     // video: masked opaque black rather than frozen -- layout untouched.
-    const flatten = ".enhance-editor{background:#0f1412!important}";
+    // Nothing here suppresses an app colour. See "Nothing about the app's rendering is suppressed".
     const noscrollbar = "::-webkit-scrollbar{width:0!important;height:0!important}";
-    style.textContent = "*,*::before,*::after{transition:none!important}" + flatten + noscrollbar
+    style.textContent = "*,*::before,*::after{transition:none!important}" + noscrollbar
       + "video{background:#000!important;filter:brightness(0)!important}";
     document.head.appendChild(style);
   });
