@@ -53,7 +53,19 @@ npm run start                    # http://localhost:3000, in the background
 
 The server loads `dist/` at boot, so **if you rebuild while it is running you must restart it** —
 otherwise you are photographing the previous build and every number below is meaningless. If a
-server is already up from an earlier session, restart it rather than trusting it.
+server is already up from an earlier session, restart it rather than trusting it. Check with
+`lsof -nP -iTCP:3000 -sTCP:LISTEN`, not `lsof -ti tcp:3000` — the latter also matches client
+sockets, including the browser's own, and will report a dead server as alive.
+
+Then **warm it before capturing**:
+
+```bash
+for i in 1 2 3; do curl -s -o /dev/null "http://localhost:3000/?view=console"; done
+```
+
+A cold server compiles on its first request, and the renderer competing with that compile is enough
+to leave a frame's repaint unfinished. See [Reading the result](#reading-the-result) — this is the
+one failure mode that fakes a catastrophic regression.
 
 **2. Start the screenshot sidecar** (source in [section 2](#2-screenshot-writer-sidecar) — it is
 not in the repo, and it is needed because the harness cannot write files itself):
@@ -109,10 +121,28 @@ A non-zero count means one of three things, in the order worth checking:
 3. **The baseline is stale** — captured from a different build, a different machine, or a different
    edition of the harness. Re-capture it and re-run.
 
-A distinctive signature worth recognising: if nearly every differing pixel is off by exactly
-`1/255` and they cluster in large low-contrast gradients, that is renderer noise, not the app.
-Do not reach for a fuzz threshold; find which of the fourteen items in the table below has come
-loose.
+**Always re-run a non-zero frame once before you believe it.** The capture is not hermetic against
+a busy machine, and this has been observed: seconds after a server restart, `console-scrolled` came
+back **3016720 (0.58193)** — 58% of the frame — against a baseline that was, and still is, correct.
+`console` in the same run showed 7. Re-running the identical view twice more gave `0` both times.
+
+The mechanism is the `-scrolled` frames: they set `scrollTop` and then wait a fixed 1500 ms plus two
+animation frames for the repaint. That is generous on an idle machine and not always enough on a
+loaded one, and a half-finished scroll repaint differs from the baseline across most of the image —
+which looks like the worst regression you have ever caused and is nothing at all. The `1/255`
+signature does **not** apply here: this failure produces large, high-contrast differences.
+
+Two signals separate it from a real regression: it lands on a `-scrolled` frame while that view's
+top frame is clean or nearly so, and **it does not reproduce**. A real change reproduces every time.
+
+Do not try to fix this with a settle-until-identical capture loop. It was tried: capturing twice and
+comparing hashes until two agree doubles the number of `Page.captureScreenshot` calls, `cdp.send`
+has no timeout, and in this environment the run wedged for thirty minutes with no output. Warm the
+server, keep the machine quiet during a capture, and re-run the odd frame.
+
+A separate signature worth recognising: if nearly every differing pixel is off by exactly `1/255`
+and they cluster in large low-contrast gradients, that is renderer noise, not the app. Do not reach
+for a fuzz threshold; find which of the fourteen items in the table below has come loose.
 
 ### Fixed capture settings — all of these matter
 
