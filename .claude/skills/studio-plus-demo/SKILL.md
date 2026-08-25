@@ -29,7 +29,7 @@ three-minute pitch, so the bar is "smallest verified fix", not "best refactor".
 - **Do not remove a fallback.** Camera blocked → import photo. QR blocked → manual code.
   Atlas down → bundled agent record. Printer missing → download or Save as PDF. CodeFormer
   offline → local enhancement. Every one of these is part of the pitch's safety net.
-- **Do not clear lint warnings** as a side quest: 21 warnings (`<img>`, two deliberate
+- **Do not clear lint warnings** as a side quest: 22 warnings (`<img>`, two deliberate
   `react-hooks/exhaustive-deps`) are the known-good state. 0 errors is the bar.
 - Gate every change on `npm run verify`, then re-rehearse the affected step of the flow.
 
