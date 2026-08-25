@@ -57,10 +57,24 @@ project, so the active values are unambiguous:
 `app/globals.css` keeps its own `:root` as the base brand. That block is not
 edited — the only change to the file is the two `@import` lines added below.
 
-**No literal colour value is introduced anywhere in `app/ui/`.** Tokens alias the
-existing variables; they never restate their values. A hex code appearing in a
-new file is a review failure, because it is the mechanism by which a palette
-silently drifts.
+**No literal colour value may restate what a variable already carries.** Tokens
+alias the existing variables; they never duplicate their values. Writing
+`#e7552a` where `var(--blue)` already holds it is the mechanism by which a
+palette silently drifts, and it is a review failure.
+
+**But some values have no variable to alias.** `.eyebrow{color:#71633f}`,
+`.steps>i{background:#d5d0c7}`, `.consents label>i{background:#c8c5be}` and
+`.camera-rating`'s `#111714e8`/`#ef7656`/`#f3b44d`/`#5ce493` are one-off literals
+that no custom property holds. The rule as first written made those selectors
+unconvertible, which was never the intent. So, precisely:
+
+- **Forbidden** — restating a value some variable already carries.
+- **Permitted** — moving a one-off literal verbatim with the rule that owns it,
+  when no variable holds that value, carrying a comment saying so. A literal that
+  exists in one place and moves to one other place creates no second source of
+  truth; it relocates a single one.
+- **Requires a decision, not a judgement call** — inventing a new named palette
+  variable for such a value. That is new palette surface, not a refactor.
 
 ## Decisions
 
