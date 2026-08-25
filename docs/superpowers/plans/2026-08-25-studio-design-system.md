@@ -654,21 +654,21 @@ The three form-ish primitives. Grouped because each is small and they share one 
 
 - [ ] **Step 1: Write `Field`**
 
-Absorbs `.search input`, `.device-field`, `.manual-checkin form`.
+Absorbs `.device-field` — two sites, both `<label className="device-field"><span>…</span><select>…</select></label>` in the console view.
+
+`.search` has **zero** call sites in `app/studio.tsx`. `.manual-checkin` is a `<div>` wrapping a form, not a label/control pair — it does not fit and is not in scope.
 
 ```tsx
-import type {InputHTMLAttributes,ReactNode} from "react";
+import type {ReactNode} from "react";
 
-// The label wraps the control rather than pointing at it with htmlFor, which is what the
-// existing `.device-field` markup does and what keeps the whole row a click target.
+// The label wraps the control rather than pointing at it with htmlFor, which is what the existing
+// .device-field markup does and what keeps the whole row a click target.
 export function Field({label,className,children}:{label:ReactNode;className?:string;children:ReactNode}){
  return <label className={className||undefined}><span>{label}</span>{children}</label>;
 }
-
-export function TextField({label,className,...rest}:InputHTMLAttributes<HTMLInputElement>&{label:ReactNode;className?:string}){
- return <Field label={label} className={className}><input {...rest}/></Field>;
-}
 ```
+
+**No `TextField`.** The original plan specified one wrapping an `<input>`. Both real sites wrap a `<select>`, so it would ship with zero call sites — invisible to both gates, exactly the dead-component problem Task 5 hit with `Badge`. `Field` takes children and serves either.
 
 - [ ] **Step 2: Write `Toggle`**
 
@@ -704,7 +704,7 @@ The inline `style` stays inline. It is a computed percentage, not a themeable va
 - [ ] **Step 4: Replace call sites and export from the barrel**
 
 ```ts
-export {Field,TextField} from "./field";
+export {Field} from "./field";
 export {Toggle} from "./toggle";
 export {Stepper} from "./stepper";
 ```
