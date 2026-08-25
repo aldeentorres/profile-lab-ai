@@ -1,0 +1,13 @@
+/* Structural scale only. Every colour aliases the variable that already carries it, so the
+   palette has exactly one definition (app/iq-theme.css) and rebranding stays a matter of
+   swapping that file. Restating a hex here would create a second source of truth that drifts
+   silently the first time someone edits only one of them. */
+@theme {
+  --color-brand: var(--blue);
+  --color-ink: var(--ink);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-soft: var(--soft);
+  --radius-card: 16px;
+  --radius-control: 10px;
+}
