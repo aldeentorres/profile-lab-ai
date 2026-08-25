@@ -506,7 +506,6 @@ select:focus-visible {
 .scanner-start,
 .manual-checkin button,
 .sheet button,
-.consents label,
 .assets article,
 .devices article {
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -725,10 +724,6 @@ select:focus-visible {
 .sheet button[aria-pressed="true"] {
   border-color: var(--ps-coral);
   box-shadow: 0 0 0 1px var(--ps-coral), 0 14px 35px rgba(201, 74, 39, 0.12);
-}
-
-.consents label {
-  cursor: pointer;
 }
 
 .consents label:hover {
@@ -1474,12 +1469,6 @@ select:focus-visible {
   margin-block: 24px 16px;
 }
 
-.consents label {
-  margin-bottom: 8px;
-  padding: 17px;
-  border-radius: 9px;
-}
-
 .consents small {
   margin-top: 3px;
   font-size: 12px;
@@ -1581,12 +1570,7 @@ select:focus-visible {
 }
 
 .final-quality-metrics span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 8px;
   border-right: 1px solid #e7ece9;
-  text-align: center;
 }
 
 .final-quality-metrics span:last-child {

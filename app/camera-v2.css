@@ -164,7 +164,6 @@
 .live-pose-card.good>i>b { background: #5ce493; }
 .live-pose-card p { margin: 0; color: #fff; font-size: 11px; font-weight: 650; line-height: 1.35; }
 .live-pose-card>small { display: block; margin-top: 5px; color: #ffffff56; font-size: 8px; }
-.camera-rating { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid #ffffff24; border-radius: 12px; background: #111714e8; color: #fff; box-shadow: 0 8px 24px #0007; }
 .camera-rating>strong { width: 39px; height: 39px; display: grid; place-items: center; flex: none; border: 3px solid #ef7656; border-radius: 50%; font-size: 14px; }
 .camera-rating.fair>strong { border-color: #f3b44d; }
 .camera-rating.good>strong { border-color: #5ce493; }
@@ -172,7 +171,6 @@
 .camera-rating>span b { font-size: 10px; }
 .camera-rating>span small { max-width: 120px; overflow: hidden; color: #ffffff8b; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .shot-preview>.camera-rating { position: absolute; top: 18px; right: 18px; }
-.camera-rating.compact { position: absolute; top: 10px; right: 10px; z-index: 2; gap: 6px; padding: 6px 8px; border-radius: 10px; }
 .camera-rating.compact>strong { width: 32px; height: 32px; border-width: 2px; font-size: 11px; }
 .camera-rating.compact>span b { font-size: 8px; }
 .camera-rating.compact>span small { max-width: 82px; font-size: 7px; }

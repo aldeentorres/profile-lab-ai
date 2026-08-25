@@ -2,7 +2,6 @@
 .portable-devices{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
 .portable-devices article{display:flex;min-width:0;flex-direction:column}
 .portable-devices article>p{min-height:88px;margin-bottom:18px}
-.device-field{display:flex;flex-direction:column;gap:7px;margin-top:auto;color:#b7bab8;font-size:12px;font-weight:700}
 .device-field select,.camera-picker select{width:100%;height:44px;padding:0 38px 0 12px;border:1px solid #535957;border-radius:10px;background:#202421;color:#fff;font:600 13px ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden;text-overflow:ellipsis}
 .device-field select:focus-visible,.camera-picker select:focus-visible{outline:3px solid #ff8b68;outline-offset:2px}
 .device-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}

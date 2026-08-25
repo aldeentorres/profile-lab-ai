@@ -129,4 +129,79 @@
  .console-title { display: block; }
 }
 
+/* Task 15 (Set C): remaining primitives.
+   .search input is NOT converted -- dead. No element in the app ever carries the wrapping
+   `.search` class (confirmed with a repo-wide search); `.search input` cannot match anything. */
+
+/* CameraRating's own markup (score ring + label), not StatTile's <span><small/><b/></span> --
+   they don't share a shape. .compact is required alongside the base rule: it renders on every
+   photo in the batch view (`<CameraRating compact/>`) and overrides gap/padding/border-radius,
+   which would go inert left behind in legacy. */
+.camera-rating {
+ display: flex; align-items: center; gap: 9px;
+ padding: 9px 11px;
+ border: 1px solid #ffffff24; /* literal: translucent white, no token equivalent */
+ border-radius: 12px;
+ background: #111714e8; /* literal: near-opaque near-black panel, no token equivalent */
+ color: #fff;
+ box-shadow: 0 8px 24px #0007;
+}
+.camera-rating.compact { position: absolute; top: 10px; right: 10px; z-index: 2; gap: 6px; padding: 6px 8px; border-radius: 10px; }
+
+/* border-right is NOT converted: `.final-quality-metrics span:nth-child(3)` and `:nth-child(n+4)`
+   (polish.css, @max-width:620px) retune it for the mobile 3-column grid-template-columns that
+   `.final-quality-metrics` itself (out of scope, unconverted) still switches to at that
+   breakpoint -- moving border-right without that grid change would strand a half-converted
+   responsive pair, and the desktop-only `:last-child` companion alone doesn't cover it. */
+.final-quality-metrics span {
+ display: flex; flex-direction: column; gap: 2px;
+ padding: 10px 8px;
+ text-align: center;
+}
+
+.device-field { display: flex; flex-direction: column; gap: 7px; margin-top: auto; color: #b7bab8; font-size: 12px; font-weight: 700; }
+
+/* .consents label's switch is painted by `.consents input:checked+i`, an adjacent-sibling
+   selector on a DIFFERENT element (the <i>, not this label) -- untouched by this move, and
+   verified by hand in the browser afterward: both the unchecked and checked states still render
+   and toggle correctly, and Atlas-profile / brand-use stay independent. */
+.consents label {
+ display: flex; align-items: center;
+ padding: 17px;
+ border: 1px solid var(--color-line);
+ border-radius: 9px;
+ margin-bottom: 8px;
+ cursor: pointer;
+ transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+/* .steps: background, border, border-radius, color, font-size, gap, margin-bottom, min-height
+   and padding are NOT converted. `.app-content .steps` (polish.css, 2-class, always present --
+   .steps only ever renders inside .app-content) wins every one of those today; moving them would
+   invert that, the same risk as .primary's deferred properties in Set A. display, align-items,
+   font-weight, text-transform, letter-spacing, max-width and three of the four margin sides are
+   never touched by that override and convert cleanly. */
+.steps {
+ display: flex; align-items: center;
+ max-width: 1250px;
+ margin-top: 0; margin-right: auto; margin-left: auto;
+ font-weight: 800;
+ text-transform: none;
+ letter-spacing: .03em;
+}
+
+/* .photo-media: width, height and min-height are NOT converted. `.mini>.photo-media` (success
+   view) and `.personal-grid .photo-media` / `.photo-card .photo-media` (personal view) each
+   retune one of the three for their context, and all three are real, rendered overrides today
+   (confirmed via the actual .tsx render paths, not just grep on the CSS) -- moving any of them
+   would go the same way as .primary's background. position and overflow are never touched by
+   any of those three, or by the other .photo-media rules whose ancestor class (.hero-photo,
+   .photo-wrap) turned out to be dead markup once checked against studio.tsx. */
+.photo-media { position: relative; overflow: hidden; }
+
+/* .user-photo: the one override found (`.home-screen .profile-preview .user-photo`) targets
+   markup that is dead -- .home-screen and .profile-preview appear in no .tsx in this app -- so
+   nothing contests any property here. Converts in full. */
+.user-photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+
 }
