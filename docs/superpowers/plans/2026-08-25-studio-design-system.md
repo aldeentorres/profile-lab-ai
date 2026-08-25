@@ -858,162 +858,118 @@ git add app/ui/tokens.css app/ui/components.css app/globals.css
 git commit -m "feat: add the Tailwind token layer, aliasing the existing brand variables"
 ```
 
-### Task 12: Convert `Button` and `Badge` internals
+### Task 12: Establish the layer architecture
+
+Nothing converts until the cascade is declared rather than positional. This task moves no rule; it only changes *how* the existing eleven stylesheets are loaded, and proves that change is invisible.
 
 **Files:**
-- Modify: `app/ui/components.css`, `app/polish.css`, `app/globals.css`, `app/app-ui.css`
+- Create: `app/entry.css`
+- Modify: `app/layout.tsx`, `app/globals.css`, `app/ui/components.css`
 
 **Interfaces:**
-- Consumes: tokens from Task 11
-- Produces: nothing new — internal change only. Component call sites are untouched.
+- Consumes: the token layer from Task 11
+- Produces: a `components` layer that outranks all legacy CSS, so converted rules actually paint
 
-- [ ] **Step 1: Locate the rules**
+- [ ] **Step 1: Spike the mechanism before committing to it**
 
-```bash
-grep -n '\.primary\|\.gold\|\.link\|\.upload\|\.badge\|\.eyebrow' app/globals.css app/polish.css app/app-ui.css app/iq-theme.css
-```
-
-`app/iq-theme.css` matches are the **brand layer and must stay** — they are what makes white-label work. Only the base rules in `globals.css`, `polish.css` and `app-ui.css` move.
-
-- [ ] **Step 2: Move one selector into `components.css` as `@apply`**
+`app/layout.tsx` imports eleven stylesheets as JavaScript modules. A JS import cannot carry `layer(...)`. The fix is a single CSS entry that uses CSS `@import` with a layer:
 
 ```css
-@layer components {
-  .primary {
-    @apply min-h-14 px-7 font-extrabold text-white;
-    background: var(--color-brand);
-    border-radius: var(--radius-control);
-  }
-}
+/* app/entry.css */
+@layer theme, base, legacy, components, utilities;
+@import "tailwindcss";
+@import "./globals.css" layer(legacy);
+@import "./iq-theme.css" layer(legacy);
+/* …the remaining nine, in their current order… */
+@import "./ui/tokens.css";
+@import "./ui/components.css" layer(components);
 ```
 
-Colour and radius are set from tokens rather than utilities so `iq-theme.css`'s override still wins by specificity, exactly as it does now.
+**Verify the bundler actually honours `layer()` on `@import` before building anything on it.** Tailwind v4's PostCSS plugin processes `@import`; whether it preserves the layer annotation through this project's vinext build is an assumption, not a fact. Build, then read the emitted CSS and confirm the layer blocks exist.
 
-- [ ] **Step 3: Delete the original rule**
+If it does not work, stop and report. The fallback — wrapping each file's contents in `@layer legacy { … }` — edits all eleven files and is a materially different change.
+
+- [ ] **Step 2: Preserve order exactly**
+
+The eleven `@import` lines must appear in `app/layout.tsx`'s current order. Within one layer, source order still decides, so this preserves every relative precedence among the legacy files.
+
+`@layer theme, base, legacy, components, utilities;` must come **first**, before any `@import`. It declares precedence; later re-declaration does not reorder.
+
+Note what this changes deliberately: today `globals.css` is unlayered and therefore beats Tailwind's preflight. Under the new order `legacy` still outranks `base`, so that survives.
+
+- [ ] **Step 3: Point `layout.tsx` at the single entry**
+
+Replace the eleven imports with `import "./entry.css";`. Remove the two `@import` lines Task 11 added to `globals.css` — `entry.css` owns import order now, and `globals.css` becomes an ordinary member of `legacy`.
+
+- [ ] **Step 4: Prove it is inert**
+
+Run `npm run verify`, then the full 15-frame capture.
+
+Expected: **all 15 byte-identical.** Layering every legacy file uniformly preserves their relative precedence, so nothing should move.
+
+**If a frame moves, stop and report.** It means the layer order does not reproduce the positional cascade, and the mapping is wrong somewhere — that is a finding worth more than a patch, because every later conversion depends on this being exact.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/entry.css app/layout.tsx app/globals.css app/ui/components.css
+git commit -m "refactor: declare the cascade instead of relying on import order"
+```
+
+### Task 13: Convert `Button` and `Badge`
+
+**Files:**
+- Modify: `app/ui/components.css`, and every legacy file holding a rule for the converted selectors
+
+**Interfaces:**
+- Consumes: the layer architecture from Task 12, tokens from Task 11
+- Produces: nothing new — internal change only. No `.tsx` is edited in any pass 2 task.
+
+- [ ] **Step 1: Gather every rule for one selector**
+
+```bash
+for f in app/*.css; do echo "--- $f"; grep -n '\.primary' "$f"; done
+```
+
+`.primary` has rules in `globals.css`, `iq-theme.css`, `app-ui.css`, `camera-v2.css` and `polish.css`. **All of them are in scope, `iq-theme.css` included.**
+
+This is the step the previous design got wrong. Under the old model a converted rule sat *below* the leftovers and partial moves were survivable. Now the merged rule *outranks* them, so anything left behind stops applying — a partial gather is a regression, not a compromise.
+
+- [ ] **Step 2: Merge into one tokenised rule**
+
+Compute what actually paints today — later files win — and write a single rule producing that result, using tokens for colour and radius.
+
+The colour lock: never restate a value a variable already carries; a one-off literal with no variable may move verbatim, commented; inventing a new named palette value needs a decision, not a judgement call.
+
+- [ ] **Step 3: Delete every original**
 
 - [ ] **Step 4: Verify and diff**
 
-Run: `npm run verify`, then screenshot-diff all ten views.
-Expected: PASS, `0` everywhere.
+`npm run verify`, then screenshot-diff the frames where the selector renders. Expected: `0`.
 
-- [ ] **Step 5: Repeat Steps 2-4 for each remaining selector, one at a time**
+- [ ] **Step 5: Repeat for `.gold`, `.link`, `.upload`, `.badge`, `.eyebrow`**
 
-`.gold`, `.link`, `.upload`, `.badge`, `.eyebrow`. One selector, one diff, every time.
+One selector, one diff, every time. Batching makes a regression unattributable, and with a rule now outranking its former overriders the failure modes are less obvious, not more.
 
-Converting several before diffing makes a regression unattributable, which costs more than the diffs save.
+- [ ] **Step 6: Full 15-frame capture, then commit**
 
-- [ ] **Step 6: Commit**
+### Task 14: Convert the container primitives
 
-```bash
-git add app/ui/components.css app/polish.css app/globals.css app/app-ui.css
-git commit -m "refactor: rebuild Button and Badge styling on tokens"
-```
+`.photo-card`, `.photos-section`, `.narrow`, `.empty-state`, `.photos-toolbar`, `.gallery-head`, `.console-title`, `.photos-heading`.
 
-### Task 13: Convert the container primitives
+Same loop as Task 13: gather across all eleven files, merge, delete, verify, diff, one selector at a time.
 
-`Card`, `Panel`, `Toolbar`, `PageHeader`.
-
-**Files:**
-- Modify: `app/ui/components.css`, `app/polish.css`, `app/app-ui.css`
-
-**Interfaces:**
-- Consumes: tokens from Task 11
-- Produces: internal change only
-
-- [ ] **Step 1: Convert each selector, one at a time**
-
-Same loop as Task 12, Steps 2-4, for `.photo-card`, `.photos-section`, `.narrow`, `.empty-state`, `.photos-toolbar`, `.gallery-head`, `.console-title`, `.photos-heading`.
-
-- [ ] **Step 2: Verify and diff after each**
-
-Expected: PASS and `0`, every time.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add app/ui/components.css app/polish.css app/app-ui.css
-git commit -m "refactor: rebuild the container primitives on tokens"
-```
-
-### Task 14: Convert the remaining primitives
-
-`StatTile`, `Field`, `Toggle`, `Stepper`, `MediaFrame`.
-
-**Files:**
-- Modify: `app/ui/components.css`, `app/polish.css`, `app/app-ui.css`, `app/camera-v2.css`
-
-**Interfaces:**
-- Consumes: tokens from Task 11
-- Produces: internal change only
-
-- [ ] **Step 1: Convert each selector, one at a time**
+### Task 15: Convert the remaining primitives
 
 `.camera-rating`, `.final-quality-metrics span`, `.device-field`, `.search input`, `.consents label`, `.steps`, `.photo-media`, `.user-photo`.
 
-**`.camera-rating` is converted as `CameraRating`'s own markup, not through `StatTile`.** They do not share a shape — see Task 5 Step 2. Routing it through `StatTile` here would be a structural edit, and this pass permits none. `.checks span` is omitted deliberately: it has no call sites, so Task 15's dead-CSS sweep owns it rather than this task.
+`.camera-rating` is converted as `CameraRating`'s own markup, not through `StatTile` — they do not share a shape.
 
-- [ ] **Step 2: Give `.consents label` extra attention**
+`.consents label` needs extra care: its switch is built from `input:checked + i`, and both states must be verified by hand after converting. A sibling-selector break leaves the unchecked state looking perfect.
 
-Its switch is built from `input:checked + i`. Verify both toggle states by hand after converting, not just the default one — a sibling-selector break leaves the unchecked state looking perfect.
+### Task 16: Dead-CSS sweep and close-out
 
-- [ ] **Step 3: Verify and diff after each**
-
-Expected: PASS and `0`, every time.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add app/ui/components.css app/polish.css app/app-ui.css app/camera-v2.css
-git commit -m "refactor: rebuild the remaining primitives on tokens"
-```
-
-### Task 15: Dead CSS sweep and close-out
-
-**Files:**
-- Modify: `app/polish.css`, `app/app-ui.css`, `app/globals.css`
-- Modify: `CLAUDE.md`
-
-**Interfaces:**
-- Consumes: everything
-- Produces: the merge proposal
-
-- [ ] **Step 1: Find rules nothing references any more**
-
-```bash
-for c in $(grep -oE '^\.[a-z][a-z0-9-]*' app/polish.css | sort -u | tr -d '.'); do
-  grep -qr "\"$c\|'$c\| $c" app/*.tsx app/**/*.tsx app/ui/*.css || echo "unreferenced: $c"
-done
-```
-
-Treat the output as a list to check, not a list to delete. The grep cannot see classes built by template literal — `` className={`camera-rating ${rating.tone}`} `` means `.good`, `.fair` and `.low` are all live despite never appearing as string literals. Confirm each candidate by hand.
-
-- [ ] **Step 2: Delete confirmed-dead rules, then verify and diff**
-
-Run: `npm run verify`, then screenshot-diff all ten views.
-Expected: PASS, `0` everywhere.
-
-- [ ] **Step 3: Update the recorded state**
-
-`CLAUDE.md` gains `app/ui/` in the "Where things live" table, and its "Last verified state" line gets the true test and warning counts from the final run.
-
-- [ ] **Step 4: Final full rehearsal**
-
-The complete judge flow, every documented fallback, on the branch. Same walkthrough as Task 9 Step 2.
-
-- [ ] **Step 5: Report, and propose the merge**
-
-State: final diff results across all ten views, verify numbers, rehearsal outcome, and the net line change across `app/studio.tsx` and the CSS files.
-
-**Do not merge.** `main` is the demo fallback and stays that way until the user decides otherwise.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add app/polish.css app/app-ui.css app/globals.css CLAUDE.md
-git commit -m "refactor: remove CSS rules superseded by the component layer"
-```
-
----
+Find rules nothing references, confirm each by hand (the grep cannot see classes built by template literal), delete the confirmed-dead, update `CLAUDE.md`'s recorded state, run a full judge-flow rehearsal, and report. **Do not merge** — `main` is the demo fallback until the user decides otherwise.
 
 ## Self-review notes
 
