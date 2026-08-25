@@ -15,40 +15,59 @@ const environment = { ASSETS: { fetch: async () => new Response("Not found", { s
 const context = { waitUntil() {}, passThroughOnException() {} };
 const html = await (await worker.fetch(new Request("http://localhost/"), environment, context)).text();
 
-// Class list established empirically (see task-1-report.md, Step 1) by rendering the default
-// SSR page and collecting every class="..." token. The studio's views are client-state-driven,
-// so only the always-mounted app shell and the default "personal" view (with an empty gallery)
-// ever reach server-rendered markup — personal-grid, photo-card, photo-card-info and the
+// Exact class tokens, not a substring/regex match: split every class="..." attribute value on
+// whitespace and compare tokens for equality. A `\b`-based regex treats "-" as a non-word
+// character, so `\bapp-nav\b` also matches inside "app-nav-main" — a real false pass this
+// project hit (app-nav sits inside "app-nav-main", photos-section inside "photos-section-head").
+// Token equality has no such affix hole: "app-nav" only ever equals the token "app-nav".
+const classTokens = [...html.matchAll(/class="([^"]+)"/g)].flatMap(m => m[1].split(/\s+/));
+
+function occurrencesOf(name) {
+  return classTokens.filter(token => token === name).length;
+}
+
+// Class list and counts established empirically (see task-1-report.md, Step 1) by rendering the
+// default SSR page and counting every class="..." token. The studio's views are client-state
+// driven, so only the always-mounted app shell and the default "personal" view (with an empty
+// gallery) ever reach server-rendered markup — personal-grid, photo-card, photo-card-info and the
 // singular photo-actions class from the brief's starting proposal never appear server-side and
 // are deliberately not locked here; a screenshot test is the right tool for those.
-const lockedClasses = [
+//
+// Counts matter as much as presence: photos-actions, primary and take-photo each render twice
+// (once in the toolbar, once in the empty-gallery state), and a presence-only assertion is
+// satisfied as long as one of the two survives — a refactor that drops a class from some but not
+// all of its call sites would pass clean. Locking the exact count closes that hole.
+const lockedClassCounts = {
   // App shell: container, nav/toolbar and button classes mounted on every view.
-  "app-shell",
-  "skip-link",
-  "app-nav",
-  "app-wordmark",
-  "app-nav-main",
-  "rail-actions",
-  "rail-help",
-  "rail-reset",
-  "app-content",
+  "app-shell": 1,
+  "skip-link": 1,
+  "app-nav": 1,
+  "app-wordmark": 1,
+  "app-nav-main": 1,
+  "rail-actions": 1,
+  "rail-help": 1,
+  "rail-reset": 1,
+  "app-content": 1,
   // Default "personal" (Photos) view: section, toolbar and card-adjacent classes.
-  "gallery",
-  "photos-page",
-  "photos-toolbar",
-  "photos-heading",
-  "photos-actions",
-  "photos-section",
-  "photos-section-head",
-  "photos-empty",
-  "primary",
-  "take-photo",
-];
+  "gallery": 1,
+  "photos-page": 1,
+  "photos-toolbar": 1,
+  "photos-heading": 1,
+  "photos-actions": 2,
+  "photos-section": 1,
+  "photos-section-head": 1,
+  "photos-empty": 1,
+  "primary": 2,
+  "take-photo": 2,
+};
 
-for (const locked of lockedClasses) {
-  test(`SSR markup still emits .${locked}`, () => {
-    assert.match(html, new RegExp(`class="[^"]*\\b${locked}\\b`),
-      `.${locked} vanished from the rendered page — a component dropped or renamed it, and the CSS that targets it no longer applies`);
+for (const [locked, expected] of Object.entries(lockedClassCounts)) {
+  test(`SSR markup emits .${locked} exactly ${expected} time${expected === 1 ? "" : "s"}`, () => {
+    const actual = occurrencesOf(locked);
+    const message = actual < expected
+      ? `.${locked} appeared ${actual} of ${expected} expected times — a component dropped or renamed it at one of its call sites, so the CSS that targets it no longer applies there`
+      : `.${locked} appeared ${actual} of ${expected} expected times — a new element started rendering this class; if intentional, update the expected count in lockedClassCounts`;
+    assert.equal(actual, expected, message);
   });
 }
 
