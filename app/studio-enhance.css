@@ -288,3 +288,16 @@
  .enhance-pipeline{grid-template-columns:repeat(5,minmax(54px,1fr));overflow:auto}
 }
 @media(prefers-reduced-motion:reduce){.enhance-sliders,.enhance-continue{transition:none}.spinning{animation:none}}
+
+/* A generative failure is reported, not silently swapped for an on-device render: the agent sees the
+   provider's own reason and chooses whether to retry or take the non-generative pipeline instead. */
+.enhance-failed { display: grid; gap: 10px; margin-top: 12px; padding: 14px; border: 1px solid #6d2f22; border-radius: 12px; background: #2a1712; }
+.enhance-failed > p { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.enhance-failed b { color: #ffb9a4; font-size: 13.5px; font-weight: 750; }
+.enhance-failed small { color: #ffffff6b; font-size: 11px; }
+.enhance-failed .enhance-failed-reason { color: #f0cabd; font-size: 12.5px; line-height: 1.45; }
+.enhance-failed-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.enhance-failed-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 1px solid #ffffff20; border-radius: 9px; background: #ffffff0d; color: #ffffffd0; font-size: 12.5px; font-weight: 650; cursor: pointer; }
+.enhance-failed-actions button:hover { border-color: #ef896880; background: #ffffff16; color: #fff; }
+.enhance-failed-actions .use-local { border-color: transparent; background: #ef653d; color: #fff; }
+.enhance-failed-actions .use-local:hover { background: #f17753; color: #fff; }

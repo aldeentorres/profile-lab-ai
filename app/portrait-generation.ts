@@ -28,7 +28,7 @@ export type PortraitProvider="puter"|"remote"|"local";
 // `available` gates whether Generate can run without a local-only fallback; `needsReference` is true only
 // for the server-proxied path, which is the one that actually takes a reference image; `puterConnectable`
 // tells the UI whether to offer the one-time "Connect" action even when Puter is not the active provider.
-export type PortraitEngineStatus={available:boolean;engine:string;provider:PortraitProvider;needsReference:boolean;puterConnectable:boolean;reason?:string};
+export type PortraitEngineStatus={available:boolean;engine:string;provider:PortraitProvider;needsReference:boolean;puterConnectable:boolean;puterSignedIn:boolean;reason?:string};
 export type GeneratedPortrait=RenderedPhoto&{engine:string;generative:boolean;fallbackReason?:string};
 
 let remoteStatus:Promise<{available:boolean;engine:string;reason?:string}>|null=null;
@@ -41,10 +41,15 @@ function remoteEngineStatus(){
 // live the moment the agent (or a staff member) clicks Connect, and the UI needs that reflected at once.
 export async function portraitEngineStatus():Promise<PortraitEngineStatus>{
  const puter=await puterStatus();
- if(puter.signedIn)return {available:true,engine:puterEngineLabel,provider:"puter",needsReference:false,puterConnectable:true};
+ if(puter.signedIn)return {available:true,engine:puterEngineLabel,provider:"puter",needsReference:false,puterConnectable:true,puterSignedIn:true};
  const remote=await remoteEngineStatus();
- if(remote.available)return {available:true,engine:remote.engine,provider:"remote",needsReference:true,puterConnectable:puter.loaded};
- return {available:false,engine:puter.loaded?puterEngineLabel:localPortraitEngine,provider:"local",needsReference:false,puterConnectable:puter.loaded,reason:remote.reason};
+ if(remote.available)return {available:true,engine:remote.engine,provider:"remote",needsReference:true,puterConnectable:puter.loaded,puterSignedIn:false};
+ // Puter script present but isSignedIn() reads false: still route to Puter rather than silently going
+ // local. That flag is unreliable immediately after the Connect popup (its token arrives through a
+ // cross-origin frame), and the SDK signs in on demand inside the call anyway. A cancelled or failed
+ // attempt falls through to the on-device pipeline exactly as before, so nothing becomes a hard dependency.
+ if(puter.loaded)return {available:true,engine:puterEngineLabel,provider:"puter",needsReference:false,puterConnectable:true,puterSignedIn:false};
+ return {available:false,engine:localPortraitEngine,provider:"local",needsReference:false,puterConnectable:false,puterSignedIn:false,reason:remote.reason};
 }
 
 const blobToDataUrl=(blob:Blob)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)});
@@ -97,22 +102,26 @@ async function whiteBackgroundOf(rendered:RenderedPhoto):Promise<RenderedPhoto>{
  return compositeOnWhite(rendered.dataUrl,assets.personMask).catch(()=>rendered);
 }
 
-export async function generateCorporatePortrait(src:string,targetAspect=.8,reference:PortraitReference="female"):Promise<GeneratedPortrait>{
+// Thrown when a generative engine was actually reached and refused the job — an out-of-credit account,
+// a rejected model, a dropped connection. It carries the provider's own words so the agent is told what
+// happened instead of being handed a quietly-substituted on-device render that reads as success.
+export class PortraitGenerationError extends Error{
+ constructor(message:string,readonly engine:string){super(message);this.name="PortraitGenerationError"}
+}
+
+// `allowLocalFallback` is the agent's explicit second choice after a failure has been shown, never the
+// automatic consequence of one. The on-device pipeline stays the offline safety net it always was — it
+// just no longer masks a generative failure the agent asked for and deserves to hear about.
+export async function generateCorporatePortrait(src:string,targetAspect=.8,reference:PortraitReference="female",{allowLocalFallback=false}:{allowLocalFallback?:boolean}={}):Promise<GeneratedPortrait>{
  const status=await portraitEngineStatus();
- let fallbackReason:string|undefined;
- if(status.provider==="puter"){
-  try{
-   const remote=await generateWithPuter(src);
-   return {...await whiteBackgroundOf(remote),engine:status.engine,generative:true};
-  }
-  catch(error){fallbackReason=error instanceof Error?error.message:"Puter generation failed."}
- }else if(status.provider==="remote"){
-  try{
-   const remote=await generateRemotePortrait(src,targetAspect,reference);
-   return {...await whiteBackgroundOf(remote),engine:status.engine,generative:true};
-  }
-  catch(error){fallbackReason=error instanceof Error?error.message:"The portrait service failed."}
+ if(status.provider!=="local"&&!allowLocalFallback){
+  const remote=status.provider==="puter"?await generateWithPuter(src).catch(error=>{throw new PortraitGenerationError(error instanceof Error?error.message:"Puter generation failed.",status.engine)}):await generateRemotePortrait(src,targetAspect,reference).catch(error=>{throw new PortraitGenerationError(error instanceof Error?error.message:"The portrait service failed.",status.engine)});
+  return {...await whiteBackgroundOf(remote),engine:status.engine,generative:true};
  }
+ // Nothing generative is reachable at all (offline, no Puter script, no server key), or the agent chose
+ // the on-device pipeline after seeing why generation failed. Either way this is the documented
+ // non-generative path, not a silent substitution.
+ const fallbackReason=allowLocalFallback||status.provider!=="local"?undefined:status.reason==="not_configured"?"No AI engine is connected on this device (Puter or a server key).":status.reason?`AI engine unavailable: ${status.reason}.`:"No AI engine is connected on this device.";
  return {...await generateLocalPortrait(src,targetAspect),engine:localPortraitEngine,generative:false,fallbackReason};
 }
 
