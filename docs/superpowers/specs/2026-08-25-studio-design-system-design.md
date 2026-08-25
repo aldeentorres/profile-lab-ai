@@ -6,7 +6,7 @@ Date: 2026-08-25
 
 ## Why
 
-`app/studio.tsx` is 108 KB carrying eleven views, ~15 inline components and 271
+`app/studio.tsx` is 108 KB carrying ten live views, ~15 inline components and 271
 distinct class names. Its styling is spread across eleven CSS files loaded in a
 fixed order by `app/layout.tsx`, with no `@layer`, so the cascade is positional:
 `polish.css` (43 KB) loads eighth of the eleven and overrides everything before
@@ -130,7 +130,7 @@ Move JSX into `app/ui/*.tsx` while emitting the **exact existing class strings**
 `app/studio.tsx` shrinks as inline JSX is replaced by component calls.
 
 This pass carries the demo risk, and it is the pass with an objective pass/fail:
-the screenshot harness below must report zero difference across all eleven views.
+the screenshot harness below must report zero difference across all ten views.
 
 ## Pass 2 — tokens and component classes
 
@@ -159,12 +159,26 @@ assumption is the expensive version.
 
 ## Verification
 
-Baseline screenshots are captured from `main` before pass 1 begins — all eleven
+Baseline screenshots are captured from `main` before pass 1 begins — all ten
 views, stored in the session scratchpad, not committed.
 
 Reachability is already established from prior rehearsals: sample files that hit
 each verdict, the `DataTransfer` trick for driving the file input headlessly, and
 Assets reached via *Local finishing off → Use original*.
+
+**Ten views, not eleven.** `profile` appears in the `View` union at
+`app/studio.tsx:19` and nowhere else — no `setView` call, no render branch, no
+entry in `navigableViews`. It is a dead union member, discovered while building
+the harness. It is deliberately **not** removed: dead-code removal is outside
+this refactor's scope and the repo is frozen. The ten live views produce 15
+captured frames, five of them scrolled variants.
+
+The harness procedure, its load-bearing settings and its known gaps live in
+`scripts/shoot-views.md`. The single most important of those settings is
+`fromSurface: false` — `fullPage` capture reads the browser's composited surface
+and lands on one of two GPU raster states, which is not a property of the app at
+all. That one setting is the difference between a gate that means something and
+a gate that reports noise.
 
 ### Determinism gate
 

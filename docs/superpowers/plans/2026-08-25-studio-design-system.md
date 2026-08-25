@@ -33,7 +33,7 @@ Two gates, with different reach:
 | Gate | Covers | Cost |
 | --- | --- | --- |
 | `tests/studio-markup.test.mjs` — SSR class-string lock | Whatever the server renders (the default view plus `/designer`, `/atlas`) | Seconds, runs inside `npm run verify` |
-| Screenshot diff — MCP browser + `magick compare` | All eleven views, including the client-state-only ones | Minutes, driven manually |
+| Screenshot diff — MCP browser + `magick compare` | All ten views (15 frames, including scrolled variants) | Minutes, driven manually |
 
 Neither is sufficient alone. The markup test is cheap and catches the common failure (a dropped or reordered class) on every run. The screenshot diff is the only thing that sees CSS-level regressions and the ten views SSR never renders.
 
@@ -192,7 +192,7 @@ git commit -m "test: lock the studio's rendered class strings before extraction"
 - Consumes: nothing
 - Produces: a baseline image set in the scratchpad, and a documented repeatable procedure
 
-- [ ] **Step 1: Establish the eleven view routes and how to reach each**
+- [ ] **Step 1: Establish the ten view routes and how to reach each**
 
 Views are `profile → session → capture → batch → review → select → consent → success → personal → assets → console`. Most are client state, not URLs. Known from prior rehearsals: sample files hit each verdict, the `DataTransfer` trick drives the file input headlessly, and Assets is reached via *Local finishing off → Use original*.
 
@@ -223,13 +223,13 @@ git checkout main
 npm run build && npm run start
 ```
 
-Drive the eleven views with the Playwright MCP browser tools, saving each as `<scratchpad>/baseline/<view>.png`.
+Drive the ten views with the Playwright MCP browser tools, saving each as `<scratchpad>/baseline/<view>.png`.
 
 Playwright is **not** a project dependency and must not become one — the MCP browser tooling is a separate channel that adds nothing to `package.json`.
 
 - [ ] **Step 4: Run the determinism gate — `main` against `main`**
 
-Capture the same eleven views a second time, from the same unmodified `main`, into `<scratchpad>/baseline2/`. Then:
+Capture the same ten views a second time, from the same unmodified `main`, into `<scratchpad>/baseline2/`. Then:
 
 ```bash
 for v in profile session capture batch review select consent success personal assets console; do
@@ -340,9 +340,9 @@ Expected: PASS, 0 lint errors, warning count unchanged from 22.
 
 - [ ] **Step 5: Screenshot-diff every view**
 
-Every view has buttons, so all eleven are affected.
+Every view has buttons, so all ten are affected.
 
-Expected: `0` from `magick compare` for all eleven.
+Expected: `0` from `magick compare` for all 15 frames.
 
 A non-zero result is a real regression — find the call site whose attributes or class order changed. Do not adjust the baseline to match.
 
@@ -718,7 +718,7 @@ git commit -m "refactor: extract Field, Toggle and Stepper"
 - Consumes: every component from Tasks 3-8
 - Produces: a verified zero-diff state, and the go/no-go for pass 2
 
-- [ ] **Step 1: Full eleven-view screenshot diff against the Task 2 baseline**
+- [ ] **Step 1: Full ten-view screenshot diff against the Task 2 baseline**
 
 ```bash
 for v in profile session capture batch review select consent success personal assets console; do
@@ -728,7 +728,7 @@ for v in profile session capture batch review select consent success personal as
 done
 ```
 
-Expected: `0` for all eleven. This is the acceptance test for the entire pass.
+Expected: `0` for all 15 frames. This is the acceptance test for the entire pass.
 
 - [ ] **Step 2: Full judge-flow rehearsal**
 
@@ -828,7 +828,7 @@ In `app/globals.css`, immediately after `@import "tailwindcss";` and before any 
 
 - [ ] **Step 4: Verify nothing changed**
 
-Run: `npm run verify`, then screenshot-diff all eleven views.
+Run: `npm run verify`, then screenshot-diff all ten views.
 Expected: PASS, and `0` everywhere. Adding tokens that nothing consumes yet must be visually inert. A non-zero diff here means Tailwind's preflight reset is now reaching elements it did not before — resolve that before any component converts.
 
 **This step is load-bearing.** It separates "the token layer is wired correctly" from "a component's conversion broke something", which are otherwise impossible to tell apart later.
@@ -875,7 +875,7 @@ Colour and radius are set from tokens rather than utilities so `iq-theme.css`'s 
 
 - [ ] **Step 4: Verify and diff**
 
-Run: `npm run verify`, then screenshot-diff all eleven views.
+Run: `npm run verify`, then screenshot-diff all ten views.
 Expected: PASS, `0` everywhere.
 
 - [ ] **Step 5: Repeat Steps 2-4 for each remaining selector, one at a time**
@@ -969,7 +969,7 @@ Treat the output as a list to check, not a list to delete. The grep cannot see c
 
 - [ ] **Step 2: Delete confirmed-dead rules, then verify and diff**
 
-Run: `npm run verify`, then screenshot-diff all eleven views.
+Run: `npm run verify`, then screenshot-diff all ten views.
 Expected: PASS, `0` everywhere.
 
 - [ ] **Step 3: Update the recorded state**
@@ -982,7 +982,7 @@ The complete judge flow, every documented fallback, on the branch. Same walkthro
 
 - [ ] **Step 5: Report, and propose the merge**
 
-State: final diff results across all eleven views, verify numbers, rehearsal outcome, and the net line change across `app/studio.tsx` and the CSS files.
+State: final diff results across all ten views, verify numbers, rehearsal outcome, and the net line change across `app/studio.tsx` and the CSS files.
 
 **Do not merge.** `main` is the demo fallback and stays that way until the user decides otherwise.
 
@@ -1008,4 +1008,4 @@ Checked against the spec:
 - No new dependencies → Task 2 Step 3 (MCP browser, not a `package.json` entry); ImageMagick is a system tool
 - Out-of-scope items (visual redesign, designer/atlas adoption, lint warnings, `next/image`) → no task touches them; Task 4 Step 1 explicitly declines the `next/image` swap
 
-Known limitation, recorded rather than smoothed over: the markup test in Task 1 only reaches what SSR renders. Ten of the eleven views are client-state-only and are covered by screenshots alone — which is why Task 2's determinism gate is a hard stop rather than a nice-to-have.
+Known limitation, recorded rather than smoothed over: the markup test in Task 1 only reaches what SSR renders. Nine of the ten views are client-state-only and are covered by screenshots alone — which is why Task 2's determinism gate is a hard stop rather than a nice-to-have.
