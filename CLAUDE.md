@@ -18,7 +18,7 @@ npm run lint         # eslint (warnings are tolerated, errors are not)
 npm run demo:setup   # npm ci + verify, for a clean machine
 ```
 
-Last verified state: preflight passes, 150/150 tests pass, lint reports 22 warnings and 0
+Last verified state: preflight passes, 174/174 tests pass, lint reports 24 warnings and 0
 errors (`<img>` usage and two `react-hooks/exhaustive-deps`). Do not "fix" those warnings
 during the freeze — `next/image` is not wired up and the effect deps are deliberate.
 

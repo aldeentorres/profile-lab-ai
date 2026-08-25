@@ -317,12 +317,103 @@
 .personal-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 290px)); }
 .personal-grid .photo-media { height: 340px; }
 
+/* Defect 1: a section holding one or two photos rendered as a large tinted box, mostly empty --
+   the void always existed (auto-fill reserves a full row of column tracks even with one item to
+   place in them), but it was invisible before the redesign painted a wash behind it. Swapping to
+   auto-fit alone does not fix what's actually visible here: with no per-cell borders or
+   backgrounds, auto-fill's reserved-but-empty tracks and auto-fit's collapsed ones paint identical
+   pixels -- the wash comes from `.photos-section` (a block box that fills its row regardless of
+   how many grid tracks are inside it), not from the grid itself. Tried and rejected: (1) a
+   max-width on the grid alone -- still leaves most of a fixed-width box empty at one photo; (2)
+   growing the populated track to fill the row (minmax(230px,1fr)) -- .personal-grid .photo-media
+   has a fixed height, so a widened column would letterbox the photo short and wide, and it breaks
+   the "consistent card size" rule the comment above already establishes; (3) width:fit-content
+   directly on an auto-fit/auto-fill grid -- collapses to a single column under indefinite-width
+   sizing (a standing CSS Grid rule: the auto-repeat count needs a *definite* container size to
+   resolve to more than one repetition), so two or three photos would stack in one column instead
+   of sitting side by side. The fix actually used -- "a column count responsive to item count" --
+   sidesteps that rule entirely: :has() gives the exact photo count, so the grid gets an *explicit*
+   repeat(N, ...) (no auto-fit/auto-fill, so no indefinite-sizing ambiguity) for one, two or three
+   photos, and the section wrapping it shrinks to fit that now well-defined width. Four or more
+   photos already reads as a normal, filled-in row and is left at its current full-width auto-fill
+   behaviour, unchanged. */
+.personal-grid:has(> :only-child) { grid-template-columns: minmax(230px, 290px); }
+.personal-grid:has(> :nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(230px, 290px)); }
+.personal-grid:has(> :nth-child(3):last-child) { grid-template-columns: repeat(3, minmax(230px, 290px)); }
+.photos-section:has(> .personal-grid > :nth-child(-n+3):last-child) { width: fit-content; }
+
 .badge.action { background: var(--color-brand); }
+
+/* Defect 1 (companion) + badge legibility: MediaFrame's corner badge already pairs colour with an
+   icon (Check/HelpCircle/AlertCircle per tone) so status never reads by colour alone. The plain
+   text tags below the photo name (.photo-type-tag/.photo-category-tag) don't carry a status at
+   all -- "Original Photo"/"AI Enhanced" is metadata about the file, not an approved/pending/action
+   state -- so they keep their neutral grey rather than being forced into the four-colour system;
+   recolouring them would assert a status distinction that isn't real. What WAS a real bug: a dead
+   legacy rule (globals.css, `.personal-grid article span{width:100%}`, written for the pre-redesign
+   flat gallery markup) still matches these tags' <span> today and outranks their own
+   `width:max-content` by specificity, stretching a small pill into a full-width bar. Restated here
+   -- components always outranks legacy regardless of specificity, so this is a guaranteed fix
+   rather than another specificity fight. */
+.photo-type-tag, .photo-category-tag { width: max-content; }
+
+/* Touch target floor for the per-card icon buttons (Download/Print/Remove/Dismiss): app-ui.css
+   fixes them at 40x40 !important, under the 44x44 a comfortable tablet/phone tap target needs.
+   `!important` inverts cascade-layer priority (an !important declaration in an earlier layer beats
+   a normal one in a later layer), so this has to be !important too to actually win -- verified live
+   via getComputedStyle rather than assumed, since that inversion is easy to get backwards. Spacing
+   between adjacent buttons (.photo-actions gap, app-ui.css) is already 6-8px and untouched. */
+.photo-actions { gap: 8px; }
+.photo-actions button { width: 44px !important; height: 44px !important; min-height: 44px !important; }
+/* Atlas/Awards toggle chips inside each Approved/Pending card: 4px (app-ui.css) is under the 8px
+   floor for adjacent targets. Left at their existing ~26px height (a documented compromise, not
+   an oversight -- see the task report: it clears WCAG's actual 24px web minimum, and going to 44px
+   would make a compact inline chip pair taller than the card content around it). */
+.photo-category-switch { gap: 8px; }
+
+/* Defect 3: press-and-hold reveal for the generative result (see HoldToRevealPreview,
+   studio.tsx). Same dark rounded-panel language as .enhance-preview (studio-enhance.css) so it
+   reads as the same family of preview, without sharing ComparePreview's interaction model. */
+.hold-reveal { position: relative; min-height: 420px; overflow: hidden; border-radius: 17px; background: #070a08; } /* literal: matches .enhance-preview's near-black panel, no token equivalent */
+.hold-reveal img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.hold-reveal-enhanced { transition: opacity 140ms ease; }
+.hold-reveal-enhanced.hidden { opacity: 0; }
+.hold-reveal-button {
+ width: 100%;
+ min-height: 52px;
+ display: flex; align-items: center; justify-content: center; gap: 8px;
+ margin-top: 10px;
+ border: 1px solid var(--color-line);
+ border-radius: var(--radius-control);
+ background: var(--color-ink);
+ color: #fff;
+ font-size: 13px;
+ font-weight: 700;
+ touch-action: none; /* holding on a touchscreen must not also scroll the page under the thumb */
+ user-select: none;
+}
+/* Colour change on press/hold is feedback in addition to the label text swap, not instead of it --
+   the text already states what's showing before and during the hold. */
+.hold-reveal-button.active { background: var(--color-brand); border-color: var(--color-brand); }
 
 @media (max-width: 700px) {
  .photos-summary { gap: 8px; }
  .photos-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
  .photos-summary-stat b { font-size: 20px; }
+}
+
+/* Reuses the app's existing 900px breakpoint (globals.css already collapses .personal-grid to a
+   single column there) rather than inventing a new one. Two or three cards pinned to their exact
+   count (repeat(2|3, minmax(230px,290px)), Defect 1 fix above) need up to 726px to avoid
+   overflowing -- comfortably inside the 900px cut so no width between "full grid" and "stacked"
+   can force the page into horizontal scroll. */
+@media (max-width: 900px) {
+ .personal-grid:has(> :only-child), .personal-grid:has(> :nth-child(2):last-child), .personal-grid:has(> :nth-child(3):last-child) { grid-template-columns: 1fr; }
+ .photos-section:has(> .personal-grid > :nth-child(-n+3):last-child) { width: auto; }
+}
+
+@media (max-width: 620px) {
+ .hold-reveal { min-height: 300px; }
 }
 
 }

@@ -312,6 +312,17 @@ export async function compositeOnWhite(src:string,personMask:PersonMask|null):Pr
   return {dataUrl:canvas.toDataURL("image/jpeg",.93),width:canvas.width,height:canvas.height};
 }
 
+// A crop-only counterpart to renderProfessionalPhoto's framing step: same face-aware crop
+// rectangle (portraitCrop) and the same pixel resample (frameSource), but no relight, retouch or
+// background composite. Lets a raw source image be shown at the identical frame an already-
+// rendered result was cropped to, so a compare slider or hold-to-reveal control lines up a fixed
+// feature (an eye, a collar) at the same screen coordinate instead of comparing two differently-
+// cropped pictures.
+export async function cropSourceToAspect(src:string,assets:EnhancementAssets,targetAspect=.8):Promise<RenderedPhoto>{
+  const image=await loadImage(src),crop=portraitCrop(image,assets,targetAspect),framed=frameSource(image,crop);
+  return {dataUrl:framed.toDataURL("image/jpeg",.93),width:framed.width,height:framed.height};
+}
+
 export async function renderProfessionalPhoto(src:string,settings:EnhanceSettings,assets:EnhancementAssets,preview=false,targetAspect=.8,matte:HTMLCanvasElement|null=null):Promise<RenderedPhoto>{
   const image=await loadImage(src),crop=portraitCrop(image,assets,targetAspect),framed=frameSource(image,crop),sourceLongEdge=Math.max(framed.width,framed.height),desiredLongEdge=preview?Math.min(sourceLongEdge,1400):settings.highResolution?Math.min(2048,Math.max(1600,sourceLongEdge)):sourceLongEdge,scale=desiredLongEdge/sourceLongEdge,width=Math.max(1,Math.round(framed.width*scale)),height=Math.max(1,Math.round(framed.height*scale));
   const canvas=makeCanvas(width,height),context=canvas.getContext("2d");
