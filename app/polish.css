@@ -726,11 +726,6 @@ select:focus-visible {
   box-shadow: 0 0 0 1px var(--ps-coral), 0 14px 35px rgba(201, 74, 39, 0.12);
 }
 
-.consents label:hover {
-  border-color: #d5ddd8;
-  background: #fbfcfb;
-}
-
 .consents label:has(input:focus-visible) {
   outline: 3px solid rgba(231, 92, 53, 0.34);
   outline-offset: 2px;

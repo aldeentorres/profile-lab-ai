@@ -2,12 +2,17 @@
 
 /* Task 13 (Set A): Button primitives + Badge/Eyebrow.
    Each rule below reproduces the value that was actually winning in the old cascade -- later
-   app/*.css file wins for equal specificity -- not the union of every declaration ever written
-   for the selector. Declaration order inside a rule matters too: `padding` then `padding-inline`
-   preserves the same override the original file order produced (padding-inline wins the inline
-   edges, padding keeps the block edges). Tokens replace every colour/radius a variable already
-   carries; a literal stays only where no token holds that exact value, each with a comment
-   saying so, per the colour lock. */
+   file wins for equal specificity -- not the union of every declaration ever written for the
+   selector. `legacy` holds fourteen files, not just the eleven app/*.css ones this task's brief
+   names: app/designer/entry.css and app/atlas/entry.css put designer.css, atlas.css and
+   skeleton-fix.css in the SAME layer, and app/entry.css (tokens + this file) loads on every
+   route including /designer and /atlas. The conflict scan below covers all fourteen; one real
+   hit turned up there (.bulk-modal-actions .primary, designer.css -- see .primary's section).
+   Declaration order inside a rule matters too: `padding` then `padding-inline` preserves the
+   same override the original file order produced (padding-inline wins the inline edges, padding
+   keeps the block edges). Tokens replace every colour/radius a variable already carries; a
+   literal stays only where no token holds that exact value, each with a comment saying so, per
+   the colour lock. */
 
 /* .primary/.gold: ONLY the properties below are converted. `.app-content .primary`,
    `.app-content .gold`, the `.photos-toolbar .primary` / `.photos-toolbar .photos-actions
@@ -40,12 +45,24 @@
  background: #f36b3d; /* literal: distinct from --color-gold (#ee6538); no token holds this value */
  margin-top: 15px;
 }
+/* Under the old flat cascade `.gold:hover` outranked `.gold` on specificity, so its own :hover
+   rule (iq-theme.css) was never treated as a competing "override" to gather. Under the layer
+   that's backwards: a components rule beats a legacy one regardless of specificity, so once
+   .gold's background moved here, iq-theme's .primary:hover,.gold:hover{background:#ce431d} lost
+   its grip on .gold specifically (verified live -- see the task report). Its background moves
+   here too; box-shadow/transform stay in iq-theme.css since components sets neither for .gold. */
+.gold:hover { background: #ce431d; } /* literal: darkened brand-blue-family hover shade, no token holds this value */
 
 .link {
  background: none; padding: 0 16px;
  border-radius: var(--radius-control);
  color: #52565a; /* literal: distinct muted grey, no token holds this value */
 }
+/* .link:hover (iq-theme.css) set both background and colour, both now shadowed the same way as
+   .gold:hover above -- moved here in full. .link has zero call sites today (`variant="link"` is
+   unused), so this is unverifiable by screenshot or live render; fixed anyway rather than left as
+   a trap for whoever revives the variant. */
+.link:hover { background: #f2f3f4; color: var(--color-brand); } /* #f2f3f4 literal: pale hover tint, no token holds this value */
 
 .upload {
  background: none; padding: 0 16px;
@@ -53,6 +70,17 @@
  margin-top: 12px;
  color: #fff;
 }
+/* .upload:hover (iq-theme.css) set only background, now shadowed the same way -- moved here in
+   full. */
+.upload:hover { background: #ffffff10; } /* literal: translucent white hover wash, no token holds this value */
+
+/* Required alongside .primary -- .bulk-modal-actions .primary (designer.css) sets border-color,
+   now shadowed by .primary's `border: 0` above. Invisible today only by luck (border-width was
+   already 0 either way, and this rule's own background/colour already match what .primary
+   supplies), but border-color no longer being sourced from a real declaration is a latent bug the
+   moment anything gives this button a border-width again. Found by the fourteen-file scan, not
+   the original eleven-file one -- see the note at the top of this file. */
+.bulk-modal-actions .primary { border-color: #365f4e; background: #365f4e; color: #fff; } /* literal: designer-app forest green, no token holds this value */
 
 .badge {
  display: inline-flex; align-items: center; gap: 5px;
@@ -68,17 +96,22 @@
    is. Neither is one of Task 13's listed selectors, but both are required for a faithful
    conversion of .badge (confirmed via getComputedStyle: a badge inside .photo-card renders at
    11px today, not the bare selector's 12px). */
-.badge.pending { background: #e69a1f; }
+.badge.pending { background: #e69a1f; } /* literal: pending-review amber, no token holds this value */
 .photo-card .badge { width: auto; color: #fff; font-size: 11px; font-weight: 700; }
 
-/* .eyebrow: colour and font-size are deliberately NOT set here. Every rendered .eyebrow across
-   all 10 studio views sits inside a more specific selector for at least one of the two
-   (.app-content .eyebrow, .session-loaded-title .eyebrow / .crop-workbench .eyebrow /
-   .session-quality .eyebrow, .batch-review header .eyebrow, .enhance-header .eyebrow -- four
-   different literal colours across those, one of them also overriding font-size to 9px) --
-   confirmed the same way as .primary above. Bare .eyebrow never wins colour or font-size in the
-   app as it stands today, so there is no single correct value to give it here; the properties
-   that ARE uniform (family/weight/letter-spacing) convert cleanly. */
+/* .eyebrow: colour and font-size are not set here, and their bare-selector legacy declarations
+   were DELETED outright (globals.css, iq-theme.css), not left in place as an inert fallback the
+   way .primary's six deferred properties still are. That's deliberate, not an oversight: every
+   rendered .eyebrow across all 10 studio views -- now confirmed across all fourteen legacy files,
+   not just the eleven this task's brief names -- sits inside a more specific selector for at
+   least one of the two (.app-content .eyebrow, .session-loaded-title .eyebrow /
+   .crop-workbench .eyebrow / .session-quality .eyebrow, .batch-review header .eyebrow,
+   .enhance-header .eyebrow, and now also .designer-access .eyebrow -- five different literal
+   colours across those, one of them also overriding font-size to 9px), so bare .eyebrow's own
+   colour/font-size never had a rendered instance left to serve as a real fallback for -- deleting
+   them outright rather than leaving dead declarations behind is correct, not just harmless.
+   Bare .eyebrow never wins colour or font-size in the app as it stands today; the properties that
+   ARE uniform (family/weight/letter-spacing) convert cleanly. */
 .eyebrow {
  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
  font-weight: 750;
@@ -86,16 +119,31 @@
 }
 
 /* Task 14 (Set B): container primitives.
-   .narrow, .empty-state and .gallery-head are NOT converted -- see the task report.
-   .narrow: every declared property (max-width/margin/padding/border-radius/box-shadow) is won
-   today by `.app-content .narrow` (app-ui.css + polish.css, 2-class, always present -- .narrow
-   only ever renders inside .app-content), the same inversion risk as .primary's six properties
-   in Set A. Its one untouched property, min-height:auto, is the CSS initial value -- moving it
-   would be a pure no-op, not a real conversion.
-   .empty-state and .gallery-head: dead. Neither class appears in any .tsx in this app --
-   confirmed with a repo-wide search, not inferred from the CSS. Their rules are left exactly as
-   they were. */
-
+   .empty-state and .gallery-head are NOT converted -- dead. Neither class appears in any .tsx in
+   this app -- confirmed with a repo-wide search, not inferred from the CSS. Their rules are left
+   exactly as they were.
+   .narrow is entirely NOT converted -- including `background`, corrected below. `max-width`,
+   `margin`, `padding`, `border-radius` and `box-shadow` are won today by `.app-content .narrow`
+   (app-ui.css + polish.css, 2-class, always present -- .narrow only ever renders inside
+   .app-content), the same inversion risk as .primary's deferred properties in Set A.
+   `min-height:auto` is the CSS initial value, a no-op either way.
+   `background:#fff` (iq-theme.css) is NOT contested by any static selector -- no
+   `.app-content .narrow` rule anywhere touches background, and getComputedStyle on the live
+   `consent` view confirms `.narrow`'s own background resolves to white both with and without the
+   move. It was converted once, on that basis. Doing so broke Gate 2 anyway: the `consent` and
+   `consent-scrolled` frames came back ~23% different (reproducible across three separate rebuild
+   + recapture cycles, ruling out the documented scroll-repaint transient), while
+   getComputedStyle taken immediately before each capture, through the harness's own settle()
+   sequence, and with both `fromSurface:true` and `fromSurface:false` CDP capture agreeing with
+   each other, kept reporting the correct white the whole time -- the discrepancy is in what the
+   renderer paints, not in any computed value this stylesheet controls. Bisected to this one
+   declaration by toggling it alone against an otherwise-identical build (reverting it back to
+   iq-theme.css and rebuilding reproduced Gate 2's clean 0 every time; restoring the move
+   reproduced the ~23% diff every time), so it is not a coincidence or a stale build. No
+   explanation was found for why moving one uncontested declaration between two normal-priority
+   rules in the same cascade position, both still resolving to the same computed value, changes
+   what gets painted. Reported rather than forced, per "if a selector will not convert cleanly" --
+   left in iq-theme.css. */
 .photo-card {
  border: 1px solid #e3e6e9; /* literal: no token holds this grey */
  border-radius: var(--radius-control);
@@ -159,12 +207,13 @@
  text-align: center;
 }
 
-.device-field { display: flex; flex-direction: column; gap: 7px; margin-top: auto; color: #b7bab8; font-size: 12px; font-weight: 700; }
+.device-field { display: flex; flex-direction: column; gap: 7px; margin-top: auto; color: #b7bab8; font-size: 12px; font-weight: 700; } /* literal: muted grey label colour, no token holds this value */
 
 /* .consents label's switch is painted by `.consents input:checked+i`, an adjacent-sibling
    selector on a DIFFERENT element (the <i>, not this label) -- untouched by this move, and
    verified by hand in the browser afterward: both the unchecked and checked states still render
-   and toggle correctly, and Atlas-profile / brand-use stay independent. */
+   and toggle correctly, and Atlas-profile / brand-use stay independent (see the task report for
+   the observed values). */
 .consents label {
  display: flex; align-items: center;
  padding: 17px;
@@ -174,6 +223,10 @@
  cursor: pointer;
  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
+/* .consents label:hover (polish.css) set border-color (now shadowed by this rule's `border`
+   shorthand above) and background (not shadowed -- components sets none for .consents label).
+   Moved as one rule for clarity rather than splitting the one contested property out. */
+.consents label:hover { border-color: #d5ddd8; background: #fbfcfb; } /* literals: hover-only border/background tints, no token holds either value */
 
 /* .steps: background, border, border-radius, color, font-size, gap, margin-bottom, min-height
    and padding are NOT converted. `.app-content .steps` (polish.css, 2-class, always present --
