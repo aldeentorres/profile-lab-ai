@@ -502,7 +502,9 @@ git commit -m "refactor: extract Badge and StatTile with their exact class strin
 
 - [ ] **Step 1: Write `Card`**
 
-Absorbs `.photo-card`, `.devices article`, `.personal-grid article`, `.assets article`, `.sheet button`.
+Absorbs the `<article>` elements — six sites in `app/studio.tsx`: four carrying a `className` (the batch grid tile and three photo cards) and two bare (`.devices article`, in the console view).
+
+`.sheet button` is listed in the inventory but has **zero** occurrences in this file; ignore it. The bare `<article>` sites are why `className` must be optional and why `className||undefined` matters — they currently emit no `class` attribute and must continue to.
 
 ```tsx
 import type {ReactNode} from "react";
@@ -517,7 +519,15 @@ export function Card({className,children}:{className?:string;children?:ReactNode
 
 - [ ] **Step 2: Write `Panel`**
 
-Absorbs `.photos-section`, `.narrow`, `.empty-state`, `.privacy`.
+Absorbs `.photos-section` **only** — three sites, all `<div>`.
+
+The inventory claimed four class families. Verified against the source, the other three do not fit a `<div>` component:
+
+- `.narrow` appears once, on a `<section className="flow narrow final-review enter">`. `Panel` renders `<div>`; converting it changes the element.
+- `.privacy` appears twice, both on `<p>`. Converting to `<div>` drops the browser's default paragraph margins and `p{line-height:1.6;color:var(--muted)}` from `globals.css` — a real rendering change, not a cosmetic one.
+- `.empty-state` has **zero** call sites in `app/studio.tsx`.
+
+Giving `Panel` an `as` prop to paper over this would add API surface in a pass whose job is to add none, to serve three sites that a single CSS rule already styles. Leave them as they are; pass 2 styles those classes in CSS regardless of what element emits them.
 
 ```tsx
 import type {ReactNode} from "react";
