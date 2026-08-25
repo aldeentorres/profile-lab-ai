@@ -30,33 +30,89 @@ all compared:
 `session` · `capture` · `batch` · `review` · `select` · `consent` · `success` · `personal` ·
 `assets` · `console`
 
-That is **15 frames**: one per view, plus a second below-the-fold frame for the five views whose
-scroll container overflows (`console`, `session`, `review`, `select`, `consent`).
+That is **15 frames**: one per view, named `<view>.png`, plus a second below-the-fold frame named
+`<view>-scrolled.png` for the five views whose scroll container overflows (`console`, `session`,
+`review`, `select`, `consent`). The scrolled frame exists because the app scrolls `#app-content`
+rather than the document, so roughly half of `console` is below the fold and no full-page capture
+was ever reaching it — see [`fromSurface: false`](#fromsurface-false-is-the-load-bearing-setting).
 
 ## Running it
 
+Nothing here is installed. The three scripts are printed in full under
+[The scripts](#the-scripts) — copy them out into a working directory of your own before you start.
+A single capture run takes roughly two and a half minutes; a full baseline-plus-two-comparisons
+protocol takes about eight.
+
+**1. Serve the build you intend to photograph.**
+
 ```bash
 git checkout main                # or the branch under test
-npm run build && npm run start   # http://localhost:3000, in the background
-node <scratchpad>/shot-writer.mjs &   # the screenshot sidecar, see "The scripts"
+npm run build
+npm run start                    # http://localhost:3000, in the background
 ```
 
-Then run the recipe script through the MCP `browser_run_code_unsafe` tool, once per run, into a
-different output directory each time. Compare:
+The server loads `dist/` at boot, so **if you rebuild while it is running you must restart it** —
+otherwise you are photographing the previous build and every number below is meaningless. If a
+server is already up from an earlier session, restart it rather than trusting it.
+
+**2. Start the screenshot sidecar** (source in [section 2](#2-screenshot-writer-sidecar) — it is
+not in the repo, and it is needed because the harness cannot write files itself):
 
 ```bash
+node shot-writer.mjs &           # listens on 127.0.0.1:4321
+```
+
+**3. Capture.** Generate the recipe with the output directory baked in and run it through the MCP
+`browser_run_code_unsafe` tool — see [section 3](#3-recipe-script) for exactly how `OUT` and `INIT`
+get bound, because the tool passes no parameters. One run per output directory:
+
+```bash
+./gen.sh /path/to/scratchpad/accepted-baseline   # then invoke browser_run_code_unsafe
+./gen.sh /path/to/scratchpad/run2                # again, and so on
+```
+
+**4. Compare**, at full precision, no fuzz:
+
+```bash
+BASE=/path/to/scratchpad/accepted-baseline
+RUN=/path/to/scratchpad/run2
 for v in profile session capture batch review select consent success personal assets console; do
   for f in "$v" "$v-scrolled"; do
-    [ -f "<scratchpad>/baseline/$f.png" ] || continue
+    [ -f "$BASE/$f.png" ] || continue
     printf '%-18s: ' "$f"
-    magick compare -metric AE "<scratchpad>/baseline/$f.png" "<scratchpad>/run2/$f.png" null: 2>&1
+    magick compare -metric AE "$BASE/$f.png" "$RUN/$f.png" null: 2>&1
     echo
   done
 done
 ```
 
-Screenshots live in the scratchpad, **never** in the repository: they are 2880×1800 PNGs and
-machine-specific.
+`profile` never produces a file — it is not a view. Everything else should print `0`.
+
+Screenshots live outside the repository, **never** in it: they are 2880×1800 PNGs, about 9 MB a set,
+and machine-specific.
+
+### Reading the result
+
+`magick compare -metric AE` prints the number of differing pixels, so `0 (0)` is the only passing
+value. There is no tolerance and none should be added — see
+[the note on fuzz](#determinism-gate-the-numbers).
+
+A non-zero count means one of three things, in the order worth checking:
+
+1. **You changed something visible.** Expected, if you meant to. Look at the diff
+   (`magick compare -metric AE a.png b.png diff.png`) and confirm it is only where you worked.
+2. **The harness is not fully applied.** By far the most common cause, and it does not look like
+   one — it looks like the app misbehaving. Check the settings under
+   [Fixed capture settings](#fixed-capture-settings--all-of-these-matter) first, especially the
+   capture path, and read
+   [If a browser API behaves impossibly](#if-a-browser-api-behaves-impossibly-suspect-your-own-stub-first).
+3. **The baseline is stale** — captured from a different build, a different machine, or a different
+   edition of the harness. Re-capture it and re-run.
+
+A distinctive signature worth recognising: if nearly every differing pixel is off by exactly
+`1/255` and they cluster in large low-contrast gradients, that is renderer noise, not the app.
+Do not reach for a fuzz threshold; find which of the fourteen items in the table below has come
+loose.
 
 ### Fixed capture settings — all of these matter
 
@@ -145,8 +201,9 @@ is not fully neutralisable and is the reason baselines cannot be shared between 
 
 ### If a browser API behaves impossibly, suspect your own stub first
 
-This cost a ruling. For several runs the face detector appeared to report `ready` for a flat grey
-frame containing no face — an impossible result that got `batch` written off as uncoverable. The
+This one nearly cost the `batch` view its coverage. For several runs the face detector appeared to
+report `ready` for a flat grey frame containing no face — an impossible result, and the conclusion
+drawn from it was that the detector could not be trusted and `batch` should ship uncovered. The
 detector was fine. An edit to the init script had silently dropped the
 `navigator.mediaDevices.getUserMedia` override, so the harness had been running against the
 machine's actual webcam, pointed at a real scene.
@@ -167,13 +224,32 @@ With the override restored the detector tracks stream content exactly as it shou
 
 ### Nothing about the app's rendering is suppressed
 
-An earlier edition of this harness flattened `.enhance-editor`'s two decorative `radial-gradient`s
-(`circle at 8% 0%`, `circle at 96% 88%` in `app/studio-enhance.css`), because the dither looked like
-it came from them — 24228 pixels on `select`. It did not; it came from the capture path. Once
-`fromSurface: false` was in place the flattening was put through the full three-run protocol with it
-**disabled** and every frame came back `0`, so it was removed. It had been hiding two real
-colour-carrying rules from the gate, which is exactly the class of regression the design-system
-colour lock exists to catch.
+An earlier edition of this harness injected a screenshot-mode stylesheet that flattened
+`.enhance-editor`'s two decorative `radial-gradient`s (`circle at 8% 0%`, `circle at 96% 88%` in
+`app/studio-enhance.css`) to a flat `#0f1412`, because the dither looked like it came from them —
+24228 pixels on `select`. It did not; it came from the capture path. Once `fromSurface: false` was
+in place, the flattening was put through the **full three-run protocol with it disabled** — two
+runs sharing a browser process, a third after relaunching the browser — and every one of the 15
+frames came back `0`. So it was removed.
+
+Two measurements were needed to justify that, not one, and the second is the one that is easy to
+skip:
+
+```
+three runs, flattening disabled, main vs main    all 15 frames: 0
+flattened select.png vs unflattened select.png   345720 (0.0666898)
+```
+
+The first says the gate does not *need* the flattening. The second says the flattening was
+**suppressing something real**: 345720 pixels, 6.7% of the frame, change when it comes out. Without
+that second number a reader cannot tell this case apart from the boring one — a CSS rule that was
+dead all along, where removing a suppression restores nothing and the gate gains no coverage. It
+was not dead. Those 345720 pixels are two colour-carrying declarations the gate can now see, and a
+colour that moved is exactly the regression the design-system work exists to catch.
+
+To reproduce: set the injected `flatten` string back to
+`".enhance-editor{background:#0f1412!important}"`, capture the `select` frame, and diff it against
+the current `accepted-baseline/select.png`.
 
 The lesson generalises: if a view drifts, look for the harness's own contribution before reaching
 for a stylesheet that suppresses part of the app. Every entry in the table above is a property of
@@ -230,8 +306,15 @@ weight instead.
 
 ## The scripts
 
-Three files. In this repo they live in `.playwright-mcp/` (already git-excluded through
-`.git/info/exclude`) and are reproduced here in full so the document stands alone.
+Three files, none of them in the repository and none of them installed. On the machine this was
+built on they sit in `.playwright-mcp/` (git-excluded through `.git/info/exclude`), but that
+directory is scratch and may not exist for you — copy them out of this document into any working
+directory. `gen.sh` from [section 3](#3-recipe-script) expects `init.js` and `shoot.template.mjs`
+beside it.
+
+They are reproduced here in full precisely so the document stands alone: the images are
+uncommitted, the scratch directories are transient, and this file is the only committed artifact
+of the whole harness.
 
 ### 1. Init script — registered with `context.addInitScript`
 
@@ -329,8 +412,50 @@ createServer((req, res) => {
 
 ### 3. Recipe script
 
-Run through `browser_run_code_unsafe`. `OUT` is this run's output directory; `INIT` is the init
-script above as a string.
+**How it is invoked.** `browser_run_code_unsafe` takes a file containing *a single JavaScript
+function expression* and calls it with one argument, `page` — a Playwright `Page`. That is the
+whole calling convention: `(<the function in the file>)(page)`. There is no module system, no
+`require`, no dynamic `import`, and no way to pass parameters in. So `OUT` and `INIT` are not
+arguments; they must already be **literals inside the file** when the tool runs it. The file
+executed for a run therefore starts like this:
+
+```javascript
+async (page) => {
+  const OUT = "/abs/path/to/scratchpad/accepted-baseline";
+  const INIT = "(() => {\n  const FIXED = new Date(\"2026-08-25T09:00:00Z\")\u2026";  // section 1, JSON-quoted
+  // ... the rest of the script below ...
+}
+```
+
+Hand-editing those two lines before every run is how mistakes get in, so generate the file. Keep
+the recipe as `shoot.template.mjs` with `const OUT = "__OUT__", INIT = "__INIT__";` as its first
+statement, and run this once per capture, changing only the output directory:
+
+```bash
+#!/bin/bash
+# gen.sh <output-dir>   ->   writes shoot.mjs with OUT and INIT baked in
+python3 -c '
+import sys, json
+out = sys.argv[1]
+tpl  = open("shoot.template.mjs").read()
+init = open("init.js").read()
+open("shoot.mjs", "w").write(
+    tpl.replace(chr(34) + "__OUT__" + chr(34), json.dumps(out))
+       .replace(chr(34) + "__INIT__" + chr(34), json.dumps(init)))
+' "$1"
+```
+
+Then point `browser_run_code_unsafe` at the generated `shoot.mjs`. Beyond convenience this buys two
+things that matter: `json.dumps` escapes the init script correctly — it is full of quotes,
+newlines and backslashes, and a hand-escaped copy will silently differ — and every run provably
+drives the *same* recipe with only the destination changed, which is the entire premise of the
+diff.
+
+One caveat that has bitten this harness before: `context.addInitScript` **accumulates per browser
+context**. Re-running the tool in the same browser registers the init script again rather than
+replacing it, and every registration runs on every navigation. That is safe here only because the
+init script carries no early-return guard, so the newest registration wins. See "If a browser API
+behaves impossibly, suspect your own stub first" above for what happened when it did carry one.
 
 ```javascript
 async (page) => {
