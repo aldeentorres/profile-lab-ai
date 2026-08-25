@@ -48,3 +48,8 @@ __pycache__/
 
 # superpowers subagent workspace (ledger, briefs, review packages)
 /.superpowers/
+
+# screenshot-harness scratch scripts (see scripts/shoot-views.md) — machine-local, not committed;
+# previously only excluded via .git/info/exclude, which eslint never consults, so npm run lint
+# picked these up and broke the verify gate for every task after the harness was first used.
+/.playwright-mcp/
