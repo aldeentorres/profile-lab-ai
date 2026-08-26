@@ -608,4 +608,43 @@
 }
 .camera-loading button { min-height: 44px; }
 
+/* Batch (select photo). Gallery on the dark capture stage: the crops are the subject, so
+   the ivory Photos wash stays off the viewport. What inherits: a summary strip of photos /
+   selected / selected score, the same action/approved/pending/zero tints as session, and
+   the 44×44 floor the remove control was under (38px). Selected already pairs the border
+   with a Check + "Selected" chip -- colour is not alone. "CAPTURE REVIEW" became
+   "Choose a photo". Selected chrome reused --green instead of the off-palette mint. */
+.batch-summary {
+ display: flex; flex-wrap: wrap; gap: 10px;
+ width: min(100%, 1040px);
+ margin: 0 auto 18px;
+}
+.batch-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+}
+.batch-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.batch-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--color-ink); }
+.batch-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.batch-summary-stat.action b { color: #7a2b13; }
+.batch-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.batch-summary-stat.pending b { color: #8a5a12; }
+.batch-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.batch-summary-stat.approved b { color: #1f6b4c; }
+.batch-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.batch-summary-stat.zero b { color: var(--color-muted); }
+.photo-meta .remove-shot { width: 44px; height: 44px; min-height: 44px; }
+.batch-grid article.selected { border-color: #35966f; box-shadow: 0 0 0 2px rgba(53,150,111,.42), 0 18px 46px #0007; }
+.batch-grid .selected-mark { background: #35966f; color: #fff; }
+
+@media (max-width: 600px) {
+ .batch-summary { gap: 8px; }
+ .batch-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .batch-summary-stat b { font-size: 20px; }
+}
+
 }
