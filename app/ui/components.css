@@ -941,16 +941,31 @@
 .designer-agent-state {
  width: fit-content; max-width: 100%;
  font-size: 11px; font-weight: 700;
+ border: 1px solid transparent;
 }
-.designer-agent-state.pending { background: #fff8ec; color: #8a5a12; }
+/* Each photo state keeps its own wash so Opted Out is not mistaken for Photo
+   required. The label and the <i> dot stay — colour is never the only signal. */
+.designer-agent-state.pending { background: #fff8ec; color: #8a5a12; border-color: #f3ebd6; }
 .designer-agent-state.pending i { background: #8a5a12; }
-.designer-agent-state.approved { background: #eaf6f0; color: #1f6b4c; }
+.designer-agent-state.approved { background: #eaf6f0; color: #1f6b4c; border-color: #bfe4d3; }
 .designer-agent-state.approved i { background: #35966f; }
-.designer-agent-state.has_images { background: #fff8ec; color: #8a5a12; }
-.designer-agent-state.has_images i { background: #8a5a12; }
-.designer-agent-state.retake, .designer-agent-state.reupload { background: #fff3ef; color: #7a2b13; }
-.designer-agent-state.retake i, .designer-agent-state.reupload i { background: #ee6538; }
-.designer-agent-state.opted_out, .designer-agent-state.none { background: #fff; color: var(--color-muted); border: 1px solid var(--color-line); }
+.designer-agent-state.has_images { background: #fff; color: #1f6b4c; border-color: #bfe4d3; }
+.designer-agent-state.has_images i { background: #35966f; }
+.designer-agent-state.retake, .designer-agent-state.none { background: #fff3ef; color: #7a2b13; border-color: #f6d7ce; }
+.designer-agent-state.retake i, .designer-agent-state.none i { background: #ee6538; }
+.designer-agent-state.reupload { background: #fff8ec; color: #8a5a12; border-color: #f3ebd6; }
+.designer-agent-state.reupload i { background: #8a5a12; }
+.designer-agent-state.opted_out { background: #fff; color: var(--color-muted); border-color: var(--color-line); }
+.designer-agent-state.opted_out i { background: var(--color-muted); }
+.designer-directory-grid .designer-avatar { width: 40px; height: 40px; overflow: hidden; }
+.designer-avatar.has-photo { padding: 0; overflow: hidden; background: #f6f7f8; }
+.designer-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+.designer-avatar .designer-image-loading {
+ width: 100%; height: 100%; min-height: 0; aspect-ratio: auto;
+ padding: 0; gap: 0; border: 0; background: transparent;
+}
+.designer-avatar .designer-image-loading span { display: none; }
+.designer-avatar .designer-image-loading svg { width: 14px; height: 14px; }
 .designer-image-state { width: fit-content; font-size: 11px; }
 .designer-image-state.pending { background: #8a5a12e8; }
 .designer-image-state.approved { background: #1f6b4ce8; }
