@@ -769,4 +769,45 @@
  .consent-summary-stat b { font-size: 20px; }
 }
 
+/* Success. Confirmation: the saved portrait is the subject. Countable state is where
+   the photo went (Atlas / brand), same tints as consent. "COMPLETE" became "Saved".
+   The mini row used a coloured bullet alone for "Updated now"; it now pairs Check +
+   "Saved now". Primary was already above 44px. No new hue. */
+.success-summary {
+ display: flex; flex-wrap: wrap; gap: 10px;
+ justify-content: center;
+ width: min(100%, 420px);
+ margin: 0 auto 8px;
+}
+.success-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+ text-align: left;
+}
+.success-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.success-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--color-ink); }
+.success-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.success-summary-stat.action b { color: #7a2b13; }
+.success-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.success-summary-stat.pending b { color: #8a5a12; }
+.success-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.success-summary-stat.approved b { color: #1f6b4c; }
+.success-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.success-summary-stat.zero b { color: var(--color-muted); }
+.success-saved-now {
+ display: inline-flex; align-items: center; gap: 6px;
+ color: #1f6b4c; font-weight: 700;
+}
+.success .primary { min-height: 52px; }
+
+@media (max-width: 620px) {
+ .success-summary { gap: 8px; width: 100%; }
+ .success-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .success-summary-stat b { font-size: 20px; }
+}
+
 }
