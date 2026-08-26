@@ -997,4 +997,65 @@
  .designer-counts article, .designer-summary-stat { min-width: 0; }
 }
 
+/* Atlas profile — live photo card, banner, and booking only. Sidebar/top/tabs
+   stay skeletal (demo chrome). Atlas tokens used golds/greens outside the
+   Photos family; those live surfaces come in-family here. */
+.atlas-summary {
+ display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px;
+}
+.atlas-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px; padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line); background: #fff;
+}
+.atlas-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.atlas-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--color-ink); }
+.atlas-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.atlas-summary-stat.action b { color: #7a2b13; }
+.atlas-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.atlas-summary-stat.pending b { color: #8a5a12; }
+.atlas-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.atlas-summary-stat.approved b { color: #1f6b4c; }
+.atlas-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.atlas-summary-stat.zero b { color: var(--color-muted); }
+.atlas-search input { height: 44px; min-height: 44px; }
+.atlas-tools>button:first-child, .menu-toggle, .banner-icon {
+ width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+}
+.save { height: 44px; min-height: 44px; background: #eaf6f0; border-color: #bfe4d3; color: #1f6b4c; }
+.close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+.quality-banner { border-color: #f6d7ce; background: #fff3ef; }
+.quality-banner button, .confirm { background: #ee6538; }
+.atlas-photo-actions { gap: 8px; }
+.atlas-app .atlas-photo-actions .studio-book { display: flex; border-color: #ee6538; background: #ee6538; }
+.atlas-photo-actions .atlas-login { border-color: #262626; background: #262626; }
+.rating-ring { background: #8a5a12; }
+.rating-ring.good { background: #35966f; }
+.rating-ring.low { background: #ee6538; }
+.photo-score>b { color: #8a5a12; }
+.photo-score>b.good { color: #1f6b4c; }
+.photo-score>b.low { color: #7a2b13; }
+.photo-score p span { color: #7a2b13; }
+.modal-icon { background: #fff3ef; color: #ee6538; }
+.modal-icon.success { background: #eaf6f0; color: #1f6b4c; }
+.requirement-list article.fail { background: #fff3ef; }
+.requirement-list article.fail>span { color: #7a2b13; }
+.assessment-feedback { border-color: #ee6538; background: #fff3ef; }
+.assessment-feedback.fair { border-color: #8a5a12; background: #fff8ec; }
+.assessment-feedback.good { border-color: #35966f; background: #eaf6f0; }
+.qr-error {
+ display: flex; align-items: center; justify-content: center;
+ width: fit-content; max-width: 100%; margin: 0 auto 10px;
+ min-height: 44px; padding: 8px 12px;
+ border: 1px solid #f6d7ce; border-radius: 8px;
+ background: #fff3ef; color: #7a2b13; font-size: 13px;
+}
+
+@media (max-width: 620px) {
+ .atlas-summary { gap: 8px; }
+ .atlas-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .atlas-summary-stat b { font-size: 20px; }
+}
+
 }
