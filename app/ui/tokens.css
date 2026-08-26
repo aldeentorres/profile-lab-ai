@@ -9,6 +9,17 @@
   --color-muted: var(--muted);
   --color-gold: var(--gold);
   --color-green: var(--green);
+  --color-forest: var(--forest);
+  --color-forest-mid: var(--forest-mid);
+  --color-wash-action: var(--wash-action);
+  --color-ink-action: var(--ink-action);
+  --color-line-action: var(--line-action);
+  --color-wash-pending: var(--wash-pending);
+  --color-ink-pending: var(--ink-pending);
+  --color-line-pending: var(--line-pending);
+  --color-wash-ok: var(--wash-ok);
+  --color-ink-ok: var(--ink-ok);
+  --color-line-ok: var(--line-ok);
   --radius-card: 16px;
   --radius-control: 10px;
 }
