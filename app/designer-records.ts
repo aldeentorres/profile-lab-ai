@@ -1,9 +1,10 @@
+import type {PhotoCategory} from "./atlas-profile-photo.ts";
 export const DesignerCaseStatus={READY_FOR_DESIGN:"READY_FOR_DESIGN",PENDING_DESIGNER_APPROVAL:"PENDING_DESIGNER_APPROVAL",AI_ENHANCED_REVIEW:"AI_ENHANCED_REVIEW",DESIGNER_REVIEW_REQUESTED:"DESIGNER_REVIEW_REQUESTED",APPROVED:"APPROVED",RETAKE_REQUIRED:"RETAKE_REQUIRED",REUPLOAD_REQUIRED:"REUPLOAD_REQUIRED"} as const;
 export type DesignerCaseStatus=typeof DesignerCaseStatus[keyof typeof DesignerCaseStatus];
 export type DesignerReviewType="ORIGINAL APPROVAL"|"AI ENHANCED"|"AI FLAGGED"|"USER REQUESTED";
 export type DesignerAction="approve_original"|"approve_enhanced"|"reject_enhancement"|"retake"|"reupload"|"keep_review";
 export type DesignerCategories={photoQuality:number;bodyCrop:number;faceVisibility:number;backgroundEditability:number};
-export type DesignerSubmission={submissionId:string;agentId:string;agentName:string;teamNameAtSubmission?:string;imageId:string;marketingReadiness:number;aiUsability:number;categories:DesignerCategories;issues:string[];disputedGates:string[];note:string;reviewType:DesignerReviewType;requestKind?:"original_approval"|"enhanced_review";status:DesignerCaseStatus;demo?:boolean;createdAt:string};
+export type DesignerSubmission={submissionId:string;agentId:string;agentName:string;teamNameAtSubmission?:string;imageId:string;photoCategory?:PhotoCategory;marketingReadiness:number;aiUsability:number;categories:DesignerCategories;issues:string[];disputedGates:string[];note:string;reviewType:DesignerReviewType;requestKind?:"original_approval"|"enhanced_review";status:DesignerCaseStatus;demo?:boolean;createdAt:string};
 export type DesignerEnhancement={enhancementId:string;submissionId:string;agentId:string;imageId:string;enhancedMarketingReadiness:number;checks:{label:string;status:"PASS"|"FAIL"|"UNVERIFIED";detail:string}[];identityPreservationPass:boolean|null;artifactCheckPass:boolean|null;status:DesignerCaseStatus;createdAt:string};
 export type DesignerReview={reviewId:string;submissionId:string;enhancementId?:string;agentId:string;reviewType:DesignerReviewType;designerDecision:DesignerAction;designerNotes:string;reviewedAt:string;status:DesignerCaseStatus};
 export type DesignerAssetSource="original"|"ai_enhanced"|"background_removed";
@@ -11,9 +12,9 @@ export type DesignerAsset={assetId:string;agentId:string;submissionId?:string;en
 export type DesignerEvent={eventId:string;agentId:string;action:string;actor?:string;at:string;refId:string;demo?:boolean};
 export const PhotoSubmissionStatus={OPTED_OUT:"PHOTO_SUBMISSION_OPTED_OUT"} as const;
 export type PhotoSubmissionStatus=typeof PhotoSubmissionStatus[keyof typeof PhotoSubmissionStatus];
-export type DesignerAgent={agentId:string;name:string;teamName:string;ren:string;avatarUrl:string;branch?:string;designation?:string;status?:string;email?:string;photoSubmissionStatus?:PhotoSubmissionStatus;photoOptedOutAt?:string;photoOptOutSource?:"agent_confirmed";demo?:boolean};
+export type DesignerAgent={agentId:string;name:string;gender?:"male"|"female";teamName:string;ren:string;avatarUrl:string;branch?:string;designation?:string;status?:string;email?:string;photoSubmissionStatus?:PhotoSubmissionStatus;photoOptedOutAt?:string;photoOptOutSource?:"agent_confirmed";demo?:boolean};
 export type PhotoReminderDeliveryStatus="PENDING"|"MOCK_DELIVERED"|"SMTP_DELIVERED"|"FAILED";
-export type PhotoReminder={reminderId:string;token:string;agentId:string;agentName:string;recipientEmail:string;intendedRecipientEmail?:string;actualRecipientEmail:string;sentAt:string;sentBy:string;reminderType:"PHOTO_UPLOAD";deliveryStatus:PhotoReminderDeliveryStatus;relatedPhotoStatus:AgentPhotoState;subject:string;uploadUrl:string;optOutUrl:string;testMode:boolean;demo?:boolean};
+export type PhotoReminder={reminderId:string;token:string;agentId:string;agentName:string;gender:"male"|"female";recipientEmail:string;intendedRecipientEmail?:string;actualRecipientEmail:string;sentAt:string;sentBy:string;reminderType:"PHOTO_UPLOAD";deliveryStatus:PhotoReminderDeliveryStatus;relatedPhotoStatus:AgentPhotoState;subject:string;uploadUrl:string;libraryUrl:string;optOutUrl:string;testMode:boolean;demo?:boolean};
 export type DesignerCounts={total:number;pending:number;originalApprovals:number;enhancedReviews:number;approved:number;retakes:number;reuploads:number};
 export type AgentPhotoState="pending"|"approved"|"has_images"|"none"|"retake"|"reupload"|"opted_out";
 export type AgentPhotoSummary={state:AgentPhotoState;images:number;pending:number;approved:number};

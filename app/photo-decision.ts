@@ -1,6 +1,11 @@
 import type {BodyExtent, HandState} from "./photo-body";
 
 export type PhotoStatus = "APPROVED"|"REVIEW"|"REUPLOAD"|"REJECT";
+// REJECT ("Retake Recommended") and REUPLOAD ("Re-upload at Higher Resolution") are hard stops on the
+// workflow rather than verdicts to be argued with: the file itself has to be replaced before anything
+// else may run on it. Designer approval, designer review and AI enhancement all read this one predicate
+// so the rule cannot drift between the engine, the queue and the screens.
+export const isWorkflowHardStop=(status:PhotoStatus)=>status==="REJECT"||status==="REUPLOAD";
 // "Is this a good photograph?" and "can we ship this file?" are separate questions.
 // FileStatus answers the second one and never drags down the photo-quality score.
 export type FileStatus = "OK"|"LOW"|"TOO_SMALL"|"UNUSABLE";
@@ -282,23 +287,25 @@ export function applyPhotoDecision(baseScore:number,signals:GateSignals):PhotoDe
  const retakeAdvice=gatePenalties.map(penalty=>retakeInstructions[penalty.id]).find(Boolean)??"";
  // File suitability answers "can we ship this particular file?" and is tracked on its own axis.
  const fileSuitability=rounded(signals.resolutionScore),fileStatus:FileStatus=signals.minimumDimension>=fileResolutionTargets.recommended?"OK":signals.minimumDimension>=fileResolutionTargets.usable?"LOW":signals.minimumDimension>=fileResolutionTargets.unusable?"TOO_SMALL":"UNUSABLE",fileReason=fileStatus==="OK"?`${signals.minimumDimension}px shortest edge is large enough for every marketing output.`:fileStatus==="LOW"?`${signals.minimumDimension}px shortest edge works for profile cards but is tight for large banners and print.`:fileStatus==="TOO_SMALL"?`${signals.minimumDimension}px shortest edge is small — usable on screen, but re-supply the original for print or large banners.`:`${signals.minimumDimension}px shortest edge is too small to use anywhere — re-upload the original file.`;
- // --- Designer review eligibility ---
- // Three terms, and every one of them is a measurement rather than an estimate. `qualityDefects` is
- // already the set of failures validated against the pixels, so "no severe blur", "face has usable
- // detail", "not pixelated or corrupted" and "resolution carries enough detail" all collapse into it.
- // Note what is deliberately absent: no gate, no verdict and no derived score appears here. A gate
- // firing is precisely the thing the agent is entitled to argue about.
- const reviewBlockingDefect=qualityDefects[0]??null;
- const designerReviewEligible=photoQuality>=designerReviewFloor&&!reviewBlockingDefect&&fileStatus!=="UNUSABLE";
- const reviewBlockReason=designerReviewEligible?"":reviewBlockingDefect?`${reviewBlockingDefect.label}. ${reviewBlockingDefect.evidence}`:fileStatus==="UNUSABLE"?fileReason:`Photo quality ${rounded(photoQuality)} is below the ${designerReviewFloor} needed for a designer to work from this image.`;
- // What the agent would actually be challenging: every judgement that changed the verdict, minus the
- // measured defects, which are not matters of opinion.
- const disputableGates=penalties.filter(penalty=>penalty.forces_status&&!defectBackedGates.has(penalty.id)).map(penalty=>penalty.label);
- const photoIsUsable=!forcedReject&&rawScore>=photoApprovalThresholds.review;
  // Resolution is advisory: a good photograph in a small file is still a good photograph. Only a file
  // too small to use anywhere becomes a re-upload request, and it never lowers the quality score.
  // A genuine hard failure overrides the score; nothing else does. 80+ approves, 65+ reviews, below 65 retakes.
  const status:PhotoStatus=forcedReject||score<photoApprovalThresholds.review?"REJECT":fileStatus==="UNUSABLE"?"REUPLOAD":score<photoApprovalThresholds.approved?"REVIEW":"APPROVED";
+ // --- Designer review eligibility ---
+ // The verdict comes first, because it is the only thing that can close the workflow. A retake or a
+ // re-upload means the photograph has to be replaced, so there is nothing left for a designer to decide
+ // about *this* file — offering review there would let a judgement call become a way around a hard stop.
+ // Within the statuses that stay open, the remaining terms are measurements rather than estimates:
+ // `qualityDefects` is already the set of failures validated against the pixels, so "no severe blur",
+ // "face has usable detail", "not pixelated or corrupted" and "resolution carries enough detail" all
+ // collapse into it.
+ const reviewBlockingDefect=qualityDefects[0]??null;
+ const designerReviewEligible=!isWorkflowHardStop(status)&&photoQuality>=designerReviewFloor&&!reviewBlockingDefect&&fileStatus!=="UNUSABLE";
+ const reviewBlockReason=designerReviewEligible?"":status==="REUPLOAD"?`${fileReason} Re-upload the original before asking for a designer.`:status==="REJECT"?`${hardGates[0]??`Marketing readiness ${score}/100`}. This photo has to be retaken before a designer can review it.`:reviewBlockingDefect?`${reviewBlockingDefect.label}. ${reviewBlockingDefect.evidence}`:`Photo quality ${rounded(photoQuality)} is below the ${designerReviewFloor} needed for a designer to work from this image.`;
+ // What the agent would actually be challenging: every judgement that changed the verdict, minus the
+ // measured defects, which are not matters of opinion.
+ const disputableGates=penalties.filter(penalty=>penalty.forces_status&&!defectBackedGates.has(penalty.id)).map(penalty=>penalty.label);
+ const photoIsUsable=!forcedReject&&rawScore>=photoApprovalThresholds.review;
  // Every gate caps at or below 59, so a fired gate already puts the score under the retake threshold:
  // the verdict and the number are two readings of the same value, and cannot contradict each other.
  const scoreTrace=[`Categories: photo quality ${rounded(photoQuality)}, body & crop ${rounded(bodyCrop)}, face visibility ${rounded(faceVisibility)}, background & editability ${rounded(signals.designerUsability)}.`,`Raw score ${rawScore} = those four weighted 30/30/20/20.`,`Validated quality defects: ${qualityDefects.length?qualityDefects.map(item=>`${item.label.toLowerCase()} — ${item.evidence}`).join(" "):"none — no score alone may force a retake."}`,`Critical floors: ${subjectFloorFailed?"FAIL — weak subject scores confirmed by a visual defect":readyFloorFailed||subjectScoresPoor?"below the ready-for-design minimum":"PASS"}.`,caps.length?`Validated gates: ${caps.map(entry=>`${entry.label} (max ${entry.cap})`).join("; ")}.`:"Validated gates: none.",appliedCap?`Final score ${score} = min(${rawScore}, ${appliedCap.cap}) — capped by ${appliedCap.label.toLowerCase()}.`:`Final score ${score} — no cap applied.`];

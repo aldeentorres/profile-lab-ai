@@ -25,3 +25,4 @@ export function createOrderId(){return `IQI-PRT-${Math.random().toString(36).sli
 // Artwork stays in memory: a 2650 × 1786 PNG would blow past the localStorage quota.
 export function recordPrintOrder(order:PrintOrder){try{const book=loadPrintOrders();localStorage.setItem(storageKey,JSON.stringify([order,...book].slice(0,20)))}catch{/* Private mode or a full quota must not block the order. */}return order}
 export function loadPrintOrders():PrintOrder[]{try{const raw=localStorage.getItem(storageKey);return raw?JSON.parse(raw) as PrintOrder[]:[]}catch{return[]}}
+

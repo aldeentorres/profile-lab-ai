@@ -1,24 +1,22 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { ChangeEvent, CSSProperties, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
   Award,
+  BadgeCheck,
   Camera,
   Check,
   Download,
   Eye,
   HelpCircle,
   Images,
-  Keyboard,
   LayoutTemplate,
   Mail,
   MonitorCog,
   Printer,
-  QrCode,
   RefreshCw,
   RotateCcw,
   ScanFace,
@@ -31,11 +29,12 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { IScannerControls } from "@zxing/browser";
 import {
   emptyPhotoRating,
   evaluatePhoto,
   isPhotoApproved,
+  isWorkflowHardStop,
+  isProfilePhotoVerified,
   photoApprovalThresholds,
   PhotoMetric,
   PhotoRating,
@@ -44,6 +43,7 @@ import {
   createReviewRequestId,
   listReviewRequests,
   recordReviewRequest,
+  reviewRequestBlockedBy,
   workflowStatusFor,
   type ReviewRequest,
   type ReviewScores,
@@ -74,9 +74,15 @@ import {
   designerStore,
   ingestReviewRequest,
   recordApprovedPhoto,
+  setPhotoCategory as setDesignerPhotoCategory,
 } from "./designer-store";
 import type { PhotoReminder } from "./designer-records";
-import { mockAgent } from "./mock-agent";
+import {
+  clearAtlasProfilePhoto,
+  withSingleAtlasPhoto,
+  writeAtlasProfilePhoto,
+} from "./atlas-profile-photo";
+import { atlasAgentSlug, mockAgent } from "./mock-agent";
 import {
   computePortraitMatte,
   cropSourceToAspect,
@@ -109,12 +115,11 @@ type View =
   | "review"
   | "select"
   | "consent"
-  | "success"
   | "personal"
   | "assets"
   | "console";
 type Assessment = PhotoRating;
-type PhotoCategory = "atlas" | "awards";
+type PhotoCategory = "atlas" | "awards" | "other";
 type Photo = {
   id: string;
   dataUrl: string;
@@ -134,11 +139,34 @@ type Photo = {
   agentOfficePhone?: string;
   reviewRequestId?: string;
 };
-const photoCategories: { id: PhotoCategory; label: string; note: string }[] = [
-  { id: "atlas", label: "Atlas photo", note: "Profile and subsale banner" },
-  { id: "awards", label: "Awards night", note: "Event screen artwork" },
+// `short` is what the three-way switch shows; `label` is the badge above it. A photo starts in
+// "other", so an agent's gallery does not claim the profile or awards slot they never picked.
+const photoCategories: {
+  id: PhotoCategory;
+  label: string;
+  short: string;
+  note: string;
+}[] = [
+  {
+    id: "atlas",
+    label: "Atlas photo",
+    short: "Atlas",
+    note: "The live photo on the agent's Atlas profile",
+  },
+  {
+    id: "awards",
+    label: "Awards night",
+    short: "Awards",
+    note: "Event screen artwork",
+  },
+  {
+    id: "other",
+    label: "Other",
+    short: "Other",
+    note: "Subsale banner and any other artwork",
+  },
 ];
-const categoryOf = (item: Photo): PhotoCategory => item.category ?? "atlas";
+const categoryOf = (item: Photo): PhotoCategory => item.category ?? "other";
 type SessionAgent = {
   agentName: string;
   agentId: string;
@@ -146,6 +174,7 @@ type SessionAgent = {
   agentMobile?: string;
   agentRenTag?: string;
   agentOfficePhone?: string;
+  agentTeam?: string;
   rating?: number;
   ratingLabel?: string;
   ratingMetrics?: PhotoMetric[];
@@ -184,6 +213,21 @@ function readGallery() {
     return [] as Photo[];
   }
 }
+// The two hard stops, in the agent's words. A retake and a re-upload are different asks — one needs a
+// new photograph, the other the same photograph at its original size — so the wording never collapses
+// them, and neither offers a way to continue with the file that was already judged. Both end at the same
+// control ("Choose another file"): capture lives in the guided studio flow, never on a review screen.
+const hardStopCopy = (status: PhotoRating["status"]) =>
+  status === "REUPLOAD"
+    ? {
+        title: "Re-upload Recommended",
+        body: "This file is too small to use. Supply the original at a higher resolution — designer review and AI enhancement both stay closed until then.",
+      }
+    : {
+        title: "Retake Recommended",
+        body: "This photo does not meet the minimum requirements for designer review. The original has to be replaced — choose another file, or generate an AI portrait from it if the face carries enough detail.",
+      };
+
 function RatingFeedback({
   rating,
   appeal,
@@ -288,6 +332,24 @@ function KeepOriginalOption({
         </span>
       </p>
     );
+  // A retake or a re-upload verdict is a hard stop, not a judgement to appeal: the photograph has to be
+  // replaced before any designer path exists for it. Shown as a statement with no controls, so there is
+  // nothing to tick and nothing to send.
+  if (isWorkflowHardStop(rating.status)) {
+    const stop = hardStopCopy(rating.status);
+    return (
+      <p className="appeal-blocked" role="note">
+        <ShieldCheck size={15} />{" "}
+        <span>
+          <b>{stop.title}</b>
+          {stop.body}
+          {rating.review_block_reason ? (
+            <small>{rating.review_block_reason}</small>
+          ) : null}
+        </span>
+      </p>
+    );
+  }
   if (!rating.designer_review_eligible)
     return (
       <p className="appeal-blocked" role="note">
@@ -302,7 +364,9 @@ function KeepOriginalOption({
       </p>
     );
   const send = () => {
-    if (!agreed) return;
+    // The button is already hidden for a hard stop; re-checking here means a stale render or a resumed
+    // session cannot open a designer case for a photo that has to be replaced.
+    if (!agreed || !rating.designer_review_eligible) return;
     const request = recordReviewRequest({
       id: createReviewRequestId(),
       createdAt: new Date().toISOString(),
@@ -310,6 +374,7 @@ function KeepOriginalOption({
       agentId: appeal.agentId,
       kind: "original_approval",
       workflowStatus: workflowStatusFor.original_approval,
+      category: "atlas",
       photo: appeal.photo,
       original: reviewScoresOf(rating),
       aiUsability: rating.ai_usability,
@@ -430,7 +495,7 @@ function SessionProfile({
     [rating, setRating] = useState<PhotoRating>(initialRating),
     [checking, setChecking] = useState(true),
     [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
-  const src = agent.agentPhoto || "/api/atlas-avatar?slug=niel-kingston",
+  const src = agent.agentPhoto || `/api/atlas-avatar?slug=${atlasAgentSlug}`,
     target = format === "square" ? 1 : 0.8;
   useEffect(() => {
     let active = true;
@@ -477,7 +542,14 @@ function SessionProfile({
         <div className="session-loaded-title">
           <div>
             <Badge tone="eyebrow">APPOINTMENT READY</Badge>
-            <b>{agent.agentName}</b>
+            <b>
+              {agent.agentName}
+              {isProfilePhotoVerified(rating) ? (
+                <span className="profile-verified" title="Verified photo">
+                  <BadgeCheck size={14} />
+                </span>
+              ) : null}
+            </b>
           </div>
         </div>
         <div className="session-loaded-actions">
@@ -654,7 +726,6 @@ function UploadedPhotoCheck({
   pendingReview,
   onContinue,
   onUseOriginal,
-  onRetake,
   onExit,
   onUpload,
   onPending,
@@ -666,7 +737,6 @@ function UploadedPhotoCheck({
   pendingReview: ReviewRequest | null;
   onContinue: (format: CropFormat) => void;
   onUseOriginal: (format: CropFormat, request: ReviewRequest) => void;
-  onRetake: () => void;
   onExit: () => void;
   onUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onPending: (
@@ -701,7 +771,12 @@ function UploadedPhotoCheck({
           ? "#f3b44d"
           : "#ef7656",
     approved = isPhotoApproved(rating),
-    approvalRequested = request?.kind === "original_approval";
+    approvalRequested = request?.kind === "original_approval",
+    continueAction =
+      approved ||
+      Boolean(
+        approvalRequested && request && !isWorkflowHardStop(rating.status),
+      );
   const selectFormat = async (nextFormat: CropFormat) => {
     if (nextFormat === format) return;
     const runId = ++ratingRunRef.current;
@@ -724,16 +799,27 @@ function UploadedPhotoCheck({
   };
   if (tab === "enhance")
     return (
-      <ReviewAndEnhance
-        src={src}
-        rating={rating}
-        agent={agent}
-        format={format}
-        dimensions={dimensions}
-        onBack={() => setTab("assessment")}
-        onExit={onExit}
-        onPending={onPending}
-      />
+      <>
+        <ReviewAndEnhance
+          src={src}
+          rating={rating}
+          agent={agent}
+          format={format}
+          dimensions={dimensions}
+          onBack={() => setTab("assessment")}
+          onChooseFile={() => inputRef.current?.click()}
+          onExit={onExit}
+          onPending={onPending}
+        />
+        <input
+          ref={inputRef}
+          className="sr-only"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={onUpload}
+          aria-label="Choose another portrait photo"
+        />
+      </>
     );
   return (
     <main className="session-profile-check uploaded-photo-check">
@@ -907,7 +993,9 @@ function UploadedPhotoCheck({
               >
                 Continue <ArrowRight size={19} />
               </Button>
-            ) : approvalRequested && request && rating.status !== "REJECT" ? (
+            ) : approvalRequested &&
+              request &&
+              !isWorkflowHardStop(rating.status) ? (
               <Button
                 variant="primary"
                 className="session-start"
@@ -915,20 +1003,15 @@ function UploadedPhotoCheck({
               >
                 Continue with original photo <ArrowRight size={19} />
               </Button>
-            ) : (
-              <Button
-                variant="primary"
-                className="session-start"
-                onClick={onRetake}
-              >
-                <Camera size={18} />
-                {rating.status === "REUPLOAD"
-                  ? "Upload a larger file"
-                  : "Retake / Upload Better Photo"}
-              </Button>
-            )}
+            ) : null}
+            {/* A photo that cannot go forward — a hard stop, or a verdict still waiting on a designer —
+                has exactly one way out: a different file. The camera belongs to the guided studio flow,
+                so a "retake" button here would drop the agent into capture from a review screen. */}
             <Button
-              className="upload-review-secondary"
+              variant={continueAction ? undefined : "primary"}
+              className={
+                continueAction ? "upload-review-secondary" : "session-start"
+              }
               onClick={() => inputRef.current?.click()}
             >
               <Upload size={17} /> Choose another file
@@ -957,23 +1040,29 @@ function ImproveWithAi({
   rating: PhotoRating;
   onOpen: () => void;
 }) {
-  const eligible = rating.ai_enhancement_eligible;
+  const eligible = rating.ai_enhancement_eligible,
+    // A retake recommendation no longer closes enhancement — an identity-preserving generation rebuilds
+    // framing, background and body, which is what the retake was about. Where the face detail is not
+    // there either, the score is left off: a number the agent cannot act on only invites an argument.
+    hideScore = !eligible && isWorkflowHardStop(rating.status);
   return (
     <div className={`improve-ai ${eligible ? "" : "unavailable"}`}>
-      <div className="ai-usability-row">
-        <span>
-          <small>AI Usability</small>
-          <strong>
-            {rating.ai_usability}
-            <i>/ 100</i>
-          </strong>
-        </span>
-        <b className={eligible ? "good" : "low"}>
-          {eligible
-            ? "Suitable for AI Enhancement"
-            : "Not suitable for AI enhancement"}
-        </b>
-      </div>
+      {hideScore ? null : (
+        <div className="ai-usability-row">
+          <span>
+            <small>AI Usability</small>
+            <strong>
+              {rating.ai_usability}
+              <i>/ 100</i>
+            </strong>
+          </span>
+          <b className={eligible ? "good" : "low"}>
+            {eligible
+              ? "Suitable for AI Enhancement"
+              : "Not suitable for AI enhancement"}
+          </b>
+        </div>
+      )}
       {eligible ? (
         <>
           <span className="appeal-eyebrow">Or improve with AI</span>
@@ -989,9 +1078,11 @@ function ImproveWithAi({
         <p className="appeal-blocked" role="note">
           <ShieldCheck size={15} />{" "}
           <span>
-            <b>AI Enhancement Unavailable</b>This photo does not contain enough
-            reliable identity detail for safe AI enhancement. Please upload or
-            retake a clearer photo.<small>{rating.ai_usability_reason}</small>
+            <b>AI Enhancement Unavailable</b>
+            {rating.status === "REUPLOAD"
+              ? hardStopCopy(rating.status).body
+              : "This photo does not contain enough reliable identity detail for safe AI enhancement. Please choose a clearer file."}
+            <small>{rating.ai_usability_reason}</small>
           </span>
         </p>
       )}
@@ -1010,6 +1101,7 @@ function ReviewAndEnhance({
   format,
   dimensions,
   onBack,
+  onChooseFile,
   onExit,
   onPending,
 }: {
@@ -1019,6 +1111,7 @@ function ReviewAndEnhance({
   format: CropFormat;
   dimensions: { width: number; height: number };
   onBack: () => void;
+  onChooseFile: () => void;
   onExit: () => void;
   onPending: (
     request: ReviewRequest,
@@ -1193,7 +1286,17 @@ function ReviewAndEnhance({
     }
   };
   const sendToDesigner = () => {
-    if (sent) return;
+    // A retake-recommended original can reach this screen — the generated portrait is what is being
+    // submitted, and it is judged on its own. A re-upload still cannot: there were never enough pixels
+    // to generate from. Asking the queue rule rather than re-stating it keeps the two in step.
+    if (
+      sent ||
+      reviewRequestBlockedBy({
+        kind: "enhanced_review",
+        original: reviewScoresOf(rating),
+      })
+    )
+      return;
     const request = recordReviewRequest({
       id: createReviewRequestId(),
       createdAt: new Date().toISOString(),
@@ -1201,6 +1304,7 @@ function ReviewAndEnhance({
       agentId: agent.agentId,
       kind: "enhanced_review",
       workflowStatus: workflowStatusFor.enhanced_review,
+      category: "atlas",
       photo: src,
       enhancedPhoto: result?.dataUrl,
       original: reviewScoresOf(rating),
@@ -1229,7 +1333,7 @@ function ReviewAndEnhance({
   // original goes to the designer as the review candidate — the AI-enhanced image is never submitted
   // and never becomes an approved asset, kept only in this component's own state for comparison.
   const sendOriginalToDesigner = () => {
-    if (sent) return;
+    if (sent || !rating.designer_review_eligible) return;
     const request = recordReviewRequest({
       id: createReviewRequestId(),
       createdAt: new Date().toISOString(),
@@ -1237,6 +1341,7 @@ function ReviewAndEnhance({
       agentId: agent.agentId,
       kind: "original_approval",
       workflowStatus: workflowStatusFor.original_approval,
+      category: "atlas",
       photo: src,
       original: reviewScoresOf(rating),
       aiUsability: rating.ai_usability,
@@ -1525,15 +1630,25 @@ function ReviewAndEnhance({
                   ) : null}
                 </div>
               ) : (
-                <p className="appeal-blocked" role="note">
-                  <ShieldCheck size={15} />{" "}
-                  <span>
-                    <b>AI Enhancement Unavailable</b>This photo does not contain
-                    enough reliable identity detail for safe AI enhancement.
-                    Please upload or retake a clearer photo.
-                    <small>{rating.ai_usability_reason}</small>
-                  </span>
-                </p>
+                <>
+                  <p className="appeal-blocked" role="note">
+                    <ShieldCheck size={15} />{" "}
+                    <span>
+                      <b>AI Enhancement Unavailable</b>
+                      {rating.status === "REUPLOAD"
+                        ? hardStopCopy(rating.status).body
+                        : "This photo does not contain enough reliable identity detail for safe AI enhancement. Please choose a clearer file."}
+                      <small>{rating.ai_usability_reason}</small>
+                    </span>
+                  </p>
+                  <Button
+                    variant="primary"
+                    className="session-start"
+                    onClick={onChooseFile}
+                  >
+                    <Upload size={17} /> Choose another file
+                  </Button>
+                </>
               )}
             </>
           ) : verdict ? (
@@ -1616,46 +1731,56 @@ function ReviewAndEnhance({
                     </div>
                   )}
                   <span className="appeal-eyebrow">
-                    Choose the photo you want reviewed
+                    {rating.designer_review_eligible
+                      ? "Choose the photo you want reviewed"
+                      : "Send this AI-enhanced photo for review"}
                   </span>
                   <div className="enhance-decision">
-                    <div className="appeal keep-original">
-                      <p className="appeal-lead">
-                        <HelpCircle size={15} />{" "}
-                        <span>
-                          <b>I prefer my original photo</b> Your AI-enhanced
-                          photo will not be submitted. Your original photo will
-                          be sent to our design team for approval instead.
-                        </span>
-                      </p>
-                      <label className="appeal-toggle">
-                        <input
-                          type="checkbox"
-                          checked={useOriginalAgreed}
-                          onChange={(event) =>
-                            setUseOriginalAgreed(event.target.checked)
-                          }
-                        />
-                        <span>
-                          I want to submit my original photo for designer
-                          approval.
-                        </span>
-                      </label>
-                      <Button
-                        className="appeal-send"
-                        disabled={!useOriginalAgreed}
-                        onClick={sendOriginalToDesigner}
-                      >
-                        Send Original to Designer
-                      </Button>
-                    </div>
+                    {/* A retake-recommended original cannot be submitted for approval — the designer path
+                        that survives the verdict is the generated portrait, and only that. */}
+                    {rating.designer_review_eligible ? (
+                      <div className="appeal keep-original">
+                        <p className="appeal-lead">
+                          <HelpCircle size={15} />{" "}
+                          <span>
+                            <b>I prefer my original photo</b> Your AI-enhanced
+                            photo will not be submitted. Your original photo
+                            will be sent to our design team for approval
+                            instead.
+                          </span>
+                        </p>
+                        <label className="appeal-toggle">
+                          <input
+                            type="checkbox"
+                            checked={useOriginalAgreed}
+                            onChange={(event) =>
+                              setUseOriginalAgreed(event.target.checked)
+                            }
+                          />
+                          <span>
+                            I want to submit my original photo for designer
+                            approval.
+                          </span>
+                        </label>
+                        <Button
+                          className="appeal-send"
+                          disabled={!useOriginalAgreed}
+                          onClick={sendOriginalToDesigner}
+                        >
+                          Send Original to Designer
+                        </Button>
+                      </div>
+                    ) : null}
                     <div className="appeal">
                       <p className="appeal-lead">
                         <Sparkles size={15} />{" "}
                         <span>
                           <b>I like this AI-enhanced photo</b> Your AI-enhanced
                           portrait will be sent to our design team, alongside
-                          your original for identity comparison.
+                          your original for identity comparison
+                          {rating.designer_review_eligible
+                            ? "."
+                            : " only — the original itself cannot be approved after a retake recommendation."}
                         </span>
                       </p>
                       <label className="appeal-toggle">
@@ -1718,6 +1843,7 @@ function ComparePreview({
   enhanced,
   afterLabel,
   enhancedAlt,
+  aspect,
   position,
   onPosition,
 }: {
@@ -1725,11 +1851,15 @@ function ComparePreview({
   enhanced: string;
   afterLabel: string;
   enhancedAlt: string;
+  aspect: number;
   position: number;
   onPosition: (value: number) => void;
 }) {
   return (
-    <div className="enhance-preview">
+    <div
+      className="enhance-preview"
+      style={{ "--preview-aspect": aspect } as CSSProperties}
+    >
       <img src={enhanced} alt={enhancedAlt} width={960} height={1200} />
       <img
         className="compare-original-image"
@@ -1870,40 +2000,10 @@ function StudioEnhanceEditor({
     [rendering, setRendering] = useState(true),
     [comparePosition, setComparePosition] = useState(50),
     [finishing, setFinishing] = useState(false),
-    [baseSrc, setBaseSrc] = useState(src),
-    [restoring, setRestoring] = useState(false),
-    [restored, setRestored] = useState(false),
-    [restoreError, setRestoreError] = useState(""),
-    [fidelity, setFidelity] = useState(0.8),
-    [restoredFaces, setRestoredFaces] = useState(0),
-    [restorationAvailable, setRestorationAvailable] = useState<
-      "checking" | "available" | "unavailable"
-    >("checking"),
-    restoredUrlRef = useRef<string | null>(null),
     [croppedOriginal, setCroppedOriginal] = useState(src);
-  useEffect(() => {
-    let active = true;
-    fetch("/api/codeformer", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((result: { available?: boolean }) => {
-        if (active)
-          setRestorationAvailable(
-            result.available ? "available" : "unavailable",
-          );
-      })
-      .catch(() => {
-        if (active) setRestorationAvailable("unavailable");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  useEffect(
-    () => () => {
-      if (restoredUrlRef.current) URL.revokeObjectURL(restoredUrlRef.current);
-    },
-    [],
-  );
+  // The face-restore adapter is not offered here any more, so the source the pipeline reads and the
+  // source the compare slider reveals are always the uploaded photo.
+  const baseSrc = src;
   useEffect(() => {
     let active = true;
     prepareEnhancementAssets(baseSrc)
@@ -1979,47 +2079,6 @@ function StudioEnhanceEditor({
   }, [enabled, prepared, assets, settings, baseSrc, targetAspect, matte]);
   const update = (key: keyof EnhanceSettings, value: number) =>
     setSettings((current) => ({ ...current, [key]: value }));
-  const restoreWithCodeFormer = async () => {
-    if (restoring || restorationAvailable !== "available") return;
-    setRestoring(true);
-    setRestoreError("");
-    try {
-      const source = await fetch(src).then((response) => response.blob()),
-        response = await fetch(
-          `/api/codeformer?fidelity=${fidelity.toFixed(2)}&upscale=2`,
-          {
-            method: "POST",
-            headers: { "Content-Type": source.type || "image/png" },
-            body: source,
-          },
-        );
-      if (!response.ok) {
-        const result = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        throw new Error(
-          result?.error || "CodeFormer could not restore this photo.",
-        );
-      }
-      const resultUrl = URL.createObjectURL(await response.blob());
-      if (restoredUrlRef.current) URL.revokeObjectURL(restoredUrlRef.current);
-      restoredUrlRef.current = resultUrl;
-      setPrepared(false);
-      setRendering(true);
-      setRestoredFaces(Number(response.headers.get("x-codeformer-faces") ?? 0));
-      setRestored(true);
-      setBaseSrc(resultUrl);
-      setPreview(resultUrl);
-    } catch (error) {
-      setRestoreError(
-        error instanceof Error
-          ? error.message
-          : "CodeFormer could not restore this photo.",
-      );
-    } finally {
-      setRestoring(false);
-    }
-  };
   const finish = async () => {
     if (finishing) return;
     setFinishing(true);
@@ -2039,7 +2098,7 @@ function StudioEnhanceEditor({
         });
       } else {
         const image = await loadImage(baseSrc);
-        await onContinue(baseSrc, restored, {
+        await onContinue(baseSrc, false, {
           width: image.naturalWidth,
           height: image.naturalHeight,
         });
@@ -2048,17 +2107,9 @@ function StudioEnhanceEditor({
       setFinishing(false);
     }
   };
-  const busy = restoring || (enabled && rendering),
+  const busy = enabled && rendering,
     afterSrc = enabled ? preview : baseSrc,
-    afterLabel = restoring
-      ? "AI RESTORING…"
-      : !prepared
-        ? "ANALYSING…"
-        : busy
-          ? "UPDATING…"
-          : restored
-            ? "AI RESTORED"
-            : "PROFESSIONAL",
+    afterLabel = !prepared ? "ANALYSING…" : busy ? "UPDATING…" : "PROFESSIONAL",
     subjectCopy = !prepared
       ? "Finding subject…"
       : matte
@@ -2083,29 +2134,9 @@ function StudioEnhanceEditor({
         </div>
         <span className="enhance-local">
           <ShieldCheck size={15} />
-          {restored ? " Restore plus local edits" : " Private · on this device"}
+          {" Private · on this device"}
         </span>
       </header>
-      <div className="enhance-summary">
-        <StatTile
-          className={`enhance-summary-stat ${enabled ? "approved" : "zero"}`}
-          label="Local finishing"
-          value={enabled ? "On" : "Off"}
-        />
-        <StatTile
-          className={`enhance-summary-stat ${restored ? "approved" : restorationAvailable === "available" ? "pending" : "zero"}`}
-          label="Blur restore"
-          value={
-            restored
-              ? "Done"
-              : restorationAvailable === "checking"
-                ? "…"
-                : restorationAvailable === "available"
-                  ? "Ready"
-                  : "Off"
-          }
-        />
-      </div>
       <div className="enhance-layout">
         <section className="enhance-preview-panel">
           <ComparePreview
@@ -2113,6 +2144,7 @@ function StudioEnhanceEditor({
             enhanced={afterSrc}
             afterLabel={afterLabel}
             enhancedAlt="Professionally enhanced portrait"
+            aspect={targetAspect}
             position={comparePosition}
             onPosition={setComparePosition}
           />
@@ -2153,11 +2185,7 @@ function StudioEnhanceEditor({
               <b>
                 {subjectCopy} · {faceCopy}
               </b>
-              <small>
-                {restored
-                  ? "CodeFormer reconstructs missing facial detail; compare identity before use."
-                  : "Local edits preserve the original facial structure."}
-              </small>
+              <small>Local edits preserve the original facial structure.</small>
             </span>
           </div>
         </section>
@@ -2169,95 +2197,10 @@ function StudioEnhanceEditor({
             <div>
               <h1>Finish the photo. Keep the face.</h1>
               <p>
-                Optional blur restore, then local edits for a profile export.
-                Your original stays available.
+                Local edits for a profile export. Your original stays available.
               </p>
             </div>
           </div>
-          <section
-            className={`codeformer-card ${restored ? "restored" : ""}`}
-            aria-labelledby="codeformer-title"
-          >
-            <div className="codeformer-heading">
-              <span>
-                <ScanFace size={17} />
-              </span>
-              <div>
-                <b id="codeformer-title">Optional face restore</b>
-                <small>
-                  CodeFormer · only if the restore service is connected
-                </small>
-              </div>
-              <i>
-                {restored
-                  ? "Restored"
-                  : restorationAvailable === "checking"
-                    ? "Checking"
-                    : restorationAvailable === "available"
-                      ? "Ready"
-                      : "Service needed"}
-              </i>
-            </div>
-            <label className="codeformer-fidelity">
-              <span>
-                <b>Identity fidelity</b>
-                <small>
-                  Lower = more reconstruction · Higher = closer identity
-                </small>
-              </span>
-              <output>{fidelity.toFixed(2)}</output>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={fidelity}
-                onChange={(event) => setFidelity(Number(event.target.value))}
-                disabled={restoring}
-                aria-label="CodeFormer identity fidelity"
-              />
-            </label>
-            <Button
-              className="codeformer-action"
-              disabled={restoring || restorationAvailable !== "available"}
-              onClick={() => void restoreWithCodeFormer()}
-            >
-              {restoring ? (
-                <>
-                  <RefreshCw className="spinning" size={16} /> Restoring — this
-                  can take a minute
-                </>
-              ) : restored ? (
-                <>
-                  <RefreshCw size={16} /> Restore again
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} /> Restore blur with CodeFormer
-                </>
-              )}
-            </Button>
-            <p
-              className={
-                restoreError ? "codeformer-error" : "codeformer-caption"
-              }
-              role={restoreError ? "alert" : undefined}
-            >
-              {restoreError || restorationAvailable === "unavailable"
-                ? restoreError ||
-                  "Connect the optional CodeFormer service to enable true AI restoration. Local enhancement still works."
-                : restored
-                  ? `${restoredFaces} face${restoredFaces === 1 ? "" : "s"} restored. Check identity against the original before use.`
-                  : "Experimental · sends this photo to your configured private service."}
-            </p>
-            <a
-              href="https://github.com/sczhou/CodeFormer/blob/master/LICENSE"
-              target="_blank"
-              rel="noreferrer"
-            >
-              S-Lab non-commercial license ↗
-            </a>
-          </section>
           <Button
             className={`enhance-toggle ${enabled ? "on" : ""}`}
             onClick={() => setEnabled((value) => !value)}
@@ -2268,9 +2211,7 @@ function StudioEnhanceEditor({
               <small>
                 {enabled
                   ? "Five-stage browser pipeline applied"
-                  : restored
-                    ? "AI-restored photo selected"
-                    : "Original photo selected"}
+                  : "Original photo selected"}
               </small>
             </span>
             <i>{enabled ? "On" : "Off"}</i>
@@ -2321,15 +2262,10 @@ function StudioEnhanceEditor({
           <div className="enhance-note">
             <ShieldCheck size={17} />
             <p>
-              <b>
-                {restored
-                  ? "Private service restore + local finishing"
-                  : "Private, local finishing"}
-              </b>
+              <b>Private, local finishing</b>
               <span>
-                {restored
-                  ? "The restored result is finished in this browser. The original remains available for comparison."
-                  : "The person mask, face check and edits stay in this browser. The original remains unchanged."}
+                The person mask, face check and edits stay in this browser. The
+                original remains unchanged.
               </span>
             </p>
           </div>
@@ -2342,9 +2278,7 @@ function StudioEnhanceEditor({
               ? "Exporting high-resolution photo…"
               : enabled
                 ? "Use professional version"
-                : restored
-                  ? "Use AI-restored photo"
-                  : "Use original"}
+                : "Use original"}
             <ArrowRight size={18} />
           </Button>
         </aside>
@@ -2425,13 +2359,8 @@ export default function Studio() {
     [checking, setChecking] = useState(false),
     [enhanced, setEnhanced] = useState(false),
     [profileOK, setProfileOK] = useState(true),
-    [brandOK, setBrandOK] = useState(true),
     [gallery, setGallery] = useState<Photo[]>([]);
-  const [scanStatus, setScanStatus] = useState<
-      "idle" | "starting" | "live" | "error"
-    >("idle"),
-    [scanError, setScanError] = useState(""),
-    [sessionCode, setSessionCode] = useState(""),
+  const [sessionCode, setSessionCode] = useState(""),
     [sessionAgent, setSessionAgent] = useState<SessionAgent | null>(null),
     [resetConfirm, setResetConfirm] = useState(false),
     [deletePhotoId, setDeletePhotoId] = useState<string | null>(null);
@@ -2472,10 +2401,6 @@ export default function Studio() {
       width: number;
       height: number;
     } | null>(null),
-    scannerVideoRef = useRef<HTMLVideoElement>(null),
-    scannerControlsRef = useRef<IScannerControls | null>(null),
-    scannerStreamRef = useRef<MediaStream | null>(null),
-    scannerRunRef = useRef(0),
     streamRef = useRef<MediaStream | null>(null),
     fileRef = useRef<HTMLInputElement>(null),
     placementRef = useRef(placement),
@@ -2577,14 +2502,6 @@ export default function Studio() {
     });
   useEffect(
     () => () => streamRef.current?.getTracks().forEach((t) => t.stop()),
-    [],
-  );
-  useEffect(
-    () => () => {
-      scannerRunRef.current += 1;
-      scannerControlsRef.current?.stop();
-      scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
-    },
     [],
   );
   useEffect(() => {
@@ -2735,7 +2652,9 @@ export default function Studio() {
           agentId: record.agentId,
           agentName: record.agentName,
         });
-        setView("console");
+        setView(
+          params.get("reminder_action") === "library" ? "personal" : "console",
+        );
         if (params.get("reminder_action") === "optout")
           setReminderAction("confirm_optout");
       })
@@ -2792,17 +2711,8 @@ export default function Studio() {
     devices.addEventListener?.("devicechange", sync);
     return () => devices.removeEventListener?.("devicechange", sync);
   }, []);
-  const stopScanner = () => {
-    scannerRunRef.current += 1;
-    scannerControlsRef.current?.stop();
-    scannerControlsRef.current = null;
-    scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
-    scannerStreamRef.current = null;
-    if (scannerVideoRef.current) scannerVideoRef.current.srcObject = null;
-  };
   const go = (v: View) => {
     if (v !== "capture") stopCamera();
-    if (v !== "console") stopScanner();
     setView(v);
     if (navigableViews.has(v)) {
       const next = v === "console" ? "/" : `/?view=${v}`;
@@ -2822,7 +2732,6 @@ export default function Studio() {
       /* Plain appointment codes are expected here. */
     }
     code = decodeURIComponent(code);
-    setScanError("");
     try {
       let data: SessionAgent | null = null;
       const saved = localStorage.getItem(`photostudio-session:${code}`);
@@ -2835,19 +2744,15 @@ export default function Studio() {
         if (!response.ok) throw new Error("Appointment not found");
         data = await response.json();
       }
-      stopScanner();
       setSessionAgent(data);
       setSessionCode(code);
-      setScanStatus("idle");
       setView("session");
       history.replaceState({}, "", `/?session=${encodeURIComponent(code)}`);
       setToast(`${data.agentName} loaded`);
     } catch {
-      stopScanner();
-      setScanError(
-        "Appointment not found. Book in Atlas, then scan the new QR or enter its code.",
+      setToast(
+        "Appointment not found. Book in Atlas, then open the appointment link again.",
       );
-      setScanStatus("error");
     }
   };
   useEffect(() => {
@@ -2856,104 +2761,6 @@ export default function Studio() {
     const timer = window.setTimeout(() => void loadStudioSession(code), 0);
     return () => window.clearTimeout(timer);
   }, []);
-  const startScanner = async () => {
-    if (scanStatus === "starting") return;
-    stopScanner();
-    const runId = scannerRunRef.current,
-      setError = (message: string) => {
-        if (scannerRunRef.current !== runId) return;
-        stopScanner();
-        setScanStatus("error");
-        setScanError(message);
-      };
-    setScanStatus("starting");
-    setScanError("");
-    let timedOut = false,
-      timeoutId = 0;
-    try {
-      if (!navigator.mediaDevices?.getUserMedia)
-        throw new Error("Camera access is not supported in this browser.");
-      const video = scannerVideoRef.current;
-      if (!video) throw new Error("The QR preview is not ready. Try again.");
-      const { BrowserQRCodeReader } = await import("@zxing/browser");
-      if (scannerRunRef.current !== runId) return;
-      const request = navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
-      request
-        .then((stream) => {
-          if (timedOut || scannerRunRef.current !== runId)
-            stream.getTracks().forEach((track) => track.stop());
-        })
-        .catch(() => {});
-      const timeout = new Promise<never>((_, reject) => {
-          timeoutId = window.setTimeout(() => {
-            timedOut = true;
-            reject(
-              new Error(
-                "Camera permission timed out. Check the browser camera icon, then try again.",
-              ),
-            );
-          }, 10000);
-        }),
-        stream = await Promise.race([request, timeout]);
-      window.clearTimeout(timeoutId);
-      if (scannerRunRef.current !== runId) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      scannerStreamRef.current = stream;
-      let found = false;
-      const reader = new BrowserQRCodeReader(undefined, {
-          delayBetweenScanAttempts: 120,
-          delayBetweenScanSuccess: 800,
-        }),
-        controls = await reader.decodeFromStream(stream, video, (result) => {
-          if (!result || found || scannerRunRef.current !== runId) return;
-          found = true;
-          stopScanner();
-          setScanStatus("starting");
-          void loadStudioSession(result.getText());
-        });
-      if (scannerRunRef.current !== runId) {
-        controls.stop();
-        return;
-      }
-      scannerControlsRef.current = controls;
-      setScanStatus("live");
-    } catch (e) {
-      window.clearTimeout(timeoutId);
-      const error = e instanceof Error ? e : null;
-      if (error?.name === "NotAllowedError" || error?.name === "SecurityError")
-        setError(
-          "Camera permission is off. Allow access in your browser, then try again.",
-        );
-      else if (
-        error?.name === "NotFoundError" ||
-        error?.name === "OverconstrainedError"
-      )
-        setError(
-          "No camera was found. Connect or enable a camera, then try again.",
-        );
-      else if (
-        error?.name === "NotReadableError" ||
-        error?.name === "AbortError"
-      )
-        setError(
-          "The camera is busy. Close other camera apps, then try again.",
-        );
-      else
-        setError(
-          error?.message ||
-            "The QR camera could not start. Enter the appointment code below.",
-        );
-    }
-  };
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -3295,7 +3102,6 @@ export default function Studio() {
   const exitLoadedSession = () => {
     setSessionAgent(null);
     setSessionCode("");
-    setScanError("");
     setView("console");
     history.replaceState({}, "", "/");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3303,6 +3109,8 @@ export default function Studio() {
   // A designer-approval or designer-review request must show under Pending Designer Review the moment it
   // is created — not only after the agent finishes capture/consent and clicks Save. This mirrors that
   // gallery entry immediately; confirm()'s dataUrl-based dedup later replaces it with the saved photo.
+  // It claims the Atlas slot like any other save, so it must demote the previous Atlas photo too --
+  // without withSingleAtlasPhoto the gallery ends up showing two "Atlas photo" cards at once.
   const addPendingPhoto = (
     request: ReviewRequest,
     src: string,
@@ -3310,31 +3118,36 @@ export default function Studio() {
     width: number,
     height: number,
   ) => {
+    const id = crypto.randomUUID();
     setGallery((g) =>
       g.some((item) => item.reviewRequestId === request.id)
         ? g
-        : [
-            {
-              id: crypto.randomUUID(),
-              dataUrl: src,
-              createdAt: request.createdAt,
-              category: "atlas",
-              enhanced: request.kind === "enhanced_review",
-              profileOK: true,
-              brandOK: false,
-              rating,
-              reviewRequestId: request.id,
-              agentName: request.agentName,
-              agentId: request.agentId,
-              agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
-              agentRenTag: sessionAgent?.agentRenTag || demoAgent.agentRenTag,
-              agentOfficePhone:
-                sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
-              width,
-              height,
-            },
-            ...g.filter((item) => item.dataUrl !== src),
-          ].slice(0, 6),
+        : withSingleAtlasPhoto(
+            [
+              {
+                id,
+                dataUrl: src,
+                createdAt: request.createdAt,
+                category: "atlas",
+                enhanced: request.kind === "enhanced_review",
+                profileOK: true,
+                brandOK: false,
+                rating,
+                reviewRequestId: request.id,
+                agentName: request.agentName,
+                agentId: request.agentId,
+                agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
+                agentRenTag:
+                  sessionAgent?.agentRenTag || demoAgent.agentRenTag,
+                agentOfficePhone:
+                  sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
+                width,
+                height,
+              },
+              ...g.filter((item) => item.dataUrl !== src),
+            ].slice(0, 6),
+            id,
+          ),
     );
   };
   const confirm = () => {
@@ -3350,7 +3163,7 @@ export default function Studio() {
       category: "atlas",
       enhanced,
       profileOK,
-      brandOK: brandOK && isPhotoApproved(assessment),
+      brandOK: isPhotoApproved(assessment),
       rating: assessment,
       originalRating: originalAssessment ?? undefined,
       reviewRequestId: pendingReview?.id,
@@ -3362,22 +3175,37 @@ export default function Studio() {
         sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
       ...dimensions,
     };
+    // A saved portrait is the agent's new Atlas photo: it takes the single Atlas slot in the gallery
+    // and is pushed to the Atlas profile straight away, so the two never disagree.
     setGallery((g) =>
-      [item, ...g.filter((x) => x.dataUrl !== finalUrl)].slice(0, 6),
+      withSingleAtlasPhoto(
+        [item, ...g.filter((x) => x.dataUrl !== finalUrl)].slice(0, 6),
+        item.id,
+      ),
     );
-    if (isPhotoApproved(assessment))
+    if (profileOK) writeAtlasProfilePhoto(item.dataUrl, item.rating);
+    // The desk is the record of the whole intake, not only of the photos someone argued about: a photo
+    // that already cleared the AI standard lands in the approved library as its own case, approved by
+    // preflight rather than by a designer. A photo already sent for review keeps that case — recording
+    // it again here would put the same image on the desk under a second submission id.
+    if (item.brandOK && !pendingReview)
       void recordApprovedPhoto({
         photoId: item.id,
         dataUrl: item.dataUrl,
-        agentId: item.agentId || "unknown",
-        agentName: item.agentName || "Agent",
+        agentId: item.agentId || "",
+        agentName: item.agentName || "",
+        teamName: sessionAgent?.agentTeam || demoAgent.agentTeam,
+        category: item.category,
         marketingReadiness: assessment.score,
         aiUsability: assessment.ai_usability,
-        enhanced: item.enhanced,
+        enhanced,
         createdAt: item.createdAt,
       });
     if (reminder) void designerStore().recordReminderUpload(reminder.token);
-    setView("success");
+    // Saving lands straight in Photos: the gallery card already shows the photo, its Atlas tag and
+    // its approval state, so a separate confirmation screen only added a click to the same facts.
+    setToast("Photo saved to Photos");
+    go("personal");
   };
   const download = (src: string, name = "studio-professional-portrait.jpg") => {
     const a = document.createElement("a");
@@ -3406,18 +3234,44 @@ export default function Studio() {
     w.document.close();
     setToast("Choose any installed printer in the system dialog");
   };
+  // The Atlas profile has one photo slot, so the gallery may hold at most one "Atlas photo" and the
+  // stored slot must follow it: promoting a photo demotes the previous one, and demoting or deleting
+  // the current one empties the slot so Atlas falls back to its own portrait instead of showing a
+  // photo the agent has taken back.
   const setPhotoCategory = (id: string, category: PhotoCategory) => {
-    setGallery((current) =>
-      current.map((item) => (item.id === id ? { ...item, category } : item)),
+    const chosen = gallery.find((item) => item.id === id);
+    if (!chosen) return;
+    // A photo that is already on the designer desk keeps its case; only what the agent wants it for
+    // changes, so the desk is told rather than sent a second copy. An approved photo is on the desk
+    // under `approved-<photo id>` (recordApprovedPhoto), a reviewed one under its request id; telling
+    // the desk about an id it does not hold is a no-op, so no extra bookkeeping is needed here.
+    void setDesignerPhotoCategory(
+      chosen.reviewRequestId ?? `approved-${chosen.id}`,
+      category,
     );
+    if (category === "atlas") {
+      writeAtlasProfilePhoto(chosen.dataUrl, chosen.rating);
+      setGallery((current) => withSingleAtlasPhoto(current, id));
+    } else {
+      if (categoryOf(chosen) === "atlas") clearAtlasProfilePhoto();
+      setGallery((current) =>
+        current.map((item) =>
+          item.id === id ? { ...item, category, profileOK: false } : item,
+        ),
+      );
+    }
     setToast(
       category === "awards"
         ? "Marked for awards night"
-        : "Marked as the Atlas photo",
+        : category === "other"
+          ? "Marked for subsale and other artwork"
+          : "Marked as the Atlas photo",
     );
   };
   const removePhoto = () => {
     if (!deletePhotoId) return;
+    const removed = gallery.find((item) => item.id === deletePhotoId);
+    if (removed && categoryOf(removed) === "atlas") clearAtlasProfilePhoto();
     setGallery((current) =>
       current.filter((item) => item.id !== deletePhotoId),
     );
@@ -3426,7 +3280,6 @@ export default function Studio() {
   };
   const reset = () => {
     stopCamera();
-    stopScanner();
     setPhoto("");
     setOriginal("");
     setAssessment(null);
@@ -3434,7 +3287,6 @@ export default function Studio() {
     setPendingReview(null);
     setEnhanced(false);
     setProfileOK(true);
-    setBrandOK(true);
     setGallery([]);
     setSessionAgent(null);
     setSessionCode("");
@@ -3448,12 +3300,19 @@ export default function Studio() {
   const cameraAgent = sessionAgent ?? demoAgent,
     qualityApproved = assessment ? isPhotoApproved(assessment) : false,
     savable = qualityApproved || Boolean(pendingReview);
+  /* Opting out is a preference, not an exit: the agent lands back on the upload view with the
+     preference confirmed, so changing their mind costs one tap instead of another reminder. */
   const confirmReminderOptOut = async () => {
     if (!reminder) return;
     const agent = await designerStore().confirmPhotoOptOut(reminder.token);
-    if (agent) setReminderAction("opted_out");
+    if (!agent) return;
+    setReminderAction("opted_out");
+    // the opt-out confirmation lives on Photos, so the agent lands where their
+    // record is -- and can still upload later from the same screen
+    setView("personal");
+    history.replaceState({}, "", reminder.uploadUrl);
   };
-  if (reminder && reminderAction)
+  if (reminder && reminderAction === "confirm_optout")
     return (
       <main className="reminder-optout">
         <section>
@@ -3461,47 +3320,31 @@ export default function Studio() {
             <ShieldCheck size={28} />
           </span>
           <Badge tone="eyebrow">PROFILE LAB AI PHOTO PREFERENCE</Badge>
-          <h1>
-            {reminderAction === "opted_out"
-              ? "Photo submission skipped"
-              : "Skip Photo Submission?"}
-          </h1>
+          <h1>Skip Photo Submission?</h1>
           <p>
-            {reminderAction === "opted_out"
-              ? "Your preference has been saved. You can still upload a photo whenever you choose."
-              : "You are choosing not to submit a Profile Lab AI profile photo at this time."}
+            You are choosing not to submit a Profile Lab AI profile photo at
+            this time.
           </p>
-          {reminderAction === "opted_out" ? (
+          <div>
+            <Button
+              className="reminder-confirm-optout"
+              onClick={() => void confirmReminderOptOut()}
+            >
+              Confirm — I don&apos;t want to submit a photo
+            </Button>
             <Button
               variant="primary"
               onClick={() => {
                 setReminderAction(null);
                 history.replaceState({}, "", reminder.uploadUrl);
-                openGuidedCamera();
+                // back out to Photos, where they can import or take one --
+                // forcing the camera open picks the method for them
+                setView("personal");
               }}
             >
-              Upload a photo instead
+              Go Back &amp; Upload Photo
             </Button>
-          ) : (
-            <div>
-              <Button
-                className="reminder-confirm-optout"
-                onClick={() => void confirmReminderOptOut()}
-              >
-                Confirm — I don&apos;t want to submit a photo
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setReminderAction(null);
-                  history.replaceState({}, "", reminder.uploadUrl);
-                  openGuidedCamera();
-                }}
-              >
-                Go Back &amp; Upload Photo
-              </Button>
-            </div>
-          )}
+          </div>
         </section>
       </main>
     );
@@ -3542,7 +3385,6 @@ export default function Studio() {
           setToast(`Designer approval requested · ${request.id}`);
           setView("consent");
         }}
-        onRetake={openGuidedCamera}
         onExit={() => go("personal")}
         onUpload={upload}
         onPending={addPendingPhoto}
@@ -3904,141 +3746,6 @@ export default function Studio() {
         </div>
       </nav>
       <div id="app-content" className="app-content">
-        {view === "console" && (
-          <section className="qr-home enter">
-            {reminder ? (
-              <div className="reminder-home-banner">
-                <Mail size={22} />
-                <span>
-                  <small>PHOTO UPLOAD REMINDER</small>
-                  <b>Hello {reminder.agentName}</b>
-                  <p>
-                    Your reminder link is connected to Agent ID{" "}
-                    {reminder.agentId}. Uploading here will keep the photo with
-                    the correct agent record.
-                  </p>
-                </span>
-              </div>
-            ) : null}
-            <PageHeader className="qr-intro">
-              <h1>
-                {reminder
-                  ? "Upload your Profile Lab AI photo"
-                  : "Take a photo or scan QR"}
-              </h1>
-              <p>
-                {reminder
-                  ? "Upload a suitable existing photo, or take a new portrait instead."
-                  : "Take a new portrait, or scan your Atlas appointment QR. Already have a photo? Import it from Photos."}
-              </p>
-              <div className="qr-main-actions">
-                {reminder ? (
-                  <Button
-                    className="main-photo-action"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={checking}
-                  >
-                    <Upload size={18} />{" "}
-                    {checking ? "Checking…" : "Upload My Photo"}
-                  </Button>
-                ) : null}
-                <Button
-                  className="qr-secondary-action"
-                  onClick={openGuidedCamera}
-                >
-                  <Camera size={16} /> Take a photo
-                </Button>
-                {reminder ? (
-                  <Button
-                    className="reminder-home-optout"
-                    onClick={() => setReminderAction("confirm_optout")}
-                  >
-                    I don&apos;t wish to submit a photo
-                  </Button>
-                ) : (
-                  <Link href="/atlas" prefetch={false}>
-                    Open Atlas <ArrowRight size={16} />
-                  </Link>
-                )}
-              </div>
-            </PageHeader>
-            <input
-              ref={fileRef}
-              className="sr-only"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={upload}
-              aria-label="Upload a portrait photo"
-            />
-            <div
-              className={`qr-scanner ${scanStatus}`}
-              aria-busy={scanStatus === "starting"}
-            >
-              <video ref={scannerVideoRef} autoPlay muted playsInline />
-              <div className="scan-shade" />
-              <div className="scan-frame">
-                <i />
-                <i />
-                <i />
-                <i />
-                {scanStatus === "live" ? (
-                  <span role="status">Scanning…</span>
-                ) : scanStatus === "starting" ? (
-                  <span role="status">Preparing camera…</span>
-                ) : (
-                  <QrCode size={54} />
-                )}
-              </div>
-              {scanStatus !== "live" ? (
-                <Button
-                  className="scanner-start"
-                  onClick={startScanner}
-                  disabled={scanStatus === "starting"}
-                >
-                  <Camera size={19} />
-                  {scanStatus === "starting"
-                    ? "Starting camera…"
-                    : scanStatus === "error"
-                      ? "Try QR camera again"
-                      : "Scan QR"}
-                </Button>
-              ) : null}
-            </div>
-            <div
-              className={
-                scanError ? "manual-checkin has-error" : "manual-checkin"
-              }
-            >
-              <div>
-                <Keyboard size={19} />
-                <span>
-                  <b>Enter code</b>
-                </span>
-              </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  loadStudioSession(sessionCode);
-                }}
-              >
-                <input
-                  name="appointment-code"
-                  autoComplete="off"
-                  spellCheck={false}
-                  translate="no"
-                  value={sessionCode}
-                  onChange={(e) => setSessionCode(e.target.value)}
-                  placeholder="STUDIO-ATLAS-…"
-                  aria-label="Appointment code"
-                />
-                <Button type="submit">
-                  <ScanLine size={18} /> Load
-                </Button>
-              </form>
-              {scanError ? <p role="alert">{scanError}</p> : null}
-            </div>
-          </section>
-        )}
         {view === "capture" && (
           <section className="dark enter">
             <Stepper n={1} label="Photo" />
@@ -4139,8 +3846,9 @@ export default function Studio() {
             <Badge tone="eyebrow">PHOTO CHECK</Badge>
             <h1>Review your finished photo</h1>
             <p className="lead">
-              The export is scored for designer usability. Atlas profile and
-              brand use are separate permissions.
+              The export is scored for designer usability. Every saved photo is
+              approved for brand materials; the Atlas profile slot is your
+              choice.
             </p>
             <div className="consent-summary">
               <StatTile
@@ -4152,11 +3860,6 @@ export default function Studio() {
                 className={`consent-summary-stat ${profileOK ? "approved" : "zero"}`}
                 label="Atlas profile"
                 value={profileOK ? "On" : "Off"}
-              />
-              <StatTile
-                className={`consent-summary-stat ${brandOK ? "approved" : "zero"}`}
-                label="Brand use"
-                value={brandOK ? "On" : "Off"}
               />
             </div>
             {assessment ? (
@@ -4240,17 +3943,9 @@ export default function Studio() {
                     onChange={setProfileOK}
                     ariaLabel="Allow use on my Atlas profile"
                   />
-                  <Toggle
-                    name="brand-materials-permission"
-                    label="Brand use"
-                    note="Approve this photo for brand materials."
-                    checked={brandOK}
-                    onChange={setBrandOK}
-                    ariaLabel="Allow use in brand materials"
-                  />
                 </div>
                 <p className="privacy">
-                  Photo approval and your permissions stay with this photo.
+                  Photo approval stays with this photo.
                 </p>
               </>
             ) : (
@@ -4284,44 +3979,6 @@ export default function Studio() {
                   : "Save approved photo"}
               </Button>
             </div>
-          </section>
-        )}
-        {view === "success" && (
-          <section className="success enter">
-            <div className="tick">
-              <Check size={36} />
-            </div>
-            <Badge tone="eyebrow">SAVED</Badge>
-            <h1>Photo ready</h1>
-            <p>
-              Saved to Photos.{" "}
-              {brandOK ? "Approved for brand use." : "Profile only."}
-            </p>
-            <div className="success-summary">
-              <StatTile
-                className={`success-summary-stat ${profileOK ? "approved" : "zero"}`}
-                label="Atlas profile"
-                value={profileOK ? "Saved" : "Off"}
-              />
-              <StatTile
-                className={`success-summary-stat ${brandOK ? "approved" : "zero"}`}
-                label="Brand use"
-                value={brandOK ? "Approved" : "Off"}
-              />
-            </div>
-            <div className="mini">
-              <MediaFrame src={photo} />
-              <div>
-                <small>Atlas profile</small>
-                <b>{sessionAgent?.agentName || demoAgent.agentName}</b>
-                <span className="success-saved-now">
-                  <Check size={14} /> Saved now
-                </span>
-              </div>
-            </div>
-            <Button variant="primary" onClick={() => go("personal")}>
-              View in Photos <ArrowRight size={18} />
-            </Button>
           </section>
         )}
         {/* The two photo-category-tag Badges below pass icon+label as children, not through the icon
@@ -4360,6 +4017,42 @@ export default function Studio() {
               onChange={upload}
               aria-label="Import a photo from a camera, phone, or computer"
             />
+            {reminder ? (
+              <Button
+                className={`reminder-home-banner reminder-upload-banner${
+                  reminderAction === "opted_out" ? " opted-out" : ""
+                }`}
+                onClick={() => fileRef.current?.click()}
+                disabled={checking}
+              >
+                {reminderAction === "opted_out" ? (
+                  <ShieldCheck size={22} />
+                ) : (
+                  <Mail size={22} />
+                )}
+                <span>
+                  <small>
+                    {reminderAction === "opted_out"
+                      ? "PHOTO PREFERENCE SAVED"
+                      : "PHOTO UPLOAD REMINDER"}
+                  </small>
+                  <b>
+                    {reminderAction === "opted_out"
+                      ? "You skipped photo submission"
+                      : `Hello ${reminder.agentName}`}
+                  </b>
+                  <p>
+                    {reminderAction === "opted_out"
+                      ? `Nothing else is needed, ${reminder.agentName}. If you change your mind, click here to upload a photo and it stays with Agent ID ${reminder.agentId}.`
+                      : `Click here to upload your photo. It stays with Agent ID ${reminder.agentId}.`}
+                  </p>
+                </span>
+                <em>
+                  <Upload size={17} />
+                  {checking ? "Checking…" : "Upload"}
+                </em>
+              </Button>
+            ) : null}
             {actionRequiredPhotos.length ? (
               <Panel className="photos-section action-required">
                 <div className="photos-section-head">
@@ -4382,7 +4075,7 @@ export default function Studio() {
                         />
                         <div className="photo-card-info">
                           <div>
-                            <b>{item.agentName || "Aisha Rahman"}</b>
+                            <b>{item.agentName || demoAgent.agentName}</b>
                             <Badge tone="photo-type-tag">
                               {status.photoType}
                             </Badge>
@@ -4449,13 +4142,19 @@ export default function Studio() {
               {approvedPhotos.length ? (
                 <div className="personal-grid">
                   {approvedPhotos.map((item) => {
-                    const status = photoStatusOf(item),
-                      isFirst = gallery[0]?.id === item.id;
+                    const status = photoStatusOf(item);
                     return (
-                      <Card className="photo-card" key={item.id}>
+                      <Card
+                        className={`photo-card is-${categoryOf(item)}`}
+                        key={item.id}
+                      >
                         <MediaFrame
                           src={item.dataUrl}
-                          badge={isFirst ? "Approved · Profile" : "Approved"}
+                          badge={
+                            categoryOf(item) === "atlas"
+                              ? "Atlas profile photo"
+                              : "Approved"
+                          }
                         />
                         <div
                           className={`photo-card-category ${categoryOf(item)}`}
@@ -4463,8 +4162,10 @@ export default function Studio() {
                           <Badge tone="photo-category-tag">
                             {categoryOf(item) === "awards" ? (
                               <Award size={13} />
-                            ) : (
+                            ) : categoryOf(item) === "atlas" ? (
                               <Images size={13} />
+                            ) : (
+                              <LayoutTemplate size={13} />
                             )}
                             {
                               photoCategories.find(
@@ -4491,14 +4192,14 @@ export default function Studio() {
                                   setPhotoCategory(item.id, category.id)
                                 }
                               >
-                                {category.label}
+                                {category.short}
                               </Button>
                             ))}
                           </div>
                         </div>
                         <div className="photo-card-info">
                           <div>
-                            <b>{item.agentName || "Aisha Rahman"}</b>
+                            <b>{item.agentName || demoAgent.agentName}</b>
                             <Badge tone="photo-type-tag">
                               {status.photoType}
                             </Badge>
@@ -4582,7 +4283,10 @@ export default function Studio() {
                   {pendingPhotos.map((item) => {
                     const status = photoStatusOf(item);
                     return (
-                      <Card className="photo-card pending-card" key={item.id}>
+                      <Card
+                        className={`photo-card pending-card is-${categoryOf(item)}`}
+                        key={item.id}
+                      >
                         <MediaFrame
                           src={item.dataUrl}
                           badge="Pending Review"
@@ -4594,8 +4298,10 @@ export default function Studio() {
                           <Badge tone="photo-category-tag">
                             {categoryOf(item) === "awards" ? (
                               <Award size={13} />
-                            ) : (
+                            ) : categoryOf(item) === "atlas" ? (
                               <Images size={13} />
+                            ) : (
+                              <LayoutTemplate size={13} />
                             )}
                             {
                               photoCategories.find(
@@ -4622,14 +4328,14 @@ export default function Studio() {
                                   setPhotoCategory(item.id, category.id)
                                 }
                               >
-                                {category.label}
+                                {category.short}
                               </Button>
                             ))}
                           </div>
                         </div>
                         <div className="photo-card-info">
                           <div>
-                            <b>{item.agentName || "Aisha Rahman"}</b>
+                            <b>{item.agentName || demoAgent.agentName}</b>
                             <Badge tone="photo-type-tag">
                               {status.photoType}
                             </Badge>

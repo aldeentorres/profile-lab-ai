@@ -153,6 +153,18 @@
  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
+/* Two different kinds of "chosen", so two different weights of treatment. The Atlas photo is
+   singular and live on the agent's profile: it gets the brand ring, and since only one card in the
+   grid can carry it, that ring is how you find it without reading a tag. Awards night is a set, so
+   it gets an edge tint only -- a ring on five cards at once would read as five profile photos.
+   Photos kept for the subsale banner or other artwork keep the plain card. These live here, not in
+   app-ui.css: .photo-card's own border and box-shadow are declared in this layer, and components
+   outranks legacy whatever the specificity. */
+.photo-card.is-atlas { border-color: #eaa88e; box-shadow: 0 0 0 3px #fdece6; } /* literal: brand-orange tint, no token holds these */
+.photo-card.is-atlas .photo-media .badge { background: #dc542c; }
+.photo-card.is-awards { border-color: #ebd2a4; } /* literal: awards-night gold, no token holds it */
+.photo-card.is-awards .photo-card-category { border-top: 2px solid #f2dcb2; }
+
 .photos-section { margin-bottom: 36px; }
 /* Required alongside the base rule -- on the personal view's single-section case this is also
    the ONLY .photos-section, so :last-child applies there today; left in legacy it goes inert. */
@@ -1148,5 +1160,276 @@
  .atlas-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
  .atlas-summary-stat b { font-size: 20px; }
 }
+
+
+/* Agent directory — the desk's triage surface. Photo state is the only thing a designer
+   scans this page for, so state becomes its spine: the filter row carries a live count per
+   state in the same three washes the badges already use, and every card repeats its own
+   state as a left rail so the grid can be read without reading. Colour is never the only
+   signal — each chip and each rail sits beside its written label. */
+.designer-directory-toolbar {
+ display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+ gap: 12px; margin-top: 18px;
+}
+.directory-status-filter { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.directory-status-filter button {
+ min-height: 36px; display: inline-flex; align-items: center; gap: 7px;
+ padding: 0 11px;
+ border: 1px solid var(--color-line); border-radius: 99px;
+ background: #fff; color: #4a4f54;
+ font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.directory-status-filter button i { width: 7px; height: 7px; border-radius: 50%; background: var(--color-muted); }
+.directory-status-filter button b {
+ padding: 1px 6px; border-radius: 99px;
+ background: #f2f3f4; /* literal: neutral count chip fill, no token holds this value */
+ color: #4a4f54; /* literal: mid-grey on the pale fill, no token holds this value */
+ font-size: 11px; font-variant-numeric: tabular-nums;
+}
+.directory-status-filter button:hover { border-color: #d5d9dc; background: #fafbfb; }
+.directory-status-filter button.pending i, .directory-status-filter button.reupload i { background: #8a5a12; }
+.directory-status-filter button.approved i, .directory-status-filter button.has_images i { background: #35966f; }
+.directory-status-filter button.none i, .directory-status-filter button.retake i { background: #ee6538; }
+/* Selected chip fills with its own state colour — same move as the photo-library filters, so
+   the two toolbars in this app behave alike. */
+.directory-status-filter button.active { border-color: #262626; background: #262626; color: #fff; }
+.directory-status-filter button.active i { background: #ffffff9c; }
+.directory-status-filter button.active b { background: #ffffff26; color: #fff; }
+.directory-status-filter button.pending.active, .directory-status-filter button.reupload.active { border-color: #8a5a12; background: #8a5a12; }
+.directory-status-filter button.approved.active, .directory-status-filter button.has_images.active { border-color: #1f6b4c; background: #1f6b4c; }
+.directory-status-filter button.none.active, .directory-status-filter button.retake.active { border-color: #7a2b13; background: #7a2b13; }
+.directory-status-filter button.opted_out.active { border-color: var(--color-muted); background: var(--color-muted); }
+.directory-sorts { display: flex; gap: 8px; }
+.directory-sorts label { display: flex; flex-direction: column; gap: 4px; }
+.directory-sorts label span {
+ font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+ color: var(--color-muted);
+}
+.directory-sorts select {
+ min-width: 150px; height: 44px; padding: 0 10px;
+ border: 1px solid var(--color-line); border-radius: var(--radius-control);
+ background: #fff; color: var(--color-ink); font-size: 13px;
+}
+
+.designer-directory-meta.bulk { margin: 16px 0 12px; }
+.designer-directory-meta.bulk label { font-size: 13px; color: var(--color-ink); }
+.designer-directory-meta.bulk>span { color: var(--color-muted); font-size: 12px; }
+.designer-directory-meta.bulk>b {
+ padding: 4px 9px; border: 1px solid var(--color-line); border-radius: 99px;
+ background: #fff; color: #4a4f54; /* literal: mid-grey count text, no token holds this value */
+ font-size: 11px; font-variant-numeric: tabular-nums;
+}
+/* "Select all N" was an underlined link doing a button's job; it acts on the page, so it
+   looks like the control it is. */
+.designer-directory-meta.bulk button {
+ padding: 0 12px; border: 1px solid var(--color-line); border-radius: var(--radius-control);
+ background: #fff; color: #7a2b13;
+ font-size: 12px; font-weight: 700; text-decoration: none;
+}
+.designer-directory-meta.bulk button:hover { border-color: #f6d7ce; background: #fff3ef; }
+
+.designer-directory-grid.bulk-grid {
+ /* Two per row rather than three: at three columns the name, the Agent ID and the REN all
+    compete for about 110px and the ID truncates — and the REN is exactly what a designer searches by. */
+ grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr)); gap: 10px;
+}
+.designer-directory-grid.bulk-grid>article {
+ border-radius: var(--radius-card); border-color: var(--color-line);
+ transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.designer-directory-grid.bulk-grid>article::before {
+ content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+ background: var(--color-line);
+}
+.designer-directory-grid.bulk-grid>article[data-state="pending"]::before,
+.designer-directory-grid.bulk-grid>article[data-state="reupload"]::before { background: #8a5a12; }
+.designer-directory-grid.bulk-grid>article[data-state="approved"]::before,
+.designer-directory-grid.bulk-grid>article[data-state="has_images"]::before { background: #35966f; }
+.designer-directory-grid.bulk-grid>article[data-state="none"]::before,
+.designer-directory-grid.bulk-grid>article[data-state="retake"]::before { background: #ee6538; }
+.designer-directory-grid.bulk-grid>article:hover {
+ border-color: #d5d9dc; box-shadow: 0 6px 18px #1b201f14; transform: translateY(-1px);
+}
+/* Selection reads in the accent the checkbox already uses, not in the green that means
+   approved on every other surface of this desk. */
+.designer-directory-grid.bulk-grid>article.selected {
+ border-color: #ee653880; background: #fffaf7; box-shadow: 0 0 0 2px #ee65381f;
+}
+.designer-directory-grid .designer-agent-open {
+ grid-template-columns: 44px minmax(0, 1fr) auto 18px;
+ gap: 12px; padding: 12px 12px 12px 10px; background: transparent;
+}
+.designer-directory-grid .designer-avatar { width: 44px; height: 44px; border-radius: 12px; }
+.designer-directory-grid b { font-size: 13px; font-weight: 750; letter-spacing: -.01em; color: var(--color-ink); }
+/* Agent ID and REN are looked up character by character, so they get the monospace face the
+   review queue already uses for the same two fields. */
+.designer-directory-grid small {
+ font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+ font-size: 11px; color: var(--color-muted);
+}
+.designer-directory-grid em { margin-top: 3px; font-size: 11px; color: #8b9095; }
+/* The ID line stays on one line — an Agent ID that wraps mid-token reads as two IDs. The team
+   line below it may still wrap, and the reminder date nested in it keeps its own line. */
+.designer-directory-grid .designer-agent-open>span:nth-of-type(2)>small {
+ display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.designer-directory-grid .designer-agent-open>span:nth-of-type(2)>b { line-height: 1.25; }
+.designer-agent-open>span:nth-of-type(2)>em small {
+ font-family: inherit; font-size: 11px; color: #8a5a12;
+}
+.designer-directory-grid .designer-agent-open>svg { color: #b6bbbe; transition: transform .15s ease; }
+.designer-directory-grid .designer-agent-open:hover>svg { transform: translateX(2px); }
+.designer-directory-grid .designer-agent-open:focus-visible,
+.designer-directory-meta.bulk button:focus-visible,
+.directory-status-filter button:focus-visible,
+.designer-bulk-bar button:focus-visible,
+.bulk-modal-actions button:focus-visible,
+.modal-close:focus-visible { outline: 2px solid #ee6538; outline-offset: 2px; }
+
+.designer-bulk-bar {
+ border-radius: var(--radius-card); border-color: var(--color-line);
+ background: #fff; box-shadow: 0 10px 28px #1b201f12;
+}
+.designer-bulk-bar strong { font-size: 15px; font-weight: 750; }
+.designer-bulk-bar span { font-size: 12px; color: var(--color-muted); }
+.designer-bulk-bar button { border-radius: var(--radius-control); font-size: 13px; padding: 0 14px; }
+/* Both bulk actions stay peers: neither is the confirm, and each one opens a modal where the
+   real decision is made. They are told apart by their state colour, not by weight. */
+.designer-bulk-bar .bulk-download { border: 1px solid #bfe4d3; background: #eaf6f0; color: #1f6b4c; }
+.designer-bulk-bar .bulk-download:hover { background: #ddf0e6; }
+.designer-bulk-bar .bulk-reminder { border: 1px solid #f3ebd6; background: #fff8ec; color: #8a5a12; }
+.designer-bulk-bar .bulk-reminder:hover { background: #fdf0da; }
+.designer-bulk-bar .bulk-clear { color: var(--color-muted); }
+.designer-bulk-bar .bulk-clear:hover { background: #f2f3f4; }
+
+.designer-indexing, .designer-directory-note {
+ gap: 10px; padding: 12px 14px;
+ border-radius: var(--radius-control); border-color: var(--color-line);
+}
+.designer-indexing b, .designer-directory-note b { font-size: 13px; color: var(--color-ink); }
+.designer-indexing small, .designer-directory-note small { font-size: 12px; color: var(--color-muted); }
+.designer-indexing>i b { background: #ee6538; }
+.designer-directory-note { border-color: #f6d7ce; background: #fff3ef; color: #7a2b13; }
+.designer-directory-note b { color: #7a2b13; }
+
+.designer-bulk-modal { background: #1b201fb8; }
+.designer-bulk-modal>div {
+ padding: 26px; border-radius: 20px; box-shadow: 0 30px 80px #10191540;
+ animation: bulk-modal-rise .18s ease-out both;
+}
+@keyframes bulk-modal-rise {
+ from { opacity: 0; transform: translateY(10px) scale(.99); }
+ to { opacity: 1; transform: none; }
+}
+/* Icon beside the title rather than stacked above it: the modal opens under the pointer and
+   the first line should be what it is going to do. */
+.bulk-modal-head { display: flex; align-items: center; gap: 13px; margin: 0 0 14px; padding-right: 44px; }
+.bulk-modal-head .bulk-modal-icon { flex-shrink: 0; margin: 0; border-radius: 14px; }
+.bulk-modal-head h2 { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -.03em; }
+.bulk-modal-head .test-mode { display: inline-flex; margin: 0 0 5px; font-size: 10px; }
+.bulk-modal-icon.download { background: #eaf6f0; color: #1f6b4c; }
+.bulk-modal-icon.reminder { background: #fff8ec; color: #8a5a12; }
+.designer-bulk-modal>div>p { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #5c6166; }
+.reminder-counts span {
+ padding: 13px 15px; border: 1px solid var(--color-line); border-radius: var(--radius-control);
+ background: #fff;
+}
+.reminder-counts span:first-child { border-color: #f3ebd6; background: #fff8ec; }
+.reminder-counts b { font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
+.reminder-counts span:first-child b { color: #8a5a12; }
+.reminder-counts small {
+ font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+ color: var(--color-muted);
+}
+.reminder-exclusions {
+ display: grid; gap: 5px; padding: 12px 14px; list-style: none;
+ border: 1px solid var(--color-line); border-radius: var(--radius-control);
+ background: #fbfbfb; /* literal: near-white list fill, no token holds this value */
+ color: #5c6166; font-size: 12px;
+}
+.reminder-exclusions b { color: var(--color-ink); }
+.recipient-review { border-color: var(--color-line); border-radius: var(--radius-control); }
+.recipient-review summary { min-height: 44px; display: flex; align-items: center; font-size: 13px; }
+/* display:flex drops the native disclosure marker, so the summary draws its own — without it
+   the row reads as a dead panel header rather than something that opens. */
+.recipient-review summary { list-style: none; }
+.recipient-review summary::-webkit-details-marker { display: none; }
+.recipient-review summary::after {
+ content: ""; width: 7px; height: 7px; margin-left: auto;
+ border-right: 1.5px solid var(--color-muted); border-bottom: 1.5px solid var(--color-muted);
+ transform: rotate(45deg) translate(-2px, -2px);
+}
+.recipient-review[open] summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+.recipient-review[open] summary { border-bottom: 1px solid var(--color-line); }
+.recipient-review>span { padding: 10px 14px; border-top-color: #f1f2f3; font-size: 12px; }
+.recipient-review>span:first-of-type { border-top: 0; }
+.recipient-review>span small { font-size: 11px; color: var(--color-muted); }
+.bulk-modal-actions { margin-top: 18px; padding-top: 16px; border-top-color: var(--color-line); }
+.bulk-modal-actions button {
+ display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+ /* the label carries a count, so it must not wrap away from its icon */
+ white-space: nowrap; padding: 0 16px; border-radius: var(--radius-control);
+ font-size: 13px; font-weight: 750;
+}
+.bulk-modal-actions button:not(.primary):not(.confirm-reminder) {
+ border: 1px solid var(--color-line); background: #fff; color: #4a4f54;
+}
+.bulk-modal-actions button:not(.primary):not(.confirm-reminder):hover { background: #f2f3f4; }
+.bulk-modal-actions .confirm-reminder { border: 1px solid #8a5a12; background: #8a5a12; color: #fff; }
+.bulk-modal-actions .confirm-reminder:hover { background: #754c0f; }
+.bulk-modal-actions button:disabled { opacity: .5; }
+.mock-mailbox>div {
+ padding: 14px; border: 1px solid #bfe4d3; border-radius: var(--radius-control);
+ background: #eaf6f0; color: #1f6b4c;
+}
+.mock-mailbox>div h3 { margin: 0 0 2px; font-size: 15px; font-weight: 750; }
+.mock-mailbox>div small { font-size: 11px; }
+.mock-mailbox>article { border-color: var(--color-line); border-radius: var(--radius-control); }
+
+@media (max-width: 700px) {
+ /* nowrap as well as column: a wrapping column flex container sizes its line to the widest
+    item's max-content, which lets the chip scroller below stretch the whole page sideways. */
+ .designer-directory-toolbar { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+ /* The chips scroll sideways instead of stacking into a wall of rows on a phone. */
+ .directory-status-filter { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+ .directory-status-filter button { flex: 0 0 auto; }
+ /* minmax(0, 1fr), not 1fr: a select reports its widest option as its min-content width, and an
+    auto-floored track would let a long team name push the row past the viewport. */
+ .directory-sorts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .directory-sorts label { min-width: 0; }
+ .directory-sorts select { width: 100%; min-width: 0; }
+ /* Both bulk actions on one line at phone width: the labels are the only thing telling them
+    apart once the bar has no room for anything else. */
+ .designer-bulk-bar button { flex: 1 1 auto; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+ .designer-bulk-bar .bulk-clear { flex: 0 0 auto; }
+ .bulk-modal-head h2 { font-size: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .designer-bulk-modal>div { animation: none; }
+ .designer-directory-grid.bulk-grid>article,
+ .designer-directory-grid .designer-agent-open>svg { transition: none; }
+ .designer-directory-grid.bulk-grid>article:hover { transform: none; }
+}
+
+
+/* Opting out lands back on the upload view, so the reminder banner turns into the receipt for
+   that choice: approved-green, the same wash every other "this is settled" surface uses, with
+   the upload action left untouched beneath it. */
+/* The Photos banner is a <button> so the whole card is the upload target -- a small link
+   inside a notice is easy to miss on a phone, and this screen exists to collect one photo. */
+.reminder-upload-banner { width: 100%; text-align: left; cursor: pointer; transition: .15s ease; }
+.reminder-upload-banner:hover { border-color: #d8b578; background: #fff3dd; }
+.reminder-upload-banner.opted-out:hover { border-color: #9fd4bd; background: #dff1e8; }
+.reminder-upload-banner:disabled { opacity: .6; cursor: progress; }
+.reminder-upload-banner>em {
+ display: inline-flex; align-items: center; gap: 7px; margin-left: auto; align-self: center;
+ padding: 0 13px; height: 38px; border-radius: var(--radius-control);
+ background: #7b571e; color: #fff; font-size: 12px; font-style: normal; font-weight: 800;
+ white-space: nowrap;
+}
+.reminder-upload-banner.opted-out>em { background: #1f6b4c; }
+.reminder-home-banner.opted-out { border-color: #bfe4d3; background: #eaf6f0; color: #1f6b4c; }
+.reminder-home-banner.opted-out b { color: #1f6b4c; }
+.reminder-home-banner.opted-out p { color: #3f6b5b; } /* literal: muted green body text, no token holds this value */
 
 }

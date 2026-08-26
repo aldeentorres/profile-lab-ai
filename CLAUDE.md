@@ -18,7 +18,7 @@ npm run lint         # eslint (warnings are tolerated, errors are not)
 npm run demo:setup   # npm ci + verify, for a clean machine
 ```
 
-Last verified state: preflight passes, 174/174 tests pass, lint reports 24 warnings and 0
+Last verified state: preflight passes, 195/195 tests pass, lint reports 22 warnings and 0
 errors (`<img>` usage and two `react-hooks/exhaustive-deps`). Do not "fix" those warnings
 during the freeze — `next/image` is not wired up and the effect deps are deliberate.
 
@@ -26,7 +26,7 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
 
 | Path | Job |
 | --- | --- |
-| `app/studio.tsx` | The whole studio flow: views `profile → session → capture → batch → review → select → consent → success → personal → assets → console` |
+| `app/studio.tsx` | The whole studio flow: views `profile → session → capture → batch → review → select → consent → personal → assets → console` |
 | `app/atlas/` | Atlas agent profile demo, booking, QR handoff |
 | `app/designer/` | Internal designer desk: overview, review queue, approved assets, agent directory, history |
 | `app/designer-records.ts`, `app/designer-store.ts`, `app/agent-directory.ts` | Designer domain rules, IndexedDB/local-memory persistence, IQI directory normalization and search |
@@ -69,11 +69,22 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
    so a full or unavailable store cannot block the agent.
 7. **The app scores the photograph, not the person.** No beauty, attractiveness, formality or
    character judgements. Pose is reported and carries zero weight.
-8. **Keeping the original and AI enhancement are separate workflows.** A technically usable photo
-   the AI did not approve always offers both: "Request Designer Approval" (original only, status
+8. **Keeping the original and AI enhancement are separate workflows.** A photo at `REVIEW`
+   ("Designer Review") offers both: "Request Designer Approval" (original only, status
    `PENDING DESIGNER APPROVAL`) and "Review & Enhance" (only when `ai_enhancement_eligible`). An
    enhanced portrait is re-scored with the same engine, checked for identity/artefacts, and can
    always be sent to designer review with the original (`PENDING DESIGNER REVIEW`) instead of used.
+9. **`REJECT` and `REUPLOAD` close the original photograph** (`isWorkflowHardStop` in
+   `app/photo-decision.ts`). "Retake Recommended" and "Re-upload at Higher Resolution" mean the file
+   cannot be approved as it is: no designer approval of the original, and the only control offered on
+   a review screen is "Choose another file" — capture belongs to the guided studio flow, never to a
+   review screen. `REUPLOAD` closes everything, AI enhancement included; a `REJECT` does not close AI
+   enhancement, because a generation rebuilds the framing, background and body a retake is about. So a
+   retake-recommended photo whose face still clears AI usability (≥70, single face, ≥150px, no defect)
+   may be enhanced, and the generated portrait may go to designer review (`enhanced_review`) with the
+   original attached for identity comparison only. Enforced in the engine (`designerReviewEligible`,
+   `assessAiUsability`) and again at the queue (`reviewRequestBlockedBy`, `recordReviewRequest`,
+   `ingestReviewRequest`), so a stale button or a direct call cannot open a case that is closed.
 
 ## Conventions
 

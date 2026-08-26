@@ -1,4 +1,5 @@
-import type {PhotoStatus} from "./photo-decision";
+import type {PhotoStatus} from "./photo-decision.ts";
+import type {PhotoCategory} from "./atlas-profile-photo.ts";
 
 // Designer queue. Two different requests land here, and they are never mixed:
 //
@@ -8,8 +9,12 @@ import type {PhotoStatus} from "./photo-decision";
 //                      receives both the original and the enhanced portrait with both ratings.
 //
 // Either way the photo is untouched, no enhancement is run and the AI's ratings are stored as they
-// were. `designerReviewEligible` in photo-decision.ts is the gate for the first kind, and it is decided
-// on measurements of the image rather than on any score the model derived from it.
+// were. `original_approval` exists only inside the REVIEW verdict — `designerReviewEligible` in
+// photo-decision.ts is the gate, and a retake or a re-upload closes that door: the original has to be
+// replaced, not argued for. `enhanced_review` survives a retake recommendation, because what is being
+// submitted is the generated portrait, not the photograph the verdict sent back; the original travels
+// with it for identity comparison only. A re-upload closes both kinds — nothing can be made from a file
+// that small. `reviewRequestBlockedBy` below re-checks all of this here rather than trusting the screen.
 export type ReviewKind="original_approval"|"enhanced_review";
 export type WorkflowStatus="PENDING DESIGNER APPROVAL"|"PENDING DESIGNER REVIEW";
 export type DesignerDecision="pending"|"approved"|"retake"|"reupload";
@@ -21,6 +26,10 @@ export type ReviewRequest={
  agentId?:string;
  kind:ReviewKind;
  workflowStatus:WorkflowStatus;
+ // What the agent wants the photo for — the designer desk shows it so an Atlas profile photo is never
+ // confused with an awards-night entry. It follows the agent's own choice in Photos and can change
+ // after the case is opened, which is why the queue keeps it on the case rather than deriving it.
+ category?:PhotoCategory;
  photo:string;
  enhancedPhoto?:string;
  // The AI's verdict on the original, exactly as it was shown — never overwritten by a later rating.
@@ -47,9 +56,26 @@ export const workflowStatusFor:Record<ReviewKind,WorkflowStatus>={original_appro
 
 export function createReviewRequestId(){return `IQI-REV-${Math.random().toString(36).slice(2,8).toUpperCase()}`}
 
+// The queue is the last checkpoint before a case exists, so it re-checks the verdict rather than
+// trusting whichever screen called it: a stale button, a resumed session or a direct call must not be
+// able to submit the original of a photograph the verdict already sent back. `original` is the AI's
+// verdict as it was shown, so this is the same status the agent saw, not a fresh score.
+export class ReviewRequestBlockedError extends Error{
+ status:PhotoStatus;
+ constructor(status:PhotoStatus){super(status==="REUPLOAD"?"This photo needs to be re-uploaded at a higher resolution before it can go to a designer.":"This photo requires a retake before it can proceed.");this.name="ReviewRequestBlockedError";this.status=status}
+}
+export function reviewRequestBlockedBy(request:Pick<ReviewRequest,"original"|"kind">){
+ if(request.original.status==="REUPLOAD")return "REUPLOAD" as PhotoStatus;
+ // A retake recommendation blocks the photograph, not the portrait generated from it — so it closes
+ // `original_approval` (the ask is "approve this photo as it is") and leaves `enhanced_review` open.
+ return request.original.status==="REJECT"&&request.kind==="original_approval"?"REJECT" as PhotoStatus:null;
+}
+
 // Requests persist, but the portraits themselves do not: a full-size data URL would blow past the
 // localStorage quota, exactly as the print order book found. The queue keeps the case, not the file.
 export function recordReviewRequest(request:ReviewRequest){
+ const blocked=reviewRequestBlockedBy(request);
+ if(blocked)throw new ReviewRequestBlockedError(blocked);
  try{
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {photo,enhancedPhoto,...stored}=request;

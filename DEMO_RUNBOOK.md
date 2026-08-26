@@ -39,7 +39,7 @@ Atlas profile
       └─ Ready
   → Select capture
   → Optional, on-device Studio Enhance
-  → Separate Atlas-profile and brand-use consent
+  → Atlas-profile slot confirmation
   → Save photo
   → Personal Photos gallery
   → Permissioned Brand Assets gallery
@@ -71,7 +71,7 @@ Printer unavailable → Download image or choose Save as PDF in the system print
 | 1:05–1:35 | Start camera. If hardware is risky, import a prepared sample. | “The browser checks framing, light, size, contrast, and sharpness locally. It scores the photograph, not the person.” |
 | 1:35–2:00 | Show a retake result, then capture/import the passing portrait. | “Feedback is limited to direct, fixable instructions.” |
 | 2:00–2:20 | Show **Studio Enhance** and hold to compare. | “Enhancement is optional, non-generative, and runs on this device.” |
-| 2:20–2:40 | Continue to consent and toggle brand use separately. | “Profile use and brand use are separate permissions attached to this photo.” |
+| 2:20–2:40 | Continue to review and confirm the Atlas profile slot. | “The Atlas profile holds one photo, so saving this one replaces the last.” |
 | 2:40–3:00 | Save, open **Photos**, then **Assets**. | “The agent receives the portrait, while the brand team sees only approved assets ready to download or print.” |
 
 ## Day-before freeze
@@ -132,5 +132,5 @@ The demo is ready only when all of these are true:
 - The complete journey finishes without internet access.
 - Camera-free and QR-free fallbacks have both been rehearsed.
 - The final portrait appears in Photos.
-- Brand Assets includes the portrait only when brand consent is enabled.
+- Brand Assets includes the portrait once it is approved.
 - A backup archive and backup video are available offline.

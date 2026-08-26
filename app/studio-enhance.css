@@ -67,11 +67,16 @@
   background: #181e1b;
   box-shadow: 0 24px 64px #0005;
 }
-.enhance-preview-panel { display: flex; min-height: 0; flex-direction: column; padding: 16px; }
+.enhance-preview-panel { display: flex; min-height: 0; flex-direction: column; padding: 22px; }
+/* The stage takes the render's own aspect ratio (--preview-aspect, from targetAspect) instead of
+   stretching to whatever height the controls column happens to be. object-fit:contain then
+   letterboxes nothing, so the divider's percentage maps 1:1 onto the photo and both layers sit on
+   the same grid. Capped in both axes and centred so the cutout reads as a framed photo, not a bleed. */
 .enhance-preview {
   position: relative;
-  min-height: 520px;
-  flex: 1;
+  width: min(100%, calc((100vh - 300px) * var(--preview-aspect,.8)), 460px);
+  aspect-ratio: var(--preview-aspect,.8);
+  margin: auto;
   overflow: hidden;
   border-radius: 17px;
   background: #070a08;
@@ -270,7 +275,7 @@
  .enhance-editor{height:auto;min-height:100dvh}
  .enhance-layout{grid-template-columns:1fr;max-width:640px}
  .enhance-header{max-width:640px}
- .enhance-preview{min-height:560px}
+ .enhance-preview{width:min(100%,520px)}
 }
 @media(max-width:580px){
  .enhance-editor{padding:14px 10px 24px}
@@ -280,7 +285,7 @@
  .enhance-local{grid-column:2;grid-row:1/3}
  .enhance-preview-panel,.enhance-controls{border-radius:17px}
  .enhance-preview-panel{padding:10px}
- .enhance-preview{min-height:430px;border-radius:13px}
+ .enhance-preview{width:min(100%,340px);border-radius:13px}
  .enhance-controls{padding:16px}
  .enhance-title h1{font-size:22px}
  .enhance-slider-copy small{white-space:normal}

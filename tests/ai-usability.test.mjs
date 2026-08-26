@@ -4,7 +4,7 @@ import test from "node:test";
 import {aiUsabilityThresholds, assessAiUsability, faceDetailCurve} from "../app/ai-usability.ts";
 
 // A crisp single face with plenty of pixels on it: the identity reference an enhancement can trust.
-const crispFace={faceCount:1,faceHeightPixels:320,faceClarity:92,structureScore:86,focusScore:84,fidelityScore:82,faceClearance:.08,qualityDefects:[]};
+const crispFace={faceCount:1,faceHeightPixels:320,faceClarity:92,structureScore:86,focusScore:84,fidelityScore:82,faceClearance:.08,qualityDefects:[],marketingStatus:"REVIEW"};
 const assess=(overrides={})=>assessAiUsability({...crispFace,...overrides});
 
 test("a crisp single face is eligible for AI enhancement",()=>{
@@ -53,4 +53,34 @@ test("soft structure lowers the score below the floor without inventing a defect
  const result=assess({faceClarity:40,structureScore:38,focusScore:36,fidelityScore:50,faceHeightPixels:170});
  assert.equal(result.eligible,false);
  assert.match(result.reason,/below the 70/);
+});
+
+// --- What the marketing verdict does and does not close ----------------------------------------------
+//
+// AI usability measures identity detail and nothing else, so a retake-recommended photo can still score
+// well on it — a crisp face in a photograph a designer cannot use is exactly that case. A retake is about
+// framing, background and body, which is precisely what an identity-preserving generation rebuilds, so it
+// leaves enhancement open; what it closes is the original (`designerReviewEligible`). A re-upload is the
+// one status that closes enhancement too: there are no pixels to generate from.
+
+test("a retake recommendation leaves AI enhancement open when the face detail is there",()=>{
+ const result=assess({marketingStatus:"REJECT"});
+ assert.ok(result.score>=aiUsabilityThresholds.eligible,`the face detail is genuinely there — ${result.score}`);
+ assert.equal(result.eligible,true,"a retake is a verdict on the photograph, not on the identity detail in the face");
+});
+
+test("a retake recommendation still needs the face detail like any other photo",()=>{
+ const result=assess({marketingStatus:"REJECT",faceHeightPixels:120});
+ assert.equal(result.eligible,false,"a retake never lowers the identity bar");
+ assert.match(result.reason,/face height/i,"the reason is the measurement, not the marketing verdict");
+});
+
+test("a re-upload recommendation blocks AI enhancement",()=>{
+ const result=assess({marketingStatus:"REUPLOAD"});
+ assert.equal(result.eligible,false,"a file too small to use is too small to generate from");
+ assert.match(result.reason,/re-upload/i);
+});
+
+test("the statuses that keep the workflow open keep enhancement open",()=>{
+ for(const marketingStatus of ["APPROVED","REVIEW"])assert.ok(assess({marketingStatus}).eligible,`${marketingStatus} must not close AI enhancement on its own`);
 });

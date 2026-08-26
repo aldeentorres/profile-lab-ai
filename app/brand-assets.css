@@ -55,7 +55,9 @@
 .print-done-tick{width:56px;height:56px;display:grid;place-items:center;border-radius:50%;background:#e8f6ed;color:#2f7d52}
 .print-done>b{font:800 17px ui-monospace,monospace;letter-spacing:-.01em}
 .print-done>p{max-width:330px;margin:0;color:#6c7772;font-size:12px;line-height:1.55}
-.print-done .print-summary,.print-done .print-pay{width:100%}
+.print-receipt{min-height:46px;display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid #cfd8d2;border-radius:12px;background:#f8faf9;color:#17211d;font-size:13px;font-weight:750}.print-receipt:hover{background:#eef3f0}
+.print-receipt-sent{min-height:46px;display:flex;align-items:center;justify-content:center;gap:7px;margin:0;border-radius:12px;background:#e8f6ed;color:#2f7d52;font-size:13px;font-weight:750}
+.print-done .print-summary,.print-done .print-pay,.print-done .print-receipt,.print-done .print-receipt-sent{width:100%}
 @media(min-width:620px){.print-sheet{align-items:center;padding:24px}.print-card{border-radius:20px}}
 .asset-back{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;padding:7px 12px;border:1px solid #cfd8d2;border-radius:999px;background:#f8faf9;color:#3d725b;font-size:11px;font-weight:750}.asset-back:hover{background:#eef3f0}
 .asset-template-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}

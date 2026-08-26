@@ -54,8 +54,8 @@ Judges are told this and the code has to match it:
 - The check runs on device; the journey needs no internet and no API keys.
 - It scores the photograph, never the person — no beauty, formality or character claims.
 - Local enhancement is non-generative; only the labelled CodeFormer adapter reconstructs faces.
-- Atlas-profile consent and brand-use consent are separate permissions on each photo.
-- A portrait reaches Brand Assets only with brand consent.
+- The Atlas profile has one photo slot: saving a photo to it demotes the previous one.
+- Every approved photo is cleared for brand materials and reaches Brand Assets.
 
 ## After the fix
 

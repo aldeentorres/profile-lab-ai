@@ -11,6 +11,7 @@ import {
   Layers3,
   LayoutTemplate,
   Printer,
+  ReceiptText,
   ShieldCheck,
   Truck,
   WandSparkles,
@@ -408,8 +409,8 @@ export default function BrandAssetStudio({
               <input
                 id="asset-portrait-size"
                 type="range"
-                min={template === "subsale" ? 40 : 80}
-                max={template === "subsale" ? 150 : 130}
+                min={template === "subsale" ? 70 : 80}
+                max={template === "subsale" ? 80 : 130}
                 value={scale}
                 onChange={(event) => setScale(Number(event.target.value))}
               />
@@ -426,8 +427,8 @@ export default function BrandAssetStudio({
               <input
                 id="asset-portrait-position"
                 type="range"
-                min={template === "subsale" ? -100 : -20}
-                max={template === "subsale" ? 100 : 20}
+                min={template === "subsale" ? 0 : -20}
+                max={template === "subsale" ? 30 : 20}
                 value={position}
                 onChange={(event) => setPosition(Number(event.target.value))}
               />
@@ -443,8 +444,8 @@ export default function BrandAssetStudio({
                 <input
                   id="asset-portrait-offset"
                   type="range"
-                  min="-100"
-                  max="100"
+                  min="0"
+                  max="30"
                   value={offset}
                   onChange={(event) => setOffset(Number(event.target.value))}
                 />
@@ -561,6 +562,7 @@ export default function BrandAssetStudio({
           order={order}
           onClose={closePrintOrder}
           onPaid={confirmPrintOrder}
+          onToast={onToast}
         />
       ) : null}
     </section>
@@ -574,6 +576,7 @@ function PrintOrderSheet({
   order,
   onClose,
   onPaid,
+  onToast,
 }: {
   artwork: string;
   details: SubsaleDetails;
@@ -581,13 +584,15 @@ function PrintOrderSheet({
   order: PrintOrder | null;
   onClose: () => void;
   onPaid: (order: PrintOrder) => void;
+  onToast: (message: string) => void;
 }) {
   const [sizeId, setSizeId] = useState(printSizes[0].id),
     [quantity, setQuantity] = useState(1),
     [deliveryId, setDeliveryId] = useState(deliveryOptions[0].id),
     [address, setAddress] = useState(""),
     [methodId, setMethodId] = useState(paymentMethods[0].id),
-    [paying, setPaying] = useState(false);
+    [paying, setPaying] = useState(false),
+    [receiptRequested, setReceiptRequested] = useState(false);
   const size = printSizes.find((item) => item.id === sizeId) ?? printSizes[0],
     delivery =
       deliveryOptions.find((item) => item.id === deliveryId) ??
@@ -628,6 +633,13 @@ function PrintOrderSheet({
         }),
       );
     }, 1400);
+  };
+  // No payment provider exists in the demo, so the request is only acknowledged here;
+  // the print partner issues the receipt out of band.
+  const requestReceipt = () => {
+    if (!order || receiptRequested) return;
+    setReceiptRequested(true);
+    onToast(`Receipt requested for ${order.id}`);
   };
   return (
     <div
@@ -686,6 +698,21 @@ function PrintOrderSheet({
                 <dd>{formatMYR(order.total)}</dd>
               </div>
             </dl>
+            {receiptRequested ? (
+              <p className="print-receipt-sent">
+                <Check size={15} />
+                Receipt request sent
+              </p>
+            ) : (
+              <button
+                type="button"
+                className="print-receipt"
+                onClick={requestReceipt}
+              >
+                <ReceiptText size={16} />
+                Request Receipt
+              </button>
+            )}
             <button type="button" className="print-pay" onClick={onClose}>
               Done
             </button>
@@ -1214,11 +1241,21 @@ function getSubsaleDetails(
     ),
   };
 }
-// 100% fits the designer frame; above that the portrait grows past it and is only stopped by the artwork edges. Both sliders run edge to edge — 0 is left/bottom flush, 100 is right/top flush — so a side of the cutout always sits on an artwork edge and never drifts inside it.
-// The whole portrait always shows: 100% stands it the full height of the artwork and nothing masks it, so the width follows the aspect and may reach over the text. 0 anchors it flush with the artwork right and bottom edges; the sliders then track the photo - dragging left walks it left/up until it is flush with the far edges, dragging right walks it off the board by that share of its own size.
+// 100% stands the portrait the full height of the artwork; the size slider runs 70-80% because that is the
+// band where the portrait fills the board beside the text without covering it or shrinking away from it.
+// Both position sliders start at the flush right/bottom anchor and run to 30, and a full 100 would hang a
+// quarter of the portrait's own size past that edge — so the band ends at 7.5% of it. The portrait may
+// therefore overflow the artwork, which is the printed look, but no slider can push it out of the
+// composition, and it is never left cropped to a sliver or missing from the board altogether.
+const subsalePortraitOverflow = 0.25;
 function placeSubsalePortrait(span: number, size: number, value: number) {
-  const travel = -Math.min(Math.max(value, -100), 100) / 100;
-  return travel < 0 ? span - travel * size : span * (1 - travel);
+  const travel = Math.min(Math.max(value, -100), 100) / 100,
+    slack = size * subsalePortraitOverflow,
+    low = -slack,
+    high = span + slack;
+  // A portrait wider or taller than the board plus both allowances cannot satisfy either bound, so it centres.
+  if (high < low) return span / 2;
+  return travel < 0 ? span + travel * (span - low) : span + travel * (high - span);
 }
 function fitSubsalePortrait(
   naturalWidth: number,

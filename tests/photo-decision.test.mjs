@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {applyPhotoDecision, scoreCaps} from "../app/photo-decision.ts";
+import {applyPhotoDecision, isWorkflowHardStop, scoreCaps} from "../app/photo-decision.ts";
 
 // A relaxed, seated, smart-casual portrait that a designer can actually use.
 const goodSignals={minimumDimension:1600,resolutionScore:100,sharpnessScore:88,focusScore:90,structureScore:86,fidelityScore:82,faceCount:1,faceClearance:.08,faceHeight:.2,faceHeightPixels:320,faceClarity:94,accessoryImpact:0,choppedLimbs:0,photoQuality:88,bodyCrop:92,faceVisibility:91,selfieProbability:.05,lightingScore:86,backgroundQuality:88,designerUsability:92,bodyExtent:"three_quarter",cropScore:95,hands:"complete",handScore:100,isScreenshot:false,letterboxed:false,contentCoverage:.95,backgroundTexture:4,frameAspect:.78,subjectCoverage:.5,torsoVisible:1.1,shoulderTilt:3,handAtFace:false};
@@ -402,24 +402,49 @@ test("a clean background and a good crop never rescue a genuinely degraded subje
 
 // --- Designer review eligibility ------------------------------------------------------------------
 //
-// Designer review exists to challenge AI *judgement*, never to rescue a genuinely bad file. Eligibility
-// is therefore blocked only by defects measured on the pixels, plus a photo-quality floor and a file
-// that is large enough to use at all. Everything driven by a derived score stays disputable, because a
-// derived score is an estimate and an estimate is exactly what a human should be able to overrule.
+// Designer review exists inside an open workflow. A retake or a re-upload verdict closes the workflow on
+// that photograph, so there is nothing about *this* file left for a designer to decide — allowing the
+// appeal there would turn a judgement call into a way around a hard stop. Within the statuses that stay
+// open, eligibility is blocked only by defects measured on the pixels, plus a photo-quality floor and a
+// file large enough to use at all.
 
-test("a technically sound photo rejected on judgement can be disputed",()=>{
- // The reference case: a professional studio shoot mis-read as a snapshot.
+test("a retake verdict closes designer review even when nothing is measurably wrong",()=>{
+ // The reference case: a professional studio shoot mis-read as a snapshot. The gate is still named, so
+ // the agent can see what the AI concluded — but the answer is a new photo, not an appeal.
  const result=decide({selfieProbability:.8},88);
  assert.equal(result.status,"REJECT","the AI rejects it on a judgement call");
- assert.equal(result.designerReviewEligible,true,"but nothing measured in the image is wrong with it");
- assert.ok(result.disputableGates.length>0,"the user is told exactly what they are challenging");
- assert.equal(result.reviewBlockReason,"","nothing blocks review");
+ assert.equal(result.designerReviewEligible,false,"a retake recommendation is a hard stop, not an appeal");
+ assert.ok(result.disputableGates.length>0,"the user is still told what the AI concluded");
+ assert.match(result.reviewBlockReason,/retaken/i,"the block reason says a new photo is required");
+});
+
+test("a re-upload verdict closes designer review",()=>{
+ const result=decide({minimumDimension:220,resolutionScore:20},88);
+ assert.equal(result.status,"REUPLOAD");
+ assert.equal(result.designerReviewEligible,false,"the file has to be replaced before a designer sees it");
+ assert.match(result.reviewBlockReason,/re-upload/i);
+});
+
+test("designer review is open only where the workflow is",()=>{
+ // The single rule the screens read: eligibility can never be true on a hard stop, whatever the scores.
+ for(const overrides of [{},{selfieProbability:.8},{photoQuality:74,faceVisibility:74,bodyCrop:68},{minimumDimension:220,resolutionScore:20}]){
+  const result=decide(overrides,74);
+  if(isWorkflowHardStop(result.status))assert.equal(result.designerReviewEligible,false,`${result.status} must never offer designer review`);
+ }
 });
 
 test("an approved photo has nothing to dispute",()=>{
  const result=decide();
  assert.equal(result.status,"APPROVED");
  assert.equal(result.disputableGates.length,0);
+});
+
+test("a designer-review photo keeps every recovery path open",()=>{
+ // 65-79 with no gate fired: this is the one status where a human decision on this file still exists.
+ const result=decide({photoQuality:74,faceVisibility:74,bodyCrop:68},74);
+ assert.equal(result.status,"REVIEW");
+ assert.equal(result.designerReviewEligible,true,"designer review is exactly what this status is for");
+ assert.equal(result.reviewBlockReason,"","nothing blocks review");
 });
 
 test("photo quality below the floor blocks designer review",()=>{
@@ -450,17 +475,21 @@ test("a file too small to use anywhere blocks designer review",()=>{
  assert.equal(decide({minimumDimension:220,resolutionScore:20},88).designerReviewEligible,false);
 });
 
-test("a face the detector could not find is still disputable",()=>{
+test("a face the detector could not find is still reported as a judgement call",()=>{
  // face_missing is a detector result, not a measurement of the pixels. Turned heads, hijabs, sunglasses
- // and hard lighting all defeat detection on photos a designer can see a face in perfectly well.
+ // and hard lighting all defeat detection on photos a designer can see a face in perfectly well — so it
+ // is named rather than presented as a measured defect. It still recommends a retake, and a retake is a
+ // hard stop: the agent supplies a photo the detector can read instead of arguing about this one.
  const result=decide({faceCount:0},88);
  assert.equal(result.status,"REJECT");
- assert.equal(result.designerReviewEligible,true,"a detector miss is exactly what a human should overrule");
- assert.ok(result.disputableGates.some(gate=>/face/i.test(gate)));
+ assert.ok(result.disputableGates.some(gate=>/face/i.test(gate)),"the judgement is named, not hidden");
+ assert.equal(result.qualityDefects.length,0,"a detector miss is never recorded as a measured defect");
+ assert.equal(result.designerReviewEligible,false,"but a retake still has to be a new photo");
 });
 
-// Every judgement gate stays disputable. These are estimates about composition and intent, not
-// measurements of the file.
+// Every judgement gate is still *named* — the agent is told what the AI concluded rather than being sent
+// away with a score — but naming it is not the same as offering an appeal. A gate caps at or below 59,
+// so any gate that fires produces a retake, and a retake closes the workflow on that file.
 for(const [name,overrides] of [
  ["an awkward crop",{cropScore:32}],
  ["not enough body",{bodyExtent:"head_shoulders"}],
@@ -468,8 +497,10 @@ for(const [name,overrides] of [
  ["a suspected selfie",{selfieProbability:.8}],
  ["an unusable-for-design score",{designerUsability:30}],
  ["a difficult background",{backgroundQuality:25}],
-]) test(`${name} remains disputable`,()=>{
- assert.equal(decide(overrides,88).designerReviewEligible,true);
+]) test(`${name} is named as a judgement call, never as a measured defect`,()=>{
+ const result=decide(overrides,88);
+ assert.equal(result.qualityDefects.length,0,"nothing measured on the pixels is wrong with the file");
+ assert.equal(result.designerReviewEligible,!isWorkflowHardStop(result.status),"review follows the workflow status, nothing else");
 });
 
 // --- Snapshot cues must not fire on deliberate wide framing ---------------------------------------

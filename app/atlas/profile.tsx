@@ -4,6 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import {
+  BadgeCheck,
   BarChart3,
   Bell,
   CalendarDays,
@@ -25,10 +26,17 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { isMissingAvatarUrl } from "../agent-directory";
+import {
+  atlasPhotoChanged,
+  readAtlasProfilePhoto,
+  writeAtlasProfilePhoto,
+} from "../atlas-profile-photo";
+import { atlasAgentSlug, atlasPhotoSrc, mockAgent } from "../mock-agent";
 import {
   emptyPhotoRating,
   evaluatePhoto,
-  isPhotoApproved,
+  isProfilePhotoVerified,
   PhotoRating,
 } from "../photo-quality";
 import "./entry.css";
@@ -37,6 +45,7 @@ type Agent = {
   id: string;
   name: string;
   role: string;
+  team: string;
   office: string;
   phone: string;
   officePhone: string;
@@ -45,26 +54,32 @@ type Agent = {
   renTag: string;
 };
 const fallbackAgent: Agent = {
-  id: "6",
-  name: "Nat Kingston",
-  role: "Negotiator · REN1000X",
-  office: "Millerz, Malaysia",
-  phone: "60183638167",
-  officePhone: "03-7453 5155",
-  email: "niel.kingston@iqiglobal.com",
-  avatar: "",
-  renTag: "REN1000X",
+  id: "48535",
+  name: mockAgent.agentName,
+  role: "Team Leader (Subsales) · REN52483",
+  team: mockAgent.agentTeam,
+  office: "Putrajaya, Malaysia",
+  phone: "60165764506",
+  officePhone: mockAgent.agentOfficePhone,
+  email: "amir.asraf@iqiglobal.com",
+  avatar: atlasPhotoSrc,
+  renTag: "REN52483",
 };
 
 export default function AtlasProfile({
-  agentSlug = "niel-kingston",
+  agentSlug = atlasAgentSlug,
 }: {
   agentSlug?: string;
 }) {
   const [agent, setAgent] = useState<Agent>(fallbackAgent);
   const [live, setLive] = useState(false);
-  const [photo, setPhoto] = useState("");
-  const [rating, setRating] = useState<PhotoRating>(emptyPhotoRating);
+  const [photo, setPhoto] = useState(atlasPhotoSrc);
+  // Keyed by the photo it describes, so switching photos falls back to the empty rating by
+  // derivation instead of a setState in an effect body that would cascade an extra render.
+  const [assessed, setAssessed] = useState<{
+    src: string;
+    rating: PhotoRating;
+  } | null>(null);
   const [showAssessment, setShowAssessment] = useState(false);
   const [booking, setBooking] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -73,16 +88,60 @@ export default function AtlasProfile({
   const [date, setDate] = useState("2026-08-22");
   const [time, setTime] = useState("10:30");
   const file = useRef<HTMLInputElement>(null);
+  const isDemoAgent = agentSlug === atlasAgentSlug;
+  useEffect(() => {
+    const apply = () => {
+      const slot = readAtlasProfilePhoto();
+      setPhoto(slot.src);
+      if (slot.rating && slot.rating.score)
+        setAssessed({ src: slot.src, rating: slot.rating });
+    };
+    apply();
+    window.addEventListener(atlasPhotoChanged, apply);
+    window.addEventListener("storage", apply);
+    return () => {
+      window.removeEventListener(atlasPhotoChanged, apply);
+      window.removeEventListener("storage", apply);
+    };
+  }, [agentSlug]);
+  useEffect(() => {
+    if (!photo) return;
+    let active = true;
+    evaluatePhoto(photo)
+      .then((next) => {
+        if (active) setAssessed({ src: photo, rating: next });
+      })
+      .catch(() => {
+        if (active)
+          setAssessed({
+            src: photo,
+            rating: { ...emptyPhotoRating, label: "Could not assess" },
+          });
+      });
+    return () => {
+      active = false;
+    };
+  }, [photo]);
+  const rating = assessed?.src === photo ? assessed.rating : emptyPhotoRating;
   useEffect(() => {
     fetch(`/api/atlas-agent?slug=${encodeURIComponent(agentSlug)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
+        const liveAvatar = data.avatar_original_url || data.avatar_url || "";
+        const avatar = isMissingAvatarUrl(String(liveAvatar))
+          ? ""
+          : `/api/atlas-avatar?slug=${encodeURIComponent(agentSlug)}`;
         const mapped: Agent = {
           id: String(data.id),
-          name: data.display_name || data.full_name,
+          name: isDemoAgent
+            ? mockAgent.agentName
+            : data.display_name || data.full_name,
           role:
             [data.designation, data.ren_tag].filter(Boolean).join(" · ") ||
             data.role,
+          team: isDemoAgent
+            ? mockAgent.agentTeam
+            : data.team_name || mockAgent.agentTeam,
           office: `${data.branch_name || data.branch_region_name}, ${data.country}`,
           phone:
             data.mobile_contact_number ||
@@ -92,22 +151,18 @@ export default function AtlasProfile({
             data.office_contact_number ||
             data.branch_contact_number ||
             data.branch_phone_number ||
-            "03-7453 5155",
+            mockAgent.agentOfficePhone,
           email: data.email || "Not provided",
-          avatar: `/api/atlas-avatar?slug=${encodeURIComponent(agentSlug)}`,
+          avatar: isDemoAgent ? atlasPhotoSrc : avatar,
           renTag: data.ren_tag || "",
         };
         setAgent(mapped);
         setLive(true);
-        setPhoto(mapped.avatar);
-        evaluatePhoto(mapped.avatar)
-          .then(setRating)
-          .catch(() =>
-            setRating({ ...emptyPhotoRating, label: "Could not assess" }),
-          );
+        if (isDemoAgent || !avatar) return;
+        setPhoto(avatar);
       })
       .catch(() => {});
-  }, [agentSlug]);
+  }, [agentSlug, isDemoAgent]);
   const session = useMemo(
     () => `PS-${agent.id}-${date.replaceAll("-", "")}-${time.replace(":", "")}`,
     [agent.id, date, time],
@@ -146,6 +201,7 @@ export default function AtlasProfile({
           agentMobile: agent.phone,
           agentRenTag: agent.renTag,
           agentOfficePhone: agent.officePhone,
+          agentTeam: agent.team,
           rating: rating.score,
           ratingLabel: rating.label,
           ratingMetrics: rating.metrics,
@@ -197,6 +253,7 @@ export default function AtlasProfile({
     agent.phone,
     agent.renTag,
     agent.officePhone,
+    agent.team,
     photo,
     rating,
   ]);
@@ -228,19 +285,16 @@ export default function AtlasProfile({
     const reader = new FileReader();
     reader.onload = async () => {
       if (typeof reader.result !== "string") return;
-      setPhoto(reader.result);
-      setRating(emptyPhotoRating);
-      try {
-        setRating(await evaluatePhoto(reader.result));
-      } catch {
-        alert("This photo could not be assessed. Try another image.");
-      }
+      const src = reader.result;
+      setPhoto(src);
+      writeAtlasProfilePhoto(src);
     };
     reader.onerror = () => alert("This photo could not be opened.");
     reader.readAsDataURL(selected);
   };
   const openStudio = () =>
     (location.href = `/?session=${encodeURIComponent(session)}`);
+  const verified = isProfilePhotoVerified(rating);
   return (
     <main className="atlas-app">
       <header className="atlas-top">
@@ -331,7 +385,7 @@ export default function AtlasProfile({
             <Check size={17} /> {live ? "Connected" : "Offline"}
           </button>
         </div>
-        {rating.score > 0 && !isPhotoApproved(rating) ? (
+        {rating.score > 0 && !verified ? (
           <div className={`quality-banner ${!photo ? "empty" : ""}`}>
             <div className="banner-icon">
               <Camera />
@@ -348,13 +402,10 @@ export default function AtlasProfile({
               </strong>
               <span>
                 {!photo
-                  ? "Upload or book a session."
+                  ? "Upload a photo to get it scored."
                   : `${rating.score}/100 · ${rating.recommendation}`}
               </span>
             </div>
-            <button type="button" onClick={() => setBooking(true)}>
-              <CalendarDays size={18} /> Book studio
-            </button>
           </div>
         ) : null}
         <div className="profile-layout">
@@ -367,9 +418,15 @@ export default function AtlasProfile({
                 className={`agent-photo ${photo ? "has-photo" : ""}`}
                 style={photo ? { backgroundImage: `url(${photo})` } : undefined}
               >
-                <span className={`rating-ring ${rating.tone}`}>
-                  {rating.score}
-                </span>
+                {verified ? (
+                  <span className="photo-verified" title="Verified photo">
+                    <BadgeCheck size={14} />
+                  </span>
+                ) : (
+                  <span className={`rating-ring ${rating.tone}`}>
+                    {rating.score}
+                  </span>
+                )}
               </div>
               <div>
                 <h2>{agent.name}</h2>
@@ -378,8 +435,12 @@ export default function AtlasProfile({
                   <MapPin size={15} />
                   {agent.office}
                 </span>
+                {agent.team ? (
+                  <span className="agent-team">{agent.team}</span>
+                ) : null}
               </div>
             </div>
+            {!verified ? (
             <button
               type="button"
               className="photo-score"
@@ -401,21 +462,10 @@ export default function AtlasProfile({
                 View feedback <span>→</span>
               </p>
             </button>
+            ) : null}
             <div className="atlas-photo-actions">
               <button type="button" onClick={() => file.current?.click()}>
                 <Upload size={18} /> Upload
-              </button>
-              <button
-                type="button"
-                className="studio-book"
-                onClick={() => {
-                  setConfirmed(false);
-                  setQr("");
-                  setQrError("");
-                  setBooking(true);
-                }}
-              >
-                <CalendarDays size={18} /> Book studio
               </button>
               <button
                 type="button"

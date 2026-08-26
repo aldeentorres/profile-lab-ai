@@ -52,6 +52,7 @@ import {
   createPhotoZip,
   currentDownloadableAsset,
 } from "../bulk-photo-actions";
+import { agentPresentation } from "../agent-directory";
 
 type Section = "overview" | "queue" | "assets" | "directory" | "history";
 const pendingStatuses = new Set([
@@ -83,12 +84,19 @@ const sourceLabel = {
   ai_enhanced: "AI enhanced",
   background_removed: "Background removed",
 };
+// What the agent wants the photo for. "other" (subsale banner and the rest) carries no badge: only the
+// two slots a designer has to keep apart — the live Atlas profile photo and an awards-night entry — do.
+const photoCategoryLabel: Record<string, string> = {
+  atlas: "Atlas photo",
+  awards: "Awards night",
+};
 type LibraryImage = {
   key: string;
   agentId: string;
   imageId: string;
   sourceType: "original" | "ai_enhanced" | "background_removed";
   status: "pending" | "approved" | "retake" | "reupload" | "uploaded";
+  category?: string;
   score: number;
   at: string;
   asset?: DesignerAsset;
@@ -278,12 +286,15 @@ export default function Dashboard() {
     }
   };
   useEffect(() => {
+    const timer = window.setTimeout(() => setAccess("open"), 4000);
     fetch("/api/designer-access", { cache: "no-store" })
       .then((response) => response.json())
       .then((result: { required?: boolean }) =>
         setAccess(result.required ? "locked" : "open"),
       )
-      .catch(() => setAccess("open"));
+      .catch(() => setAccess("open"))
+      .finally(() => window.clearTimeout(timer));
+    return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => {
     if (access !== "open") return;
@@ -358,8 +369,10 @@ export default function Dashboard() {
     selectedEnhancement = snapshot.enhancements.find(
       (item) => item.submissionId === selectedSubmission?.submissionId,
     ),
-    hasDemo = [...snapshot.submissions, ...snapshot.assets].some(
-      (item) => item.demo,
+    hasRecords = Boolean(
+      snapshot.submissions.length ||
+        snapshot.assets.length ||
+        snapshot.events.length,
     ),
     images = libraryImages(snapshot),
     localResults = snapshot.agents.filter((agent) =>
@@ -476,7 +489,6 @@ export default function Dashboard() {
             <Overview
               snapshot={snapshot}
               counts={counts}
-              hasDemo={hasDemo}
               onSection={navigate}
               onRefresh={refresh}
             />
@@ -514,7 +526,11 @@ export default function Dashboard() {
             />
           ) : null}
           {!loading && section === "history" ? (
-            <HistoryFeed snapshot={snapshot} />
+            <HistoryFeed
+              snapshot={snapshot}
+              hasRecords={hasRecords}
+              onRefresh={refresh}
+            />
           ) : null}
         </div>
       </div>
@@ -547,22 +563,16 @@ function PageTitle({
 function Overview({
   snapshot,
   counts,
-  hasDemo,
   onSection,
   onRefresh,
 }: {
   snapshot: DesignerSnapshot;
   counts: ReturnType<typeof overviewCounts>;
-  hasDemo: boolean;
   onSection: (section: Section) => void;
   onRefresh: () => Promise<void>;
 }) {
   const load = async () => {
       await designerStore().loadDemoData();
-      await onRefresh();
-    },
-    clear = async () => {
-      await designerStore().clearDemoData();
       await onRefresh();
     },
     images = libraryImages(snapshot);
@@ -573,16 +583,7 @@ function Overview({
         title="Portrait desk"
         copy="Review waiting photos, release approved ones, and keep a record."
         action={
-          hasDemo ? (
-            <button
-              className="designer-demo clear"
-              type="button"
-              onClick={() => void clear()}
-            >
-              <Trash2 size={16} />
-              Clear demo data
-            </button>
-          ) : snapshot.submissions.length ? (
+          snapshot.submissions.length ? (
             <span className="designer-local">
               <ShieldCheck size={16} />
               Library ready
@@ -1352,7 +1353,14 @@ function ImageCard({
         </em>
       </div>
       <section>
-        <b>{sourceLabel[image.sourceType]}</b>
+        <b>
+          {sourceLabel[image.sourceType]}
+          {image.category && photoCategoryLabel[image.category] ? (
+            <i className={`designer-photo-category ${image.category}`}>
+              {photoCategoryLabel[image.category]}
+            </i>
+          ) : null}
+        </b>
         <small>
           {image.score ? `${image.score}/100 · ` : ""}
           {dateTime(image.at)}
@@ -1563,6 +1571,18 @@ function Directory({
 }
 export { Directory };
 
+/* Triage order, matching sortAgentsByPhotoState: what a designer has to act on first comes
+   first, so the filter row reads in the same order as the grid it filters. */
+const photoStateFilters: { value: AgentPhotoState; label: string }[] = [
+  { value: "pending", label: "Pending approval" },
+  { value: "retake", label: "Retake required" },
+  { value: "reupload", label: "Re-upload required" },
+  { value: "approved", label: "Approved" },
+  { value: "none", label: "Photo required" },
+  { value: "has_images", label: "Has images" },
+  { value: "opted_out", label: "Opted out" },
+];
+
 function BulkDirectory({
   agents,
   state,
@@ -1641,10 +1661,21 @@ function BulkDirectory({
     teams = [
       ...new Set(agents.map((agent) => agent.teamName).filter(Boolean)),
     ].sort(),
-    filtered = agents.filter(
-      (agent) =>
-        (photoFilter === "all" || summaryOf(agent).state === photoFilter) &&
-        (teamFilter === "all" || agent.teamName === teamFilter),
+    teamAgents = agents.filter(
+      (agent) => teamFilter === "all" || agent.teamName === teamFilter,
+    ),
+    /* Counts follow the team filter but not the status filter: the row has to keep saying how
+       much work sits behind every other status while one of them is open. */
+    stateCounts = teamAgents.reduce(
+      (counts, agent) => {
+        const state = summaryOf(agent).state;
+        counts[state] = (counts[state] ?? 0) + 1;
+        return counts;
+      },
+      {} as Partial<Record<AgentPhotoState, number>>,
+    ),
+    filtered = teamAgents.filter(
+      (agent) => photoFilter === "all" || summaryOf(agent).state === photoFilter,
     ),
     ordered =
       sort === "status"
@@ -1754,6 +1785,7 @@ function BulkDirectory({
             return {
               agentId: agent.agentId,
               agentName: agent.name,
+              gender: agent.gender ?? agentPresentation(agent.name),
               recipientEmail: actualRecipientEmail,
               intendedRecipientEmail: agent.email,
               actualRecipientEmail,
@@ -1844,52 +1876,69 @@ function BulkDirectory({
           </span>
         </div>
       ) : null}
-      <div className="designer-directory-controls">
-        <label>
-          <span>Photo status</span>
-          <select
-            value={photoFilter}
-            onChange={(event) =>
-              setPhotoFilter(event.target.value as "all" | AgentPhotoState)
-            }
+      <div className="designer-directory-toolbar">
+        <div
+          className="directory-status-filter"
+          role="group"
+          aria-label="Filter by photo status"
+        >
+          <button
+            type="button"
+            className={photoFilter === "all" ? "active" : ""}
+            aria-pressed={photoFilter === "all"}
+            onClick={() => setPhotoFilter("all")}
           >
-            <option value="all">All agents</option>
-            <option value="pending">Pending approval</option>
-            <option value="approved">Approved</option>
-            <option value="retake">Retake required</option>
-            <option value="reupload">Re-upload required</option>
-            <option value="has_images">Has images</option>
-            <option value="none">Photo required</option>
-            <option value="opted_out">Opted out</option>
-          </select>
-        </label>
-        <label>
-          <span>Team</span>
-          <select
-            value={teamFilter}
-            onChange={(event) => setTeamFilter(event.target.value)}
-          >
-            <option value="all">All teams</option>
-            {teams.map((team) => (
-              <option value={team} key={team}>
-                {team}
-              </option>
+            All agents<b>{teamAgents.length}</b>
+          </button>
+          {/* An empty status is dropped rather than shown at zero — except the open one, which
+              has to stay on screen to remain unselectable-from. */}
+          {photoStateFilters
+            .filter(
+              (item) => stateCounts[item.value] || photoFilter === item.value,
+            )
+            .map((item) => (
+              <button
+                type="button"
+                key={item.value}
+                className={`${item.value}${photoFilter === item.value ? " active" : ""}`}
+                aria-pressed={photoFilter === item.value}
+                onClick={() => setPhotoFilter(item.value)}
+              >
+                <i />
+                {item.label}
+                <b>{stateCounts[item.value] ?? 0}</b>
+              </button>
             ))}
-          </select>
-        </label>
-        <label>
-          <span>Sort by</span>
-          <select
-            value={sort}
-            onChange={(event) =>
-              setSort(event.target.value as "name" | "status" | "images")
-            }
-          >
-            <option value="status">Photo status</option>
-            <option value="images">Most images</option>
-            <option value="name">Name A–Z</option>
-          </select>
-        </label>
+        </div>
+        <div className="directory-sorts">
+          <label>
+            <span>Team</span>
+            <select
+              value={teamFilter}
+              onChange={(event) => setTeamFilter(event.target.value)}
+            >
+              <option value="all">All teams</option>
+              {teams.map((team) => (
+                <option value={team} key={team}>
+                  {team}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Sort by</span>
+            <select
+              value={sort}
+              onChange={(event) =>
+                setSort(event.target.value as "name" | "status" | "images")
+              }
+            >
+              <option value="status">Photo status</option>
+              <option value="images">Most images</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div className="designer-directory-meta bulk">
         <label>
@@ -1959,6 +2008,7 @@ function BulkDirectory({
             return (
               <article
                 className={selectedIds.has(agent.agentId) ? "selected" : ""}
+                data-state={summary.state}
                 key={agent.agentId}
               >
                 <label className="designer-select-agent">
@@ -2031,10 +2081,12 @@ function BulkDirectory({
             >
               <X size={18} />
             </button>
-            <span className="bulk-modal-icon download">
-              <Download size={22} />
-            </span>
-            <h2 id="bulk-download-title">Download Photos</h2>
+            <div className="bulk-modal-head">
+              <span className="bulk-modal-icon download">
+                <Download size={22} />
+              </span>
+              <h2 id="bulk-download-title">Download Photos</h2>
+            </div>
             <p>
               <b>
                 {downloadable.length} photo
@@ -2079,15 +2131,19 @@ function BulkDirectory({
             >
               <X size={18} />
             </button>
-            <span className="test-mode">
-              {smtpEnabled
-                ? "TEST MODE · SMTP DELIVERY"
-                : "TEST MODE · LOCAL MOCK MAILBOX"}
-            </span>
-            <span className="bulk-modal-icon reminder">
-              <Mail size={22} />
-            </span>
-            <h2 id="reminder-title">Send Photo Reminder</h2>
+            <div className="bulk-modal-head">
+              <span className="bulk-modal-icon reminder">
+                <Mail size={22} />
+              </span>
+              <div>
+                <span className="test-mode">
+                  {smtpEnabled
+                    ? "TEST MODE · SMTP DELIVERY"
+                    : "TEST MODE · LOCAL MOCK MAILBOX"}
+                </span>
+                <h2 id="reminder-title">Send Photo Reminder</h2>
+              </div>
+            </div>
             {sent.length ? (
               <MockMailbox reminders={sent} excluded={excluded} />
             ) : (
@@ -2153,13 +2209,6 @@ function BulkDirectory({
                     </span>
                   ))}
                 </details>
-                {reminderEligible[0] ? (
-                  <EmailPreview
-                    agent={reminderEligible[0]}
-                    reminder={null}
-                    testMode={emailTestMode}
-                  />
-                ) : null}
                 <div className="bulk-modal-actions">
                   <button type="button" onClick={() => setReminderOpen(false)}>
                     Cancel
@@ -2188,59 +2237,6 @@ function BulkDirectory({
   );
 }
 
-function EmailPreview({
-  agent,
-  reminder,
-  testMode = Boolean(reminder?.testMode),
-}: {
-  agent: DesignerAgent;
-  reminder: PhotoReminder | null;
-  testMode?: boolean;
-}) {
-  const subject =
-    reminder?.subject ??
-    (testMode
-      ? `[TEST] Reminder: Upload Your Profile Lab AI Profile Photo — ${agent.name}`
-      : "Reminder: Upload Your Profile Lab AI Profile Photo");
-  return (
-    <details className="email-preview" open={Boolean(reminder)}>
-      <summary>Preview Email</summary>
-      <div>
-        <small>SUBJECT</small>
-        <b>{subject}</b>
-        <span className="email-brand">
-          <img
-            src="/profile-lab-logo.svg"
-            alt="Profile Lab AI"
-            width={219}
-            height={200}
-          />
-        </span>
-        <h3>Photo Upload Reminder</h3>
-        <p>Hi {agent.name},</p>
-        <p>
-          Your Profile Lab AI profile photo is still awaiting submission. Please
-          upload your photo so our design team can prepare your approved
-          marketing image.
-        </p>
-        <a className="email-upload" href={reminder?.uploadUrl ?? "#"}>
-          Upload My Photo
-        </a>
-        <a className="email-optout" href={reminder?.optOutUrl ?? "#"}>
-          I don&apos;t wish to submit a photo
-        </a>
-        {testMode ? (
-          <p>
-            <small>
-              TEST MODE · Intended Agent: {agent.name} · Agent ID:{" "}
-              {agent.agentId}
-            </small>
-          </p>
-        ) : null}
-      </div>
-    </details>
-  );
-}
 function MockMailbox({
   reminders,
   excluded,
@@ -2302,17 +2298,6 @@ function MockMailbox({
               {reminder.actualRecipientEmail} · {reminder.deliveryStatus}
             </small>
           </span>
-          <EmailPreview
-            agent={{
-              agentId: reminder.agentId,
-              name: reminder.agentName,
-              teamName: "",
-              ren: "",
-              avatarUrl: "",
-              email: reminder.intendedRecipientEmail,
-            }}
-            reminder={reminder}
-          />
         </article>
       ))}
     </div>
@@ -2382,7 +2367,7 @@ function AgentProfile({
       ) : null}
       {images.length ? (
         <section className="designer-profile-section">
-          <h2>All uploaded images</h2>
+          <h2>Photos sent to the designer</h2>
           <div className="designer-asset-grid">
             {images.map((image) => (
               <ImageCard image={image} agent={agent} key={image.key} />
@@ -2393,7 +2378,10 @@ function AgentProfile({
         <div className="designer-first-run compact">
           <FolderOpen size={28} />
           <h2>No images yet</h2>
-          <p>This agent has no stored uploads on this designer workstation.</p>
+          <p>
+            This agent has not sent a photo to the designer on this
+            workstation.
+          </p>
         </div>
       )}
       {events.length ? (
@@ -2439,13 +2427,39 @@ function AgentStateBadge({
     </span>
   );
 }
-function HistoryFeed({ snapshot }: { snapshot: DesignerSnapshot }) {
+function HistoryFeed({
+  snapshot,
+  hasRecords,
+  onRefresh,
+}: {
+  snapshot: DesignerSnapshot;
+  hasRecords: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  // Resetting the desk lives with the history it erases, so nobody clears the library from a screen
+  // that does not show what is about to go.
+  const clear = async () => {
+    await designerStore().clearAllData();
+    await onRefresh();
+  };
   return (
     <section>
       <PageTitle
         eyebrow="HISTORY"
         title="Decision history"
         copy="Every submission, approval and asset handoff stays with the case."
+        action={
+          hasRecords ? (
+            <button
+              className="designer-demo clear"
+              type="button"
+              onClick={() => void clear()}
+            >
+              <Trash2 size={16} />
+              Clear all records
+            </button>
+          ) : null
+        }
       />
       {snapshot.events.length ? (
         <div className="designer-summary" role="status">
@@ -2508,12 +2522,16 @@ function libraryImages(snapshot: DesignerSnapshot) {
             : submission.status === DesignerCaseStatus.REUPLOAD_REQUIRED
               ? "reupload"
               : "uploaded";
+    // A retake or a re-upload closes the photograph and the desk deletes the file with the decision,
+    // so listing it would only ever draw an empty frame. The case still shows in history and counts.
+    if (status === "retake" || status === "reupload") continue;
     images.set(`${submission.agentId}:${submission.imageId}`, {
       key: `submission-${submission.submissionId}`,
       agentId: submission.agentId,
       imageId: submission.imageId,
       sourceType: asset?.sourceType ?? "original",
       status,
+      category: submission.photoCategory,
       score: asset?.marketingReadiness ?? submission.marketingReadiness,
       at: asset?.approvedAt ?? submission.createdAt,
       asset,
@@ -2522,12 +2540,23 @@ function libraryImages(snapshot: DesignerSnapshot) {
   for (const enhancement of snapshot.enhancements) {
     const asset = assetByImage.get(
       `${enhancement.agentId}:${enhancement.imageId}`,
-    );
+    ),
+      submission = snapshot.submissions.find(
+        (item) => item.submissionId === enhancement.submissionId,
+      );
+    if (
+      submission &&
+      (submission.status === DesignerCaseStatus.RETAKE_REQUIRED ||
+        submission.status === DesignerCaseStatus.REUPLOAD_REQUIRED) &&
+      !asset
+    )
+      continue;
     images.set(`${enhancement.agentId}:${enhancement.imageId}`, {
       key: `enhancement-${enhancement.enhancementId}`,
       agentId: enhancement.agentId,
       imageId: enhancement.imageId,
       sourceType: asset?.sourceType ?? "ai_enhanced",
+      category: submission?.photoCategory,
       status: asset
         ? "approved"
         : pendingStatuses.has(enhancement.status)
@@ -2559,6 +2588,9 @@ function libraryImages(snapshot: DesignerSnapshot) {
             imageId: asset.imageId,
             sourceType: asset.sourceType,
             status: "approved",
+            category: snapshot.submissions.find(
+              (item) => item.submissionId === asset.submissionId,
+            )?.photoCategory,
             score: asset.marketingReadiness ?? 0,
             at: asset.approvedAt,
             asset,

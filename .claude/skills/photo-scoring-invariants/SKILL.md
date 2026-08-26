@@ -44,19 +44,33 @@ face visibility .20, editability .20. Pose has **zero** weight.
 6. **Photo quality and file suitability are different questions.** `FileStatus` describes
    whether the file can be shipped and never lowers the photo score. `UNUSABLE` produces
    `REUPLOAD`, which explicitly says the photograph is fine and only the file is too small.
-7. **Designer review is for challenging AI judgement, never for rescuing a bad file.**
-   `designerReviewEligible = photoQuality >= 70 AND no defect-backed gate AND file is usable`.
-   Detector results (including `face_missing`) stay disputable; measurements do not.
+7. **`REJECT` and `REUPLOAD` close the ORIGINAL; designer approval lives inside `REVIEW`.**
+   `designerReviewEligible = status is not a hard stop AND photoQuality >= 70 AND no defect-backed
+   gate AND file is usable` (`isWorkflowHardStop`). A retake or a re-upload verdict closes the
+   workflow on that photograph — there is nothing about *this* file left for a designer to decide,
+   and a judgement call must never become a route around a hard stop. What a `REJECT` does **not**
+   close is AI enhancement, or the designer case for the portrait generated from it: see 10 and 8. Judgement gates and detector
+   results (including `face_missing`) are still *named* in `disputableGates` so the agent is told
+   what the AI concluded; naming is not an appeal. Since every gate caps at or below 59, any gate
+   that fires produces a retake, so in practice review is offered on 65–79 with no gate fired.
 8. **Two designer workflows, never mixed.** "Request Designer Approval" sends the ORIGINAL only
    (`kind: original_approval`, status `PENDING DESIGNER APPROVAL`) and needs the agent's explicit
    tick "use this original photo as-is" — the tick is a choice not to enhance, not an accusation.
-   "Send to Designer Review" after an AI portrait sends both images and both ratings
-   (`kind: enhanced_review`, status `PENDING DESIGNER REVIEW`). Neither modifies the photo or the
-   original rating.
+   and exists only inside `REVIEW`. "Send to Designer Review" after an AI portrait sends both images
+   and both ratings (`kind: enhanced_review`, status `PENDING DESIGNER REVIEW`), and stays open on a
+   `REJECT` original: the submission is the generated portrait, judged on its own, and the original
+   travels with it for identity comparison only — never as something the designer can approve. A
+   `REUPLOAD` closes both kinds. `reviewRequestBlockedBy` (kind + original status) is the single rule;
+   the screens must not re-state it. Neither workflow modifies the photo or the original rating.
 10. **AI usability is a separate axis** (`app/ai-usability.ts`). It measures identity detail on the
    face only — face pixels, clarity, structure, focus, fidelity, single face, face in frame, no
    validated defect. Crop, body, selfie and background cues carry zero weight, and it never feeds the
-   marketing score. `aiEnhancementEligible = score >= 70 AND single face AND no defect AND face ≥ 150px`.
+   marketing score. `aiEnhancementEligible = marketing status is not REUPLOAD AND score >= 70 AND
+   single face AND no defect AND face ≥ 150px`. `REUPLOAD` is the only marketing status that closes the
+   axis: a file too small to ship is too small to generate from. A `REJECT` does not — a retake is a
+   verdict on framing, background and body, which is exactly what an identity-preserving generation
+   rebuilds — so a retake-recommended photo with a crisp face stays enhanceable while its original
+   stays closed. The marketing status is the only marketing signal the axis reads.
 11. **An AI-enhanced portrait is held to the same bar as an upload** (`app/portrait-checks.ts`): the
    same `evaluatePhoto`, `enhancedMarketingReadiness >= 80`, identity similarity confirmed (not
    merely unverified), no artefact, hand or proportion failure. Anything else is "Designer Review

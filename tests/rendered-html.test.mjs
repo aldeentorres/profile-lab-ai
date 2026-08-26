@@ -43,15 +43,20 @@ test("renders the unlisted designer dashboard",async()=>{
  assert.match(html,/Preparing designer desk|Portrait desk/i);
 });
 
-test("renders the Atlas profile and booking entry point", async () => {
+test("renders the Atlas profile with upload and login as the only actions", async () => {
   const response = await request("/atlas", { headers: { accept: "text/html" } });
   assert.equal(response.status, 200);
 
   const html = await response.text();
   assert.match(html, /Atlas/i);
-  assert.match(html, /Nat Kingston/i);
+  assert.match(html, /Amir Asraf/i);
   assert.match(html, /Photo quality|Marketing photo preflight/i);
-  assert.match(html, /Book studio/i);
+  assert.match(html, /Login to Profile Lab AI/i);
+  assert.doesNotMatch(
+    html,
+    /Book studio/i,
+    "Atlas offers upload and Profile Lab AI login only — no studio booking entry point",
+  );
 });
 
 test("creates and reloads a studio appointment", async () => {

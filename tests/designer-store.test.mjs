@@ -31,7 +31,40 @@ test("approved photos and cutouts enter the team library without blocking the ki
  const store=new MemoryDesignerStore();await store.recordApprovedPhoto({photoId:"photo-1",dataUrl:image,agentId:"7",agentName:"Maya",teamName:"North",marketingReadiness:91,aiUsability:90,enhanced:false,createdAt:"2026-08-24T10:00:00Z"});await store.recordCutoutAsset({photoId:"photo-1",agentId:"7",agentName:"Maya",dataUrl:image,cutoutDataUrl:image,marketingReadiness:91});
  const snapshot=await store.snapshot();assert.deepEqual(snapshot.assets.map(item=>item.sourceType).sort(),["background_removed","original"]);assert.equal(snapshot.agents[0].teamName,"North","the current team remains available after later asset ingest");
 });
-test("demo data is local, visibly synthetic and clearable",async()=>{const store=new MemoryDesignerStore();await store.loadDemoData();let snapshot=await store.snapshot();assert.ok(snapshot.submissions.every(item=>item.demo));assert.ok(snapshot.agents.every(item=>item.agentId.startsWith("DEMO-")));await store.clearDemoData();snapshot=await store.snapshot();assert.equal(snapshot.submissions.length,0);assert.equal(snapshot.assets.length,0)});
+test("a photo the AI approved reaches the desk as its own case, with what it is for",async()=>{
+ const store=new MemoryDesignerStore();await store.recordApprovedPhoto({photoId:"photo-9",dataUrl:image,agentId:"7",agentName:"Maya",teamName:"North",category:"atlas",marketingReadiness:88,aiUsability:84,enhanced:false,createdAt:"2026-08-26T09:00:00Z"});
+ const snapshot=await store.snapshot(),[submission]=snapshot.submissions;
+ assert.equal(submission.submissionId,"approved-photo-9","the desk case id is derived from the photo so a later category change finds it");
+ assert.equal(submission.status,"READY_FOR_DESIGN","an AI-approved photo is on the desk as intake, not as a pending review");
+ assert.equal(submission.photoCategory,"atlas","the desk must show what the agent wants the photo for");
+ assert.equal(snapshot.assets[0].approvedBy,"Automatic preflight","approval came from the AI standard, not from a designer");
+ await store.setPhotoCategory("approved-photo-9","other");
+ assert.equal((await store.snapshot()).submissions[0].photoCategory,"other","changing the purpose updates the case rather than opening a second one");
+});
+test("demo data is local, visibly synthetic and clearable",async()=>{const store=new MemoryDesignerStore();await store.loadDemoData();let snapshot=await store.snapshot();assert.ok(snapshot.submissions.every(item=>item.demo));assert.ok(snapshot.agents.every(item=>item.agentId.startsWith("DEMO-")));assert.equal(snapshot.events.length,0,"demo cases stay out of decision history so the desk opens empty");await store.clearAllData();snapshot=await store.snapshot();assert.equal(snapshot.submissions.length,0);assert.equal(snapshot.assets.length,0)});
+test("clearing the desk empties real records and their images, not only the demo rows",async()=>{
+ values.clear();const store=new MemoryDesignerStore();await store.ingestReviewRequest(request);await store.applyDecision({submissionId:request.id,action:"approve_original",notes:"",actor:"Demo Designer"});
+ await store.clearAllData();const snapshot=await store.snapshot();
+ assert.deepEqual([snapshot.submissions.length,snapshot.assets.length,snapshot.events.length,snapshot.agents.length,snapshot.reviews.length],[0,0,0,0,0],"a desk reset before a presentation leaves nothing behind");
+ assert.equal(await store.image(`image-original-${request.id}`),null,"the stored pixels go with the records");
+});
+test("a rework decision drops the stored photograph and keeps only the case",async()=>{
+ values.clear();
+ const enhancedRequest={...request,id:"IQI-REV-DROP",kind:"enhanced_review",workflowStatus:"PENDING DESIGNER REVIEW",enhancedPhoto:image,enhanced:{...scores,score:60},concerns:["Identity preservation: the features have drifted."]};
+ const store=new MemoryDesignerStore();await store.ingestReviewRequest(enhancedRequest);
+ await store.applyDecision({submissionId:enhancedRequest.id,action:"reject_enhancement",notes:"Not faithful to the original",actor:"Demo Designer"});
+ assert.equal(await store.image(`image-original-${enhancedRequest.id}`),null,"a closed photograph is not kept on the desk");
+ assert.equal(await store.image(`image-enhanced-${enhancedRequest.id}`),null,"the rejected enhancement goes with it");
+ const snapshot=await store.snapshot();
+ assert.equal(snapshot.submissions[0].status,"RETAKE_REQUIRED","the case and its reason survive the deleted pixels");
+ assert.ok(snapshot.reviews.some(item=>item.designerNotes==="Not faithful to the original"));
+});
+test("the desk carries what the agent wants the photo for, and follows a later change",async()=>{
+ values.clear();const store=new MemoryDesignerStore();await store.ingestReviewRequest({...request,id:"IQI-REV-CATEGORY",category:"atlas"});
+ assert.equal((await store.snapshot()).submissions[0].photoCategory,"atlas","an Atlas profile photo must not read as an awards entry on the desk");
+ await store.setPhotoCategory("IQI-REV-CATEGORY","awards");
+ assert.equal((await store.snapshot()).submissions[0].photoCategory,"awards","re-filing the photo in Photos re-files it on the desk");
+});
 test("mock reminders are audited, use opaque links and require confirmation before opt-out",async()=>{
  const store=new MemoryDesignerStore();await store.loadDemoData();const snapshot=await store.snapshot(),agent=snapshot.agents[0],records=await store.sendPhotoReminders([{agentId:agent.agentId,agentName:agent.name,recipientEmail:agent.email,relatedPhotoStatus:"none",sentBy:"Test Designer",demo:true}]);
  assert.equal(records[0].deliveryStatus,"MOCK_DELIVERED");assert.equal(records[0].actualRecipientEmail,agent.email);assert.match(records[0].uploadUrl,/^\/?\?reminder=[a-zA-Z0-9]+$/);assert.doesNotMatch(records[0].uploadUrl,new RegExp(agent.agentId));

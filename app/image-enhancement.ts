@@ -53,6 +53,21 @@ function findShoulderBounds(mask:PersonMask|null,face:FaceRegion|null):ShoulderB
   return left>=0&&right>left?{left:left/mask.width,right:(right+1)/mask.width}:null;
 }
 
+// MediaPipe's face box starts at the brow, not the hairline, so a frame sized from the face alone
+// clips hair off the top. The person mask's first solid row is the real top of the head, and the
+// crop has to start above it. Width-relative minimum so a few stray matte pixels cannot pull the
+// head line up to the top of the source.
+function findSubjectTop(mask:PersonMask|null):number|null{
+ if(!mask)return null;
+ const minimum=Math.max(2,Math.round(mask.width*.014));
+ for(let y=0;y<mask.height;y+=1){
+  let count=0;
+  for(let x=0;x<mask.width;x+=1)if(mask.data[y*mask.width+x]>.5)count+=1;
+  if(count>=minimum)return y/mask.height;
+ }
+ return null;
+}
+
 export async function analyzePortraitComposition(src:string,targetAspect=.8):Promise<PortraitComposition>{
   const [assets,image]=await Promise.all([prepareEnhancementAssets(src),loadImage(src)]),face=assets.face;
   if(!face)return {score:0,note:"Face not detected"};
@@ -223,8 +238,11 @@ function paintBackground(context:CanvasRenderingContext2D,image:CanvasImageSourc
   context.fillRect(0,0,width,height);
 }
 
+// Clear air above the top of the head, as a share of the frame height. Below ~.04 the hair reads as
+// touching the edge even when no pixel is actually cut.
+const headroomMargin=.055;
 function portraitCrop(image:HTMLImageElement,assets:EnhancementAssets,targetAspect:number):NormalizedCrop{
-  const sourceWidth=image.naturalWidth,sourceHeight=image.naturalHeight,face=assets.face,shoulders=findShoulderBounds(assets.personMask,face);
+  const sourceWidth=image.naturalWidth,sourceHeight=image.naturalHeight,face=assets.face,shoulders=findShoulderBounds(assets.personMask,face),headTop=findSubjectTop(assets.personMask);
   let cropHeight=sourceHeight,cropWidth=cropHeight*targetAspect;
   if(cropWidth>sourceWidth){cropWidth=sourceWidth;cropHeight=cropWidth/targetAspect}
   if(face){
@@ -235,10 +253,18 @@ function portraitCrop(image:HTMLImageElement,assets:EnhancementAssets,targetAspe
       const requiredWidth=(shoulders.right-shoulders.left)*sourceWidth/.88;
       if(requiredWidth>cropWidth){cropWidth=requiredWidth;cropHeight=cropWidth/targetAspect}
     }
+    // Grow the frame until the top of the head plus a margin, the face and some chest all fit. Without
+    // this a face-sized crop that is merely slid upwards would push the chin and shoulders out of frame.
+    if(headTop!==null&&headTop<face.y){
+      const required=((face.y+face.height*1.75)*sourceHeight-headTop*sourceHeight)/(1-headroomMargin);
+      if(required>cropHeight){cropHeight=required;cropWidth=cropHeight*targetAspect}
+    }
     if(cropWidth>sourceWidth){cropWidth=sourceWidth;cropHeight=cropWidth/targetAspect}
     if(cropHeight>sourceHeight){cropHeight=sourceHeight;cropWidth=cropHeight*targetAspect}
   }
-  const subjectCenter=(shoulders?(shoulders.left+shoulders.right)/2:face?face.x+face.width/2:.5)*sourceWidth,idealY=face?face.y*sourceHeight-cropHeight*.09:(sourceHeight-cropHeight)/2,x=Math.max(0,Math.min(sourceWidth-cropWidth,subjectCenter-cropWidth/2)),y=Math.max(0,Math.min(sourceHeight-cropHeight,idealY));
+  // Whatever the face-relative ideal says, the frame never starts below the top of the head.
+  const headLimit=headTop===null?null:headTop*sourceHeight-cropHeight*headroomMargin,faceIdealY=face?face.y*sourceHeight-cropHeight*.09:(sourceHeight-cropHeight)/2;
+  const subjectCenter=(shoulders?(shoulders.left+shoulders.right)/2:face?face.x+face.width/2:.5)*sourceWidth,idealY=headLimit===null?faceIdealY:Math.min(faceIdealY,headLimit),x=Math.max(0,Math.min(sourceWidth-cropWidth,subjectCenter-cropWidth/2)),y=Math.max(0,Math.min(sourceHeight-cropHeight,idealY));
   return {x:x/sourceWidth,y:y/sourceHeight,width:cropWidth/sourceWidth,height:cropHeight/sourceHeight};
 }
 

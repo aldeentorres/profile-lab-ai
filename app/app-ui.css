@@ -65,7 +65,10 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 
 .photo-card-category{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px 0}
 .photo-category-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#eef2f6;color:#4a5560;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.photo-card-category.atlas .photo-category-tag{background:#fdece6;color:#b8452a}
 .photo-card-category.awards .photo-category-tag{background:#fdf1dd;color:#8a5a12}
+.photo-card-category.other .photo-category-tag{background:#eef1f6;color:#5b6b80}
+
 .photo-category-switch{display:flex;gap:4px;padding:3px;border-radius:9px;background:#f2f4f6}
 .photo-category-switch button{min-height:26px!important;padding:0 9px!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#6d757e!important;font-size:11px!important;font-weight:650}
 .photo-category-switch button.active{background:#fff!important;color:#1f262c!important;box-shadow:0 1px 3px rgba(20,25,30,.14)}

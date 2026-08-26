@@ -1,11 +1,11 @@
 import {analyzePortraitComposition, confidentFace, prepareEnhancementAssets, type FaceRegion, type PersonMask} from "./image-enhancement";
 import {analyzeBody, type BodyExtent, type HandState} from "./photo-body";
 import {inspectSource, type SourceArtifacts} from "./photo-artifacts";
-import {applyPhotoDecision, bodyExtentLabels, fileResolutionTargets, photoApprovalThresholds, categoryFloors, qualityDefectRules, scoreCaps, validateQualityDefects, type FileStatus, type QualityDefect, type PhotoPenalty, type PhotoRequirement, type PhotoStatus, type ScoreCap} from "./photo-decision";
+import {applyPhotoDecision, bodyExtentLabels, fileResolutionTargets, isWorkflowHardStop, photoApprovalThresholds, categoryFloors, qualityDefectRules, scoreCaps, validateQualityDefects, type FileStatus, type QualityDefect, type PhotoPenalty, type PhotoRequirement, type PhotoStatus, type ScoreCap} from "./photo-decision";
 import {backgroundQualityScore, contrastScore, exposureScore, fidelityScore, photoRatingWeights, scoreCategories} from "./photo-score";
 import {assessAiUsability} from "./ai-usability";
 
-export {applyPhotoDecision, backgroundQualityScore, bodyExtentLabels, categoryFloors, contrastScore, exposureScore, fidelityScore, fileResolutionTargets, photoApprovalThresholds, photoRatingWeights, qualityDefectRules, scoreCaps, scoreCategories, validateQualityDefects};
+export {applyPhotoDecision, backgroundQualityScore, bodyExtentLabels, categoryFloors, contrastScore, exposureScore, fidelityScore, fileResolutionTargets, isWorkflowHardStop, photoApprovalThresholds, photoRatingWeights, qualityDefectRules, scoreCaps, scoreCategories, validateQualityDefects};
 export type {FileStatus, PhotoPenalty, PhotoRequirement, PhotoStatus, QualityDefect, ScoreCap};
 
 export type PhotoMetric = {name:string;score:number;note:string};
@@ -71,6 +71,9 @@ export type PhotoRating = {
 export const companyProfessionalStandard=["One clearly visible agent, face unobstructed","Sharp and well exposed enough to edit","At least half the body in frame, nothing awkwardly cropped","Hands either fully in frame or naturally out of the composition","Background clean enough to isolate the agent","Sitting, leaning, relaxed posture and smart-casual clothing are all fine"] as const;
 
 export function isPhotoApproved(rating:PhotoRating){return rating.status==="APPROVED"||(!rating.status&&rating.score>=photoApprovalThresholds.approved)}
+// Atlas shows a verified mark only for an approved file or a high marketing score — never for an
+// empty first paint, and never because the person looks a certain way.
+export function isProfilePhotoVerified(rating:PhotoRating){return isPhotoApproved(rating)||rating.score>=photoApprovalThresholds.approved}
 
 const emptyMetrics=["Photo quality","Body & crop usability","Face & subject visibility","Background & editability"];
 export const emptyPhotoRating:PhotoRating={score:0,overall_score:0,base_score:0,raw_score:0,applied_cap:null,score_trace:[],status:"REJECT",label:"Checking photo…",tone:"fair",confidence:0,technical_quality:0,body_usability:0,face_visibility:0,editability:0,body_extent:"unknown",hands:"absent",file_suitability:0,file_status:"OK",file_reason:"Waiting for image analysis.",file_note:"Waiting for image",professionalism:0,composition:0,background_quality:0,face_quality:0,designer_usability:0,pose_appropriateness:0,selfie_probability:0,hard_gates:[],designer_review_eligible:false,disputable_gates:[],review_block_reason:"",ai_usability:0,ai_enhancement_eligible:false,ai_usability_reason:"Waiting for image analysis.",face_count:0,face_height_pixels:0,structure_score:0,fidelity_score:0,quality_defects:[],snapshot_signals:[],issues:[],strengths:[],recommendation:"Waiting for image analysis.",decision_reason:"Waiting for image analysis.",requirements:[],penalties:[],metrics:emptyMetrics.map(name=>({name,score:0,note:"Waiting for image"}))};
@@ -211,7 +214,7 @@ export function evaluatePhoto(src:string,targetAspect=.8){
     const composition=rounded(portraitComposition.score*.4+body.cropScore*.35+usableArea*.25);
     const baseScore=categories.rawScore;
     const decision=applyPhotoDecision(baseScore,{minimumDimension,resolutionScore,sharpnessScore,structureScore,fidelityScore:rounded(fidelity),focusScore:artifacts.focusScore,faceCount:faces.length,faceClearance,faceHeight:face?.height??0,faceHeightPixels,faceClarity:categories.faceClarity,accessoryImpact:body.accessoryImpact,choppedLimbs:body.choppedLimbs,photoQuality:categories.photoQuality,bodyCrop:categories.bodyCrop,faceVisibility:categories.faceVisibility,selfieProbability,lightingScore,backgroundQuality,designerUsability:editability,bodyExtent:body.extent,cropScore:body.cropScore,hands:body.hands,handScore:body.handScore,backgroundTexture:backgroundEdgeMean,frameAspect:sourceAspect,subjectCoverage:coverage,torsoVisible:body.torsoVisible,shoulderTilt:body.shoulderTilt,handAtFace:body.handAtFace,isScreenshot:artifacts.isScreenshot,letterboxed:artifacts.letterboxed,contentCoverage:artifacts.contentCoverage});
-    const aiUsability=assessAiUsability({faceCount:faces.length,faceHeightPixels,faceClarity:categories.faceClarity,structureScore,focusScore:sharpnessScore,fidelityScore:rounded(fidelity),faceClearance,qualityDefects:decision.qualityDefects});
+    const aiUsability=assessAiUsability({faceCount:faces.length,faceHeightPixels,faceClarity:categories.faceClarity,structureScore,focusScore:sharpnessScore,fidelityScore:rounded(fidelity),faceClearance,qualityDefects:decision.qualityDefects,marketingStatus:decision.status});
     const score=decision.score,status=decision.status,tone=status==="APPROVED"?"good":status==="REJECT"?"low":"fair",label=status==="APPROVED"?"Ready for Design":status==="REUPLOAD"?"Re-upload at Higher Resolution":status==="REVIEW"?"Designer Review":"Retake Recommended",issues=dedupeIssues([...decision.requirements.filter(requirement=>requirement.status==="FAIL"&&requirement.id!=="resolution").map(requirement=>requirement.detail),...(body.croppedEdges.length?[body.note]:[])]),strengths:string[]=[];
     if(technicalQuality>=80&&sharpnessScore>=70)strengths.push("Sharp and cleanly exposed");
     if(sharpnessScore>=75)strengths.push("Sharp subject detail");

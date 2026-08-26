@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {listReviewRequests, recordReviewRequest, resolveReviewRequest, workflowStatusFor} from "../app/photo-review-requests.ts";
+import {listReviewRequests, recordReviewRequest, resolveReviewRequest, ReviewRequestBlockedError, reviewRequestBlockedBy, workflowStatusFor} from "../app/photo-review-requests.ts";
 
 // node has no localStorage; a tiny in-memory stand-in is enough to prove what the queue keeps.
 const store=new Map();
@@ -63,4 +63,43 @@ test("a full or missing store never throws at the agent",()=>{
  assert.doesNotThrow(()=>recordReviewRequest({...base,id:"IQI-REV-FULL",kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,useOriginalRequested:true}));
  assert.deepEqual(listReviewRequests(),[]);
  globalThis.localStorage=broken;
+});
+
+// --- What a hard stop closes at the queue ------------------------------------------------------------
+//
+// The screens hide these paths, but hiding a button is not the rule — the queue is where a case comes
+// into existence, so it re-checks the verdict the agent was actually shown. A stale render, a resumed
+// session or a direct call must not be able to submit the ORIGINAL of a photograph that has to be
+// replaced. The generated portrait is a different image and is judged on its own, so a retake leaves
+// `enhanced_review` open; a re-upload closes both, because nothing can be generated from a file that small.
+
+for(const [name,status] of [["a retake recommendation","REJECT"],["a re-upload recommendation","REUPLOAD"]])
+ test(`${name} cannot open an original-approval case`,()=>{
+  store.clear();
+  const request={...base,id:"IQI-REV-STOP01",kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,useOriginalRequested:true,original:{...originalScores,score:44,status}};
+  assert.equal(reviewRequestBlockedBy(request),status,"the block names the status that caused it");
+  assert.throws(()=>recordReviewRequest(request),ReviewRequestBlockedError);
+  assert.equal(listReviewRequests().length,0,"nothing is persisted for a photo that has to be replaced");
+ });
+
+test("an AI-enhanced review of a retake-recommended original does open a case",()=>{
+ store.clear();
+ const request={...base,id:"IQI-REV-STOP02",kind:"enhanced_review",workflowStatus:workflowStatusFor.enhanced_review,useOriginalRequested:false,original:{...originalScores,score:44,status:"REJECT"},enhanced:{...originalScores,score:84,status:"APPROVED"}};
+ assert.equal(reviewRequestBlockedBy(request),null,"the portrait being submitted is the generated one");
+ recordReviewRequest(request);
+ assert.equal(listReviewRequests().length,1);
+ assert.equal(listReviewRequests()[0].useOriginalRequested,false,"the original travels for comparison, never as the ask");
+});
+
+test("a re-upload recommendation refuses the AI-enhanced case too",()=>{
+ store.clear();
+ assert.throws(()=>recordReviewRequest({...base,id:"IQI-REV-STOP03",kind:"enhanced_review",workflowStatus:workflowStatusFor.enhanced_review,useOriginalRequested:false,original:{...originalScores,score:44,status:"REUPLOAD"},enhanced:{...originalScores,score:84,status:"APPROVED"}}),ReviewRequestBlockedError,"there were never enough pixels to generate from");
+ assert.equal(listReviewRequests().length,0);
+});
+
+test("a designer-review original is the status that does open a case",()=>{
+ store.clear();
+ assert.equal(reviewRequestBlockedBy({...base,kind:"original_approval",original:originalScores}),null);
+ recordReviewRequest({...base,id:"IQI-REV-OPEN01",kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,useOriginalRequested:true});
+ assert.equal(listReviewRequests().length,1);
 });
