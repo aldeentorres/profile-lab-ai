@@ -584,4 +584,28 @@
  .session-summary-stat b { font-size: 20px; }
 }
 
+/* Capture (studio-camera). Focused-task: the live feed is the subject, so no ivory
+   summary strip and no wash over the viewport -- a light strip would compete with
+   the camera. Countable state is the top-bar Photos n/m plus the shot-count buttons.
+   Format/shot controls were 38px / 5px, under the 44×44 / 8px floor. Placement
+   already pairs colour with icon+text. "Guided auto capture" became a plain
+   instruction. No new hue. */
+.format-options { gap: 8px; }
+.format-options button { min-height: 44px; }
+.shot-options { flex-wrap: wrap; gap: 8px; }
+.shot-options button { width: 44px; height: 44px; min-height: 44px; }
+.capture-count {
+ display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+ flex-shrink: 0;
+ font-size: 22px; line-height: 1;
+}
+.capture-count small {
+ font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+ color: #ffffffa8;
+}
+.camera-close {
+ width: 46px; height: 46px; min-width: 46px; min-height: 46px; flex-shrink: 0;
+}
+.camera-loading button { min-height: 44px; }
+
 }
