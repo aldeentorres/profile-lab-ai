@@ -663,4 +663,73 @@
 .enhance-review .session-loaded-title .enhance-back { min-height: 44px; }
 .upload-review-actions { gap: 8px; }
 
+/* Select (StudioEnhanceEditor). Focused-task: the compare preview is the subject, so the
+   dark stage stays. Summary strip is local finishing + blur restore. Back was 38px at the
+   580px breakpoint and CodeFormer was 40px, both under 44. Pipeline chips had 5px gaps.
+   Off-palette mint/blue on restore and On-state chrome reused Photos pending/approved/
+   action tints. "POST-CAPTURE" / "Professional pipeline" became plain finish-photo copy.
+   No new hue. Sliders already sit in 76px rows, so the 44px floor is the row, not the
+   18px track (WCAG 24px web exception for the track itself). */
+.enhance-summary {
+ display: flex; flex-wrap: wrap; gap: 10px;
+ width: min(100%, 1180px);
+ margin: 0 auto 16px;
+}
+.enhance-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+}
+.enhance-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.enhance-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--color-ink); }
+.enhance-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.enhance-summary-stat.action b { color: #7a2b13; }
+.enhance-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.enhance-summary-stat.pending b { color: #8a5a12; }
+.enhance-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.enhance-summary-stat.approved b { color: #1f6b4c; }
+.enhance-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.enhance-summary-stat.zero b { color: var(--color-muted); }
+.enhance-back { min-height: 44px; }
+.enhance-local {
+ min-height: 44px;
+ width: fit-content;
+ border-color: #bfe4d3;
+ background: #eaf6f0;
+ color: #1f6b4c;
+}
+.enhance-pipeline { gap: 8px; }
+.codeformer-card {
+ border-color: #f3ebd6;
+ background: linear-gradient(145deg, #fff8ec22, #0e1311);
+}
+.codeformer-heading>span { background: #fff8ec; color: #8a5a12; }
+.codeformer-fidelity output { color: #8a5a12; }
+.codeformer-fidelity input { accent-color: #ee6538; }
+.codeformer-action {
+ min-height: 44px;
+ border-color: #f6d7ce;
+ background: #fff3ef;
+ color: #7a2b13;
+}
+.codeformer-action:hover:not(:disabled) { background: #fff1eb; border-color: #ee6538; }
+.codeformer-card>a { color: #8a5a12; }
+.enhance-toggle.on { border-color: #35966f4d; background: #35966f14; }
+.enhance-toggle.on i { background: #35966f; color: #fff; }
+.enhance-pipeline span.done { background: #35966f14; color: #9aebba; }
+.enhance-pipeline span.done i { border-color: #35966f66; background: #35966f22; }
+.resolution-toggle.on { border-color: #35966f3d; background: #35966f14; }
+.resolution-toggle.on>i { border-color: #35966f66; background: #35966f; color: #fff; }
+.enhance-preview-label.active { border-color: #35966f59; color: #b9f8d0; }
+
+@media (max-width: 580px) {
+ .enhance-summary { gap: 8px; }
+ .enhance-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .enhance-summary-stat b { font-size: 20px; }
+ .enhance-back { min-height: 44px; }
+}
+
 }
