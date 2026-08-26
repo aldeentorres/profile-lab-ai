@@ -979,7 +979,55 @@
 .modal-close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
 .bulk-modal-actions { gap: 8px; }
 .bulk-modal-actions button { min-height: 44px; }
-.designer-decision-form select, .designer-decision-form textarea { min-height: 44px; }
+.designer-case { overflow: visible; }
+.designer-action-rail {
+ padding: 16px;
+ background: #fff;
+ border-top: 1px solid var(--color-line);
+}
+.designer-actions { gap: 8px; }
+.designer-actions button {
+ flex: 1 1 220px;
+ min-width: 0;
+ white-space: normal;
+}
+.designer-actions button.approve { background: #35966f; }
+.designer-decision-form {
+ display: grid;
+ grid-template-columns: minmax(0, 1fr);
+ gap: 12px;
+ align-items: stretch;
+}
+.designer-decision-form > div:first-child { grid-column: 1 / -1; }
+.designer-decision-form label {
+ display: flex;
+ flex-direction: column;
+ gap: 6px;
+ min-width: 0;
+}
+.designer-decision-form select, .designer-decision-form textarea {
+ width: 100%;
+ min-width: 0;
+ min-height: 44px;
+}
+.designer-decision-form > div:last-child {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+ justify-content: flex-end;
+}
+.designer-decision-form button {
+ flex: 1 1 auto;
+ min-width: min(100%, 168px);
+ min-height: 44px;
+ overflow: visible;
+ white-space: nowrap;
+}
+.designer-decision-form button span, .designer-decision-form button b {
+ overflow: visible;
+ white-space: nowrap;
+}
+.designer-decision-form button.confirm { background: #ee6538; }
 .designer-profile-stats span:nth-child(2) { background: #fff8ec; }
 .designer-profile-stats span:nth-child(3) { background: #eaf6f0; }
 .test-mode { width: fit-content; background: #fff8ec; color: #8a5a12; }
@@ -992,6 +1040,8 @@
  .designer-page-title h1, .designer-access h1 { font-size: 28px; }
  .designer-sidebar nav { gap: 8px; }
  .designer-library-controls>div { overflow-x: auto; }
+ .designer-decision-form { grid-template-columns: minmax(0, 1fr); }
+ .designer-decision-form > div:last-child { display: flex; }
 }
 @media (max-width: 420px) {
  .designer-counts article, .designer-summary-stat { min-width: 0; }
