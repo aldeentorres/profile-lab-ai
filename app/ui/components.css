@@ -416,4 +416,130 @@
  .hold-reveal { min-height: 300px; }
 }
 
+/* Studio console redesign (qr-home + device setup, both gated on view==="console").
+   qr-home is a focused-task landing: the QR camera is the subject, so no summary strip
+   (nothing countable lives there) and no wash that would compete with the feed. Device
+   setup below is a dashboard: it inherits the Photos language -- summary strip of
+   cameras/printer, status washes on the state that needs attention, badges that pair
+   colour with an icon+text. The dark "control room" treatment was a second product
+   language sitting under a light landing; flattening it onto Photos' ivory/white
+   cards is the restrained-weight call, not decoration. No new hue: tints are the
+   same action/approved/zero family as .photos-summary-stat. */
+.scan-status-chip {
+ position: absolute; top: 16px; left: 16px; z-index: 2;
+ display: inline-flex; align-items: center; gap: 6px;
+ width: fit-content;
+ padding: 7px 10px;
+ border-radius: 8px;
+ background: #ffffffd9;
+ color: var(--color-ink);
+ font-size: 12px;
+ font-weight: 700;
+}
+.scan-status-chip.live { background: #eaf6f0; color: #1f6b4c; }
+.scan-status-chip.starting { background: #fff8ec; color: #8a5a12; }
+.scan-status-chip.error { background: #fff3ef; color: #7a2b13; }
+.qr-scanner.error { box-shadow: 0 0 0 2px #f6d7ce, 0 18px 44px rgba(28,38,34,.2); }
+
+.manual-checkin.has-error {
+ border-color: #f6d7ce;
+ background: #fff3ef;
+}
+.manual-checkin button { min-height: 44px; }
+
+.console {
+ background: var(--soft);
+ color: var(--color-ink);
+ box-shadow: none;
+}
+.console-title h1 {
+ /* polish.css used !important on this size (a dark-console display size). Important
+    declarations in an earlier layer beat later-layer !important, so the only way for
+    components to own the size is to drop that legacy flag -- done next to this rule's
+    introduction. Photos' page title is 34px; this section sits under the QR hero and
+    must not out-shout it. */
+ font-size: clamp(28px, 3vw, 34px);
+ color: var(--color-ink);
+}
+.console-title p { color: var(--color-muted); font-size: 14px; }
+.console-title > span, .studio-privacy {
+ display: inline-flex; align-items: center; gap: 6px;
+ width: fit-content;
+ padding: 8px 12px;
+ border: 1px solid #bfe4d3;
+ border-radius: 999px;
+ background: #eaf6f0;
+ color: #1f6b4c;
+ font-family: inherit;
+ font-size: 12px;
+ font-weight: 700;
+ letter-spacing: 0;
+}
+.studio-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
+.studio-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+}
+.studio-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.studio-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.studio-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.studio-summary-stat.action b { color: #7a2b13; }
+.studio-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.studio-summary-stat.approved b { color: #1f6b4c; }
+.studio-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.studio-summary-stat.zero b { color: var(--color-muted); }
+
+.devices article {
+ background: #fff;
+ border: 1px solid var(--color-line);
+ border-radius: var(--radius-card);
+ color: var(--color-ink);
+}
+.devices article.needs-attention { background: #fff3ef; border-color: #f6d7ce; }
+.devices article > i { color: var(--color-brand); }
+.devices small { color: var(--color-muted); }
+.devices h2 { color: var(--color-ink); }
+.devices p { color: var(--color-muted); }
+.devices b.ready, .devices b.offline {
+ display: inline-flex; align-items: center; gap: 6px;
+ width: fit-content;
+}
+.devices b.ready { color: #1f6b4c; }
+.devices b.offline { color: #7a2b13; }
+.console .device-field { color: var(--color-muted); }
+.console .device-field select {
+ background: #fff;
+ color: var(--color-ink);
+ border-color: var(--color-line);
+}
+.console .device-field select:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-brand) 40%, transparent); }
+.devices .device-buttons { gap: 8px; }
+.devices .device-buttons button {
+ min-height: 44px;
+ background: #fff;
+ color: var(--color-ink);
+ border: 1px solid var(--color-line);
+}
+.devices .device-buttons .device-primary {
+ background: var(--color-brand);
+ border-color: var(--color-brand);
+ color: #fff;
+}
+.device-error {
+ background: #fff3ef;
+ color: #7a2b13;
+ border: 1px solid #f6d7ce;
+}
+
+@media (max-width: 700px) {
+ .studio-summary { gap: 8px; }
+ .studio-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .studio-summary-stat b { font-size: 20px; }
+ .manual-checkin button { min-height: 44px; }
+}
+
 }

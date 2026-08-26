@@ -166,7 +166,7 @@ select {
 
 .console-title h1 {
   margin-block: 8px 4px;
-  font-size: clamp(46px, 5vw, 64px) !important;
+  font-size: clamp(46px, 5vw, 64px);
   line-height: 0.95;
 }
 
@@ -359,7 +359,7 @@ select {
   }
 
   .console-title h1 {
-    font-size: 44px !important;
+    font-size: 44px;
   }
 
   .architecture {
@@ -2301,7 +2301,7 @@ select:focus-visible {
 .console-title h1 {
   margin-block: 8px 4px;
   font-family: "DIN Alternate", "Avenir Next Condensed", "Helvetica Neue", sans-serif;
-  font-size: clamp(46px, 5vw, 64px) !important;
+  font-size: clamp(46px, 5vw, 64px);
   font-weight: 700;
   line-height: 0.95;
 }
@@ -2493,7 +2493,7 @@ select:focus-visible {
   }
 
   .console-title h1 {
-    font-size: 44px !important;
+    font-size: 44px;
   }
 
   .architecture {
