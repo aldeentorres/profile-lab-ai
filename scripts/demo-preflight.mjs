@@ -34,7 +34,7 @@ if (!atLeast(nodeVersion, minimumNode)) {
 try {
   const packageJson = JSON.parse(await readFile("package.json", "utf8"));
   const packageLock = JSON.parse(await readFile("package-lock.json", "utf8"));
-  if (packageJson.name !== "photostudio-plus-demo") failures.push("package.json has the wrong app identity.");
+  if (packageJson.name !== "profile-lab-ai") failures.push("package.json has the wrong app identity.");
   if (packageLock.name !== packageJson.name || packageLock.version !== packageJson.version) failures.push("package-lock.json is not synchronized with package.json.");
   notes.push(`lockfile v${packageLock.lockfileVersion}`);
 } catch (error) {

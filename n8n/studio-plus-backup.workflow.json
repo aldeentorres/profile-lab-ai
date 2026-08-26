@@ -1,10 +1,10 @@
 {
- "name": "Studio+ backup (n8n)",
+ "name": "Profile Lab AI backup (n8n)",
  "nodes": [
   {
    "parameters": {
     "path": "studio-plus",
-    "formTitle": "Studio+ · Portrait preflight",
+    "formTitle": "Profile Lab AI · Portrait preflight",
     "formDescription": "Upload an agent portrait. The photograph is scored for marketing readiness — never the person.",
     "formFields": {
      "values": [
@@ -354,7 +354,7 @@
   },
   {
    "parameters": {
-    "formTitle": "Studio+ · Review and consent",
+    "formTitle": "Profile Lab AI · Review and consent",
     "formDescription": "={{ $('Score photograph').first().json.score }}/100 · {{ $('Score photograph').first().json.label }} — {{ $('Score photograph').first().json.recommendation }}  |  {{ $('Score photograph').first().json.metricsText }}  |  {{ $('Score photograph').first().json.decision_reason }}",
     "formFields": {
      "values": [
@@ -836,7 +836,7 @@
   {
    "parameters": {
     "path": "studio-plus-print",
-    "formTitle": "Studio+ · Send this banner for printing",
+    "formTitle": "Profile Lab AI · Send this banner for printing",
     "formDescription": "Demo checkout · no live payment is processed and no card details are collected.",
     "formFields": {
      "values": [

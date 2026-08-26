@@ -89,7 +89,7 @@ Recommended freeze commands after the final commit:
 
 ```bash
 git tag -a demo-v2 -m "Validated Profile Lab AI demo build"
-git archive --format=zip --output=photostudio-plus-demo.zip demo-v2
+git archive --format=zip --output=profile-lab-ai.zip demo-v2
 ```
 
 ## Working with AI agents during the freeze
