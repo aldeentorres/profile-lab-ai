@@ -439,17 +439,36 @@
 .scan-status-chip.live { background: #eaf6f0; color: #1f6b4c; }
 .scan-status-chip.starting { background: #fff8ec; color: #8a5a12; }
 .scan-status-chip.error { background: #fff3ef; color: #7a2b13; }
+.qr-scanner { background: #0a0a0a; }
 .qr-scanner.error { box-shadow: 0 0 0 2px #f6d7ce, 0 18px 44px rgba(28,38,34,.2); }
+.app-content .qr-home { gap: 40px; }
+.manual-checkin {
+ background: #1a1a1a;
+ border-color: #2a2a2a;
+ color: #c8c8c8;
+}
+.manual-checkin > div { color: #9a9a9a; }
+.manual-checkin input {
+ background: #111;
+ color: #f3f3f3;
+ border-color: #333;
+}
+.app-content .console { margin-top: 28px; }
 
 .manual-checkin.has-error {
- border-color: #f6d7ce;
- background: #fff3ef;
+ border-color: #5a2c22;
+ background: #241614;
 }
-.manual-checkin button { min-height: 44px; }
+.manual-checkin button {
+ min-height: 44px;
+ background: #0a0a0a;
+ color: #f3f3f3;
+ border-color: #333;
+}
 
 .console {
- background: var(--soft);
- color: var(--color-ink);
+ background: #111;
+ color: #f3f3f3;
  box-shadow: none;
 }
 .console-title h1 {
@@ -459,22 +478,23 @@
     introduction. Photos' page title is 34px; this section sits under the QR hero and
     must not out-shout it. */
  font-size: clamp(28px, 3vw, 34px);
- color: var(--color-ink);
+ color: #f3f3f3;
 }
-.console-title p { color: var(--color-muted); font-size: 14px; }
+.console-title p { color: #9a9a9a; font-size: 14px; }
 .console-title > span, .studio-privacy {
  display: inline-flex; align-items: center; gap: 6px;
  width: fit-content;
  padding: 8px 12px;
- border: 1px solid #bfe4d3;
+ border: 1px solid #333;
  border-radius: 999px;
- background: #eaf6f0;
- color: #1f6b4c;
+ background: #1a1a1a;
+ color: #c8c8c8;
  font-family: inherit;
  font-size: 12px;
  font-weight: 700;
  letter-spacing: 0;
 }
+.console .eyebrow { color: #ef8968; }
 .studio-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 22px; }
 .studio-summary-stat {
  display: flex; flex-direction: column; gap: 3px;
@@ -494,35 +514,35 @@
 .studio-summary-stat.zero b { color: var(--color-muted); }
 
 .devices article {
- background: #fff;
- border: 1px solid var(--color-line);
+ background: #1a1a1a;
+ border: 1px solid #2a2a2a;
  border-radius: var(--radius-card);
- color: var(--color-ink);
+ color: #f3f3f3;
 }
-.devices article.needs-attention { background: #fff3ef; border-color: #f6d7ce; }
+.devices article.needs-attention { background: #241614; border-color: #5a2c22; }
 .devices article > i { color: var(--color-brand); }
-.devices small { color: var(--color-muted); }
-.devices h2 { color: var(--color-ink); }
-.devices p { color: var(--color-muted); }
+.devices small { color: #9a9a9a; }
+.devices h2 { color: #f3f3f3; }
+.devices p { color: #9a9a9a; }
 .devices b.ready, .devices b.offline {
  display: inline-flex; align-items: center; gap: 6px;
  width: fit-content;
 }
-.devices b.ready { color: #1f6b4c; }
-.devices b.offline { color: #7a2b13; }
-.console .device-field { color: var(--color-muted); }
+.devices b.ready { color: #8fd4b0; }
+.devices b.offline { color: #ffb29d; }
+.console .device-field { color: #9a9a9a; }
 .console .device-field select {
- background: #fff;
- color: var(--color-ink);
- border-color: var(--color-line);
+ background: #111;
+ color: #f3f3f3;
+ border-color: #333;
 }
 .console .device-field select:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-brand) 40%, transparent); }
 .devices .device-buttons { gap: 8px; }
 .devices .device-buttons button {
  min-height: 44px;
- background: #fff;
- color: var(--color-ink);
- border: 1px solid var(--color-line);
+ background: #111;
+ color: #f3f3f3;
+ border: 1px solid #333;
 }
 .devices .device-buttons .device-primary {
  background: var(--color-brand);
@@ -530,9 +550,9 @@
  color: #fff;
 }
 .device-error {
- background: #fff3ef;
- color: #7a2b13;
- border: 1px solid #f6d7ce;
+ background: #241614;
+ color: #ffb29d;
+ border: 1px solid #5a2c22;
 }
 
 @media (max-width: 700px) {

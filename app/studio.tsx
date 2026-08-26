@@ -2,41 +2,245 @@
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowLeft, ArrowRight, Award, Camera, Check, Download, Eye, HelpCircle, Images, Keyboard, LayoutTemplate, Mail, MonitorCog, Printer, QrCode, RefreshCw, RotateCcw, ScanFace, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, SunMedium, Trash2, Upload, X } from "lucide-react";
-import type {IScannerControls} from "@zxing/browser";
-import {emptyPhotoRating, evaluatePhoto, isPhotoApproved, photoApprovalThresholds, PhotoMetric, PhotoRating} from "./photo-quality";
-import {createReviewRequestId, listReviewRequests, recordReviewRequest, workflowStatusFor, type ReviewRequest, type ReviewScores} from "./photo-review-requests";
-import {checkGeneratedPortrait, type PortraitVerdict} from "./portrait-checks";
-import {compareIdentity, generateCorporatePortrait, localPortraitEngine, portraitCheckSignals, portraitEngineStatus, PortraitGenerationError, portraitReferenceLabels, type PortraitEngineStatus, type PortraitReference} from "./portrait-generation";
-import {connectPuter} from "./puter-portrait";
-import {aiGenerationDailyCap, aiGenerationsRemainingToday, recordAiGeneration} from "./ai-generation-limit";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Award,
+  Camera,
+  Check,
+  Download,
+  Eye,
+  HelpCircle,
+  Images,
+  Keyboard,
+  LayoutTemplate,
+  Mail,
+  MonitorCog,
+  Printer,
+  QrCode,
+  RefreshCw,
+  RotateCcw,
+  ScanFace,
+  ScanLine,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  SunMedium,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import type { IScannerControls } from "@zxing/browser";
+import {
+  emptyPhotoRating,
+  evaluatePhoto,
+  isPhotoApproved,
+  photoApprovalThresholds,
+  PhotoMetric,
+  PhotoRating,
+} from "./photo-quality";
+import {
+  createReviewRequestId,
+  listReviewRequests,
+  recordReviewRequest,
+  workflowStatusFor,
+  type ReviewRequest,
+  type ReviewScores,
+} from "./photo-review-requests";
+import {
+  checkGeneratedPortrait,
+  type PortraitVerdict,
+} from "./portrait-checks";
+import {
+  compareIdentity,
+  generateCorporatePortrait,
+  localPortraitEngine,
+  portraitCheckSignals,
+  portraitEngineStatus,
+  PortraitGenerationError,
+  portraitReferenceLabels,
+  type PortraitEngineStatus,
+  type PortraitReference,
+} from "./portrait-generation";
+import { connectPuter } from "./puter-portrait";
+import {
+  aiGenerationDailyCap,
+  aiGenerationsRemainingToday,
+  recordAiGeneration,
+} from "./ai-generation-limit";
 import BrandAssetStudio from "./brand-assets";
-import {designerStore,ingestReviewRequest,recordApprovedPhoto} from "./designer-store";
-import type {PhotoReminder} from "./designer-records";
-import {mockAgent} from "./mock-agent";
-import {computePortraitMatte, cropSourceToAspect, EnhanceSettings, EnhancementAssets, loadImage, prepareEnhancementAssets, renderProfessionalPhoto} from "./image-enhancement";
-import {Badge,Button,MediaFrame,StatTile,CameraRating,Card,Panel,Toolbar,PageHeader,Field,Toggle,Stepper} from "./ui";
+import {
+  designerStore,
+  ingestReviewRequest,
+  recordApprovedPhoto,
+} from "./designer-store";
+import type { PhotoReminder } from "./designer-records";
+import { mockAgent } from "./mock-agent";
+import {
+  computePortraitMatte,
+  cropSourceToAspect,
+  EnhanceSettings,
+  EnhancementAssets,
+  loadImage,
+  prepareEnhancementAssets,
+  renderProfessionalPhoto,
+} from "./image-enhancement";
+import {
+  Badge,
+  Button,
+  MediaFrame,
+  StatTile,
+  CameraRating,
+  Card,
+  Panel,
+  Toolbar,
+  PageHeader,
+  Field,
+  Toggle,
+  Stepper,
+} from "./ui";
 
-type View = "profile"|"session"|"capture"|"batch"|"review"|"select"|"consent"|"success"|"personal"|"assets"|"console";
+type View =
+  | "profile"
+  | "session"
+  | "capture"
+  | "batch"
+  | "review"
+  | "select"
+  | "consent"
+  | "success"
+  | "personal"
+  | "assets"
+  | "console";
 type Assessment = PhotoRating;
-type PhotoCategory = "atlas"|"awards";
-type Photo = { id:string; dataUrl:string; createdAt:string; enhanced:boolean; profileOK:boolean; brandOK:boolean; width:number; height:number; category?:PhotoCategory; rating?:PhotoRating; originalRating?:PhotoRating; agentName?:string; agentId?:string; agentMobile?:string; agentRenTag?:string; agentOfficePhone?:string; reviewRequestId?:string };
-const photoCategories:{id:PhotoCategory;label:string;note:string}[]=[{id:"atlas",label:"Atlas photo",note:"Profile and subsale banner"},{id:"awards",label:"Awards night",note:"Event screen artwork"}];
-const categoryOf=(item:Photo):PhotoCategory=>item.category??"atlas";
-type SessionAgent = {agentName:string;agentId:string;agentPhoto?:string;agentMobile?:string;agentRenTag?:string;agentOfficePhone?:string;rating?:number;ratingLabel?:string;ratingMetrics?:PhotoMetric[];photoPreflight?:PhotoRating;date?:string;time?:string};
-type CameraDevice = {deviceId:string;label:string};
-type PrintSize = "auto"|"4x6"|"a4"|"letter";
-type CapturedShot = {id:string;original:string;rating:PhotoRating};
-const demoAgent:SessionAgent=mockAgent;
-const nav=[{id:"personal" as View,label:"Photos",icon:Images},{id:"assets" as View,label:"Assets",icon:LayoutTemplate},{id:"console" as View,label:"Studio",icon:MonitorCog}];
-const navigableViews=new Set<View>(nav.map(item=>item.id));
+type PhotoCategory = "atlas" | "awards";
+type Photo = {
+  id: string;
+  dataUrl: string;
+  createdAt: string;
+  enhanced: boolean;
+  profileOK: boolean;
+  brandOK: boolean;
+  width: number;
+  height: number;
+  category?: PhotoCategory;
+  rating?: PhotoRating;
+  originalRating?: PhotoRating;
+  agentName?: string;
+  agentId?: string;
+  agentMobile?: string;
+  agentRenTag?: string;
+  agentOfficePhone?: string;
+  reviewRequestId?: string;
+};
+const photoCategories: { id: PhotoCategory; label: string; note: string }[] = [
+  { id: "atlas", label: "Atlas photo", note: "Profile and subsale banner" },
+  { id: "awards", label: "Awards night", note: "Event screen artwork" },
+];
+const categoryOf = (item: Photo): PhotoCategory => item.category ?? "atlas";
+type SessionAgent = {
+  agentName: string;
+  agentId: string;
+  agentPhoto?: string;
+  agentMobile?: string;
+  agentRenTag?: string;
+  agentOfficePhone?: string;
+  rating?: number;
+  ratingLabel?: string;
+  ratingMetrics?: PhotoMetric[];
+  photoPreflight?: PhotoRating;
+  date?: string;
+  time?: string;
+};
+type CameraDevice = { deviceId: string; label: string };
+type PrintSize = "auto" | "4x6" | "a4" | "letter";
+type CapturedShot = { id: string; original: string; rating: PhotoRating };
+const demoAgent: SessionAgent = mockAgent;
+const nav = [
+  { id: "personal" as View, label: "Photos", icon: Images },
+  { id: "assets" as View, label: "Assets", icon: LayoutTemplate },
+  { id: "console" as View, label: "Studio", icon: MonitorCog },
+];
+const navigableViews = new Set<View>(nav.map((item) => item.id));
 
-function formatAppointment(date?:string,time?:string){if(!date||!time)return "";try{return new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(`${date}T${time}`))}catch{return `${date} · ${time}`}}
-function readGallery(){if(typeof window==="undefined")return[] as Photo[];try{const saved=localStorage.getItem("ps-gallery");return saved?JSON.parse(saved) as Photo[]:[]}catch{return[] as Photo[]}}
-function RatingFeedback({rating,appeal}:{rating:PhotoRating;appeal?:AppealContext}){return <div className={`rating-feedback ${rating.tone}`}><div className="rating-feedback-meta"><span>{appeal?.sentId&&appeal.workflowStatus?appeal.workflowStatus:rating.status}</span><b>Technical usability {rating.score}/100 · {Math.round(rating.confidence*100)}% confidence</b></div>{rating.hard_gates.length?<ul className="hard-gates">{rating.hard_gates.map(gate=><li key={gate}>{gate}</li>)}</ul>:null}<p>{rating.decision_reason}</p>{rating.issues.length?<ul>{rating.issues.slice(0,3).map(issue=><li key={issue}>{issue}</li>)}</ul>:<p>{rating.strengths.slice(0,3).join(" · ")}</p>}<strong>{rating.recommendation} Sitting, leaning and smart-casual poses are never penalised.</strong>{appeal?<KeepOriginalOption rating={rating} appeal={appeal}/>:null}</div>}
+function formatAppointment(date?: string, time?: string) {
+  if (!date || !time) return "";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(`${date}T${time}`));
+  } catch {
+    return `${date} · ${time}`;
+  }
+}
+function readGallery() {
+  if (typeof window === "undefined") return [] as Photo[];
+  try {
+    const saved = localStorage.getItem("ps-gallery");
+    return saved ? (JSON.parse(saved) as Photo[]) : [];
+  } catch {
+    return [] as Photo[];
+  }
+}
+function RatingFeedback({
+  rating,
+  appeal,
+}: {
+  rating: PhotoRating;
+  appeal?: AppealContext;
+}) {
+  return (
+    <div className={`rating-feedback ${rating.tone}`}>
+      <div className="rating-feedback-meta">
+        <span>
+          {appeal?.sentId && appeal.workflowStatus
+            ? appeal.workflowStatus
+            : rating.status}
+        </span>
+        <b>
+          Technical usability {rating.score}/100 ·{" "}
+          {Math.round(rating.confidence * 100)}% confidence
+        </b>
+      </div>
+      {rating.hard_gates.length ? (
+        <ul className="hard-gates">
+          {rating.hard_gates.map((gate) => (
+            <li key={gate}>{gate}</li>
+          ))}
+        </ul>
+      ) : null}
+      <p>{rating.decision_reason}</p>
+      {rating.issues.length ? (
+        <ul>
+          {rating.issues.slice(0, 3).map((issue) => (
+            <li key={issue}>{issue}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>{rating.strengths.slice(0, 3).join(" · ")}</p>
+      )}
+      <strong>
+        {rating.recommendation} Sitting, leaning and smart-casual poses are
+        never penalised.
+      </strong>
+      {appeal ? <KeepOriginalOption rating={rating} appeal={appeal} /> : null}
+    </div>
+  );
+}
 
 // The AI's verdict on a photo, in the shape the designer queue keeps. Stored as shown — never re-scored.
-const reviewScoresOf=(rating:PhotoRating):ReviewScores=>({score:rating.score,status:rating.status,categories:rating.metrics.map(metric=>({name:metric.name,score:metric.score})),issues:rating.issues,recommendation:rating.recommendation});
+const reviewScoresOf = (rating: PhotoRating): ReviewScores => ({
+  score: rating.score,
+  status: rating.status,
+  categories: rating.metrics.map((metric) => ({
+    name: metric.name,
+    score: metric.score,
+  })),
+  issues: rating.issues,
+  recommendation: rating.recommendation,
+});
 
 // Option 1 when the AI did not approve: keep the original photo exactly as it is and ask a designer to
 // approve it. No enhancement runs, nothing is modified and the AI rating is stored as it was. The
@@ -44,174 +248,1463 @@ const reviewScoresOf=(rating:PhotoRating):ReviewScores=>({score:rating.score,sta
 // default. Shown only where the image is technically usable (`designer_review_eligible`): a designer can
 // overrule a judgement call about crop, framing or a suspected selfie, but cannot add detail the file
 // does not carry, so a measurably unusable image gets a plain statement instead of the option.
-type AppealContext={agentName:string;agentId?:string;photo:string;sentId?:string;workflowStatus?:string;onSent:(request:ReviewRequest)=>void};
+type AppealContext = {
+  agentName: string;
+  agentId?: string;
+  photo: string;
+  sentId?: string;
+  workflowStatus?: string;
+  onSent: (request: ReviewRequest) => void;
+};
 
-function KeepOriginalOption({rating,appeal}:{rating:PhotoRating;appeal:AppealContext}){
- const [agreed,setAgreed]=useState(false),[note,setNote]=useState("");
- if(rating.status==="APPROVED")return null;
- if(appeal.sentId)return <p className="appeal-sent" role="status"><Check size={15}/> <span><b>{appeal.workflowStatus===workflowStatusFor.enhanced_review?"Designer Review Requested":"Designer Approval Requested"}</b>{appeal.workflowStatus===workflowStatusFor.enhanced_review?"Your original and AI-enhanced photos have been sent to our designer.":"Your original photo has been submitted to our designer for review."} · {appeal.sentId}<small>The designer will approve the original photo or request a retake. That decision is final for this image.</small></span></p>;
- if(!rating.designer_review_eligible)return <p className="appeal-blocked" role="note"><ShieldCheck size={15}/> <span>This image does not contain enough usable detail for designer approval. Please upload a clearer photo.{rating.review_block_reason?<small>{rating.review_block_reason}</small>:null}</span></p>;
- const send=()=>{
-  if(!agreed)return;
-  const request=recordReviewRequest({id:createReviewRequestId(),createdAt:new Date().toISOString(),agentName:appeal.agentName,agentId:appeal.agentId,kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,photo:appeal.photo,original:reviewScoresOf(rating),aiUsability:rating.ai_usability,disputedGates:rating.disputable_gates,concerns:[],note:note.trim(),useOriginalRequested:true,designerDecision:"pending",state:"pending"});
-  void ingestReviewRequest(request);appeal.onSent(request);
- };
- return <div className="appeal keep-original">
-  <span className="appeal-eyebrow">Keep original</span>
-  <p className="appeal-lead"><HelpCircle size={15}/> <span><b>Prefer to use your original photo?</b> If you would like to use this photo without AI enhancement, you can request approval from our designer.</span></p>
-  <label className="appeal-toggle"><input type="checkbox" checked={agreed} onChange={event=>setAgreed(event.target.checked)}/><span>I would like to use this original photo as-is and request designer approval.</span></label>
-  {agreed?<div className="appeal-body">
-   {rating.disputable_gates.length?<><small>The designer will look at:</small><ul>{rating.disputable_gates.map(gate=><li key={gate}>{gate}</li>)}</ul></>:<small>The designer will judge this photo&apos;s marketing readiness score of {rating.score}.</small>}
-   <label className="appeal-note"><span>Anything the designer should know? (optional)</span><textarea value={note} onChange={event=>setNote(event.target.value)} maxLength={280} rows={3} placeholder="For example: this was taken by a photographer in a studio."/></label>
-  </div>:null}
-  <Button className="appeal-send" disabled={!agreed} onClick={send}>Request Designer Approval</Button>
- </div>;
+function KeepOriginalOption({
+  rating,
+  appeal,
+}: {
+  rating: PhotoRating;
+  appeal: AppealContext;
+}) {
+  const [agreed, setAgreed] = useState(false),
+    [note, setNote] = useState("");
+  if (rating.status === "APPROVED") return null;
+  if (appeal.sentId)
+    return (
+      <p className="appeal-sent" role="status">
+        <Check size={15} />{" "}
+        <span>
+          <b>
+            {appeal.workflowStatus === workflowStatusFor.enhanced_review
+              ? "Designer Review Requested"
+              : "Designer Approval Requested"}
+          </b>
+          {appeal.workflowStatus === workflowStatusFor.enhanced_review
+            ? "Your original and AI-enhanced photos have been sent to our designer."
+            : "Your original photo has been submitted to our designer for review."}{" "}
+          · {appeal.sentId}
+          <small>
+            The designer will approve the original photo or request a retake.
+            That decision is final for this image.
+          </small>
+        </span>
+      </p>
+    );
+  if (!rating.designer_review_eligible)
+    return (
+      <p className="appeal-blocked" role="note">
+        <ShieldCheck size={15} />{" "}
+        <span>
+          This image does not contain enough usable detail for designer
+          approval. Please upload a clearer photo.
+          {rating.review_block_reason ? (
+            <small>{rating.review_block_reason}</small>
+          ) : null}
+        </span>
+      </p>
+    );
+  const send = () => {
+    if (!agreed) return;
+    const request = recordReviewRequest({
+      id: createReviewRequestId(),
+      createdAt: new Date().toISOString(),
+      agentName: appeal.agentName,
+      agentId: appeal.agentId,
+      kind: "original_approval",
+      workflowStatus: workflowStatusFor.original_approval,
+      photo: appeal.photo,
+      original: reviewScoresOf(rating),
+      aiUsability: rating.ai_usability,
+      disputedGates: rating.disputable_gates,
+      concerns: [],
+      note: note.trim(),
+      useOriginalRequested: true,
+      designerDecision: "pending",
+      state: "pending",
+    });
+    void ingestReviewRequest(request);
+    appeal.onSent(request);
+  };
+  return (
+    <div className="appeal keep-original">
+      <span className="appeal-eyebrow">Keep original</span>
+      <p className="appeal-lead">
+        <HelpCircle size={15} />{" "}
+        <span>
+          <b>Prefer to use your original photo?</b> If you would like to use
+          this photo without AI enhancement, you can request approval from our
+          designer.
+        </span>
+      </p>
+      <label className="appeal-toggle">
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(event) => setAgreed(event.target.checked)}
+        />
+        <span>
+          I would like to use this original photo as-is and request designer
+          approval.
+        </span>
+      </label>
+      {agreed ? (
+        <div className="appeal-body">
+          {rating.disputable_gates.length ? (
+            <>
+              <small>The designer will look at:</small>
+              <ul>
+                {rating.disputable_gates.map((gate) => (
+                  <li key={gate}>{gate}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <small>
+              The designer will judge this photo&apos;s marketing readiness
+              score of {rating.score}.
+            </small>
+          )}
+          <label className="appeal-note">
+            <span>Anything the designer should know? (optional)</span>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              maxLength={280}
+              rows={3}
+              placeholder="For example: this was taken by a photographer in a studio."
+            />
+          </label>
+        </div>
+      ) : null}
+      <Button className="appeal-send" disabled={!agreed} onClick={send}>
+        Request Designer Approval
+      </Button>
+    </div>
+  );
 }
 
-function SessionProfile({agent,code,onStart,onExit,onPending}:{agent:SessionAgent;code:string;onStart:()=>void;onExit:()=>void;onPending:(request:ReviewRequest,src:string,rating:PhotoRating,width:number,height:number)=>void}){
- const initialRating:PhotoRating=agent.photoPreflight?{...emptyPhotoRating,...agent.photoPreflight,requirements:agent.photoPreflight.requirements??[],penalties:agent.photoPreflight.penalties??[]}:(agent.rating&&agent.ratingMetrics?.length?{...emptyPhotoRating,score:agent.rating,overall_score:agent.rating,base_score:agent.rating,status:agent.rating>=80?"APPROVED":agent.rating>=60?"REVIEW":"REJECT",label:agent.ratingLabel||"Photo assessed",tone:agent.rating>=80?"good":agent.rating>=60?"fair":"low",metrics:agent.ratingMetrics}:emptyPhotoRating);
- const [format,setFormat]=useState<"square"|"portrait">("portrait"),[sourceRatio,setSourceRatio]=useState(.8),[rating,setRating]=useState<PhotoRating>(initialRating),[checking,setChecking]=useState(true),[naturalSize,setNaturalSize]=useState({width:0,height:0});
- const src=agent.agentPhoto||"/api/atlas-avatar?slug=niel-kingston",target=format==="square"?1:.8;
- useEffect(()=>{let active=true;Promise.all([loadImage(src),evaluatePhoto(src,target)]).then(([image,nextRating])=>{if(!active)return;setSourceRatio(image.naturalWidth/image.naturalHeight);setNaturalSize({width:image.naturalWidth,height:image.naturalHeight});setRating(nextRating)}).catch(()=>{if(active)setRating(current=>current.score?current:{...emptyPhotoRating,label:"Could not assess"})}).finally(()=>{if(active)setChecking(false)});return()=>{active=false}},[src,target]);
- const loss=sourceRatio>target?Math.round((1-target/sourceRatio)*100):Math.round((1-sourceRatio/target)*100),direction=sourceRatio>target?"left and right sides":"top and bottom",scoreColor=rating.tone==="good"?"#5ce493":rating.tone==="fair"?"#f3b44d":"#ef7656";
- return <main className="session-profile-check">
-  <header className="session-loaded-header"><div className="session-loaded-title"><div><Badge tone="eyebrow">APPOINTMENT READY</Badge><b>{agent.agentName}</b></div></div><div className="session-loaded-actions"><div className="session-loaded-meta">{agent.date&&agent.time?<span>{formatAppointment(agent.date,agent.time)}</span>:null}<code translate="no">{code}</code></div><Button className="session-exit" onClick={onExit} aria-label="Exit session" title="Exit session"><X size={20}/></Button></div></header>
-  <div className="session-summary"><StatTile className={`session-summary-stat ${checking?"zero":rating.tone==="good"?"approved":rating.tone==="low"?"action":"pending"}`} label="Photo score" value={checking?"—":rating.score}/><StatTile className={`session-summary-stat ${loss>12?"action":"approved"}`} label="Hidden by crop" value={`${loss}%`}/></div>
-  <div className="session-profile-grid">
-   <section className="crop-workbench"><div className="crop-workbench-head"><div><Badge tone="eyebrow">SOURCE PHOTO</Badge><b>Crop preview</b></div><div className="format-tabs" aria-label="Preview format"><Button className={format==="portrait"?"active":""} onClick={()=>{setChecking(true);setFormat("portrait")}} aria-pressed={format==="portrait"}>4:5 Portrait</Button><Button className={format==="square"?"active":""} onClick={()=>{setChecking(true);setFormat("square")}} aria-pressed={format==="square"}>1:1 Square</Button></div></div><div className={`crop-preview ${format}`}><img src={src} alt={`${agent.agentName} ${format} crop preview`} width={960} height={format==="square"?960:1200}/><span className="preview-format">{format==="square"?"1:1 SQUARE":"4:5 PORTRAIT"}</span><span className="bleed-border"/><span className="face-safe">FACE SAFE AREA</span></div><div className={`crop-warning ${loss>12?"warn":"good"}`}><span className="crop-warning-icon">{loss>12?<HelpCircle size={18}/>:<Check size={18}/>}</span><div><b>{loss>12?"Crop too tight":"Crop ready"}</b><span>{loss}% hidden from the {direction}.</span></div></div></section>
-   <aside className="session-quality"><div className="session-agent"><div className="session-agent-thumb"><img src={src} alt="" width={52} height={60}/></div><div><Badge tone="eyebrow">PHOTO PREFLIGHT</Badge><h1>{agent.agentName}</h1><p>Agent ID {agent.agentId}</p></div></div><div className={`session-score ${rating.tone}`} aria-live="polite"><div className="session-score-ring" style={{background:`conic-gradient(${scoreColor} ${rating.score*3.6}deg,#303835 0deg)`}}><span><strong>{checking?"—":rating.score}</strong><small>/100</small></span></div><div><span>Marketing readiness</span><b>{checking?"Checking…":rating.label}</b><small>Selected: {format==="square"?"1:1":"4:5"}</small></div></div><div className="session-metrics">{rating.metrics.map(metric=><div className="session-metric" key={metric.name}><div><span>{metric.name}<small>{metric.note}</small></span><b>{checking?"—":metric.score}</b></div><i><b style={{width:checking?"0%":`${metric.score}%`}}/></i></div>)}</div><p className="session-file"><span>File</span> {rating.file_note}{rating.file_status==="OK"?"":` · ${rating.file_reason}`}</p>{checking?null:<RatingFeedback rating={rating} appeal={{agentName:agent.agentName,agentId:agent.agentId,photo:src,onSent:request=>onPending(request,src,rating,naturalSize.width,naturalSize.height)}}/>}<div className="session-method"><ShieldCheck size={18}/><p><b>Designer usability standard</b><span>Photo quality 30 · Body &amp; crop 30 · Face visibility 20 · Background &amp; editability 20. Only problems that stop a designer using the agent can force a retake — padding, file size, posing and clothing never do.</span></p></div><Button variant="primary" className="session-start" onClick={onStart}>Start camera <ArrowRight size={19}/></Button></aside>
-  </div>
- </main>;
+function SessionProfile({
+  agent,
+  code,
+  onStart,
+  onExit,
+  onPending,
+}: {
+  agent: SessionAgent;
+  code: string;
+  onStart: () => void;
+  onExit: () => void;
+  onPending: (
+    request: ReviewRequest,
+    src: string,
+    rating: PhotoRating,
+    width: number,
+    height: number,
+  ) => void;
+}) {
+  const initialRating: PhotoRating = agent.photoPreflight
+    ? {
+        ...emptyPhotoRating,
+        ...agent.photoPreflight,
+        requirements: agent.photoPreflight.requirements ?? [],
+        penalties: agent.photoPreflight.penalties ?? [],
+      }
+    : agent.rating && agent.ratingMetrics?.length
+      ? {
+          ...emptyPhotoRating,
+          score: agent.rating,
+          overall_score: agent.rating,
+          base_score: agent.rating,
+          status:
+            agent.rating >= 80
+              ? "APPROVED"
+              : agent.rating >= 60
+                ? "REVIEW"
+                : "REJECT",
+          label: agent.ratingLabel || "Photo assessed",
+          tone:
+            agent.rating >= 80 ? "good" : agent.rating >= 60 ? "fair" : "low",
+          metrics: agent.ratingMetrics,
+        }
+      : emptyPhotoRating;
+  const [format, setFormat] = useState<"square" | "portrait">("portrait"),
+    [sourceRatio, setSourceRatio] = useState(0.8),
+    [rating, setRating] = useState<PhotoRating>(initialRating),
+    [checking, setChecking] = useState(true),
+    [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
+  const src = agent.agentPhoto || "/api/atlas-avatar?slug=niel-kingston",
+    target = format === "square" ? 1 : 0.8;
+  useEffect(() => {
+    let active = true;
+    Promise.all([loadImage(src), evaluatePhoto(src, target)])
+      .then(([image, nextRating]) => {
+        if (!active) return;
+        setSourceRatio(image.naturalWidth / image.naturalHeight);
+        setNaturalSize({
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        });
+        setRating(nextRating);
+      })
+      .catch(() => {
+        if (active)
+          setRating((current) =>
+            current.score
+              ? current
+              : { ...emptyPhotoRating, label: "Could not assess" },
+          );
+      })
+      .finally(() => {
+        if (active) setChecking(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [src, target]);
+  const loss =
+      sourceRatio > target
+        ? Math.round((1 - target / sourceRatio) * 100)
+        : Math.round((1 - sourceRatio / target) * 100),
+    direction =
+      sourceRatio > target ? "left and right sides" : "top and bottom",
+    scoreColor =
+      rating.tone === "good"
+        ? "#5ce493"
+        : rating.tone === "fair"
+          ? "#f3b44d"
+          : "#ef7656";
+  return (
+    <main className="session-profile-check">
+      <header className="session-loaded-header">
+        <div className="session-loaded-title">
+          <div>
+            <Badge tone="eyebrow">APPOINTMENT READY</Badge>
+            <b>{agent.agentName}</b>
+          </div>
+        </div>
+        <div className="session-loaded-actions">
+          <div className="session-loaded-meta">
+            {agent.date && agent.time ? (
+              <span>{formatAppointment(agent.date, agent.time)}</span>
+            ) : null}
+            <code translate="no">{code}</code>
+          </div>
+          <Button
+            className="session-exit"
+            onClick={onExit}
+            aria-label="Exit session"
+            title="Exit session"
+          >
+            <X size={20} />
+          </Button>
+        </div>
+      </header>
+      <div className="session-profile-grid">
+        <section className="crop-workbench">
+          <div className="crop-workbench-head">
+            <div>
+              <Badge tone="eyebrow">SOURCE PHOTO</Badge>
+              <b>Crop preview</b>
+            </div>
+            <div className="format-tabs" aria-label="Preview format">
+              <Button
+                className={format === "portrait" ? "active" : ""}
+                onClick={() => {
+                  setChecking(true);
+                  setFormat("portrait");
+                }}
+                aria-pressed={format === "portrait"}
+              >
+                4:5 Portrait
+              </Button>
+              <Button
+                className={format === "square" ? "active" : ""}
+                onClick={() => {
+                  setChecking(true);
+                  setFormat("square");
+                }}
+                aria-pressed={format === "square"}
+              >
+                1:1 Square
+              </Button>
+            </div>
+          </div>
+          <div className={`crop-preview ${format}`}>
+            <img
+              src={src}
+              alt={`${agent.agentName} ${format} crop preview`}
+              width={960}
+              height={format === "square" ? 960 : 1200}
+            />
+            <span className="preview-format">
+              {format === "square" ? "1:1 SQUARE" : "4:5 PORTRAIT"}
+            </span>
+            <span className="bleed-border" />
+            <span className="face-safe">FACE SAFE AREA</span>
+          </div>
+          <div className={`crop-warning ${loss > 12 ? "warn" : "good"}`}>
+            <span className="crop-warning-icon">
+              {loss > 12 ? <HelpCircle size={18} /> : <Check size={18} />}
+            </span>
+            <div>
+              <b>{loss > 12 ? "Crop too tight" : "Crop ready"}</b>
+              <span>
+                {loss}% hidden from the {direction}.
+              </span>
+            </div>
+          </div>
+        </section>
+        <aside className="session-quality">
+          <div className="session-agent">
+            <div className="session-agent-thumb">
+              <img src={src} alt="" width={52} height={60} />
+            </div>
+            <div>
+              <Badge tone="eyebrow">PHOTO PREFLIGHT</Badge>
+              <h1>{agent.agentName}</h1>
+              <p>Agent ID {agent.agentId}</p>
+            </div>
+          </div>
+          <div className={`session-score ${rating.tone}`} aria-live="polite">
+            <div
+              className="session-score-ring"
+              style={{
+                background: `conic-gradient(${scoreColor} ${rating.score * 3.6}deg,#303835 0deg)`,
+              }}
+            >
+              <span>
+                <strong>{checking ? "—" : rating.score}</strong>
+                <small>/100</small>
+              </span>
+            </div>
+            <div>
+              <span>Marketing readiness</span>
+              <b>{checking ? "Checking…" : rating.label}</b>
+              <small>Selected: {format === "square" ? "1:1" : "4:5"}</small>
+            </div>
+          </div>
+          <div className="session-metrics">
+            {rating.metrics.map((metric) => (
+              <div className="session-metric" key={metric.name}>
+                <div>
+                  <span>
+                    {metric.name}
+                    <small>{metric.note}</small>
+                  </span>
+                  <b>{checking ? "—" : metric.score}</b>
+                </div>
+                <i>
+                  <b style={{ width: checking ? "0%" : `${metric.score}%` }} />
+                </i>
+              </div>
+            ))}
+          </div>
+          <p className="session-file">
+            <span>File</span> {rating.file_note}
+            {rating.file_status === "OK" ? "" : ` · ${rating.file_reason}`}
+          </p>
+          {checking ? null : (
+            <RatingFeedback
+              rating={rating}
+              appeal={{
+                agentName: agent.agentName,
+                agentId: agent.agentId,
+                photo: src,
+                onSent: (request) =>
+                  onPending(
+                    request,
+                    src,
+                    rating,
+                    naturalSize.width,
+                    naturalSize.height,
+                  ),
+              }}
+            />
+          )}
+          <div className="session-method">
+            <ShieldCheck size={18} />
+            <p>
+              <b>Designer usability standard</b>
+              <span>
+                Photo quality 30 · Body &amp; crop 30 · Face visibility 20 ·
+                Background &amp; editability 20. Only problems that stop a
+                designer using the agent can force a retake — padding, file
+                size, posing and clothing never do.
+              </span>
+            </p>
+          </div>
+          <Button variant="primary" className="session-start" onClick={onStart}>
+            Start camera <ArrowRight size={19} />
+          </Button>
+        </aside>
+      </div>
+    </main>
+  );
 }
 
-type CropFormat="portrait"|"square";
-type EnhancedResult={dataUrl:string;width:number;height:number};
+type CropFormat = "portrait" | "square";
+type EnhancedResult = { dataUrl: string; width: number; height: number };
 
 // The assessment screen when the AI did not approve: two clearly separate paths. Option 1 keeps the
 // original and asks a designer to approve it (KeepOriginalOption, inside RatingFeedback); option 2 opens
 // Review & Enhance. Neither is forced, and the manual editor stays the route for an approved photo.
-function UploadedPhotoCheck({src,dimensions,assessment,agent,pendingReview,onContinue,onUseOriginal,onRetake,onExit,onUpload,onPending}:{src:string;dimensions:{width:number;height:number};assessment:Assessment;agent:SessionAgent;pendingReview:ReviewRequest|null;onContinue:(format:CropFormat)=>void;onUseOriginal:(format:CropFormat,request:ReviewRequest)=>void;onRetake:()=>void;onExit:()=>void;onUpload:(event:ChangeEvent<HTMLInputElement>)=>void;onPending:(request:ReviewRequest,src:string,rating:PhotoRating,width:number,height:number)=>void}){
- const [request,setRequest]=useState<ReviewRequest|null>(pendingReview),[tab,setTab]=useState<"assessment"|"enhance">("assessment"),[format,setFormat]=useState<CropFormat>("portrait"),[rating,setRating]=useState<PhotoRating>(assessment),[checking,setChecking]=useState(false),inputRef=useRef<HTMLInputElement>(null),ratingRunRef=useRef(0);
- const target=format==="square"?1:.8,sourceRatio=dimensions.height?dimensions.width/dimensions.height:.8,loss=sourceRatio>target?Math.round((1-target/sourceRatio)*100):Math.round((1-sourceRatio/target)*100),direction=sourceRatio>target?"left and right sides":"top and bottom",scoreColor=rating.tone==="good"?"#5ce493":rating.tone==="fair"?"#f3b44d":"#ef7656",approved=isPhotoApproved(rating),approvalRequested=request?.kind==="original_approval";
- const selectFormat=async(nextFormat:CropFormat)=>{if(nextFormat===format)return;const runId=++ratingRunRef.current;setFormat(nextFormat);if(nextFormat==="portrait"){setRating(assessment);setChecking(false);return}setChecking(true);try{const nextRating=await evaluatePhoto(src,1);if(ratingRunRef.current===runId)setRating(nextRating)}catch{if(ratingRunRef.current===runId)setRating({...emptyPhotoRating,label:"Could not assess"})}finally{if(ratingRunRef.current===runId)setChecking(false)}};
- if(tab==="enhance")return <ReviewAndEnhance src={src} rating={rating} agent={agent} format={format} dimensions={dimensions} onBack={()=>setTab("assessment")} onExit={onExit} onPending={onPending}/>;
- return <main className="session-profile-check uploaded-photo-check">
-  <header className="session-loaded-header"><div className="session-loaded-title"><div><Badge tone="eyebrow">PHOTO TO REVIEW</Badge><b>Review before continuing</b></div></div><div className="session-loaded-actions"><div className="session-loaded-meta"><span>Camera, phone or file</span><code>{dimensions.width} × {dimensions.height}</code></div><Button className="session-exit" onClick={onExit} aria-label="Close photo check" title="Close photo check"><X size={20}/></Button></div></header>
-  <div className="session-summary"><StatTile className={`session-summary-stat ${checking?"zero":rating.tone==="good"?"approved":rating.tone==="low"?"action":"pending"}`} label="Photo score" value={checking?"—":rating.score}/><StatTile className={`session-summary-stat ${loss>12?"action":"approved"}`} label="Hidden by crop" value={`${loss}%`}/></div>
-  <div className="session-profile-grid">
-   <section className="crop-workbench"><div className="crop-workbench-head"><div><Badge tone="eyebrow">SOURCE PHOTO</Badge><b>Crop preview</b></div><div className="format-tabs" aria-label="Preview format"><Button className={format==="portrait"?"active":""} onClick={()=>void selectFormat("portrait")} aria-pressed={format==="portrait"}>4:5 Portrait</Button><Button className={format==="square"?"active":""} onClick={()=>void selectFormat("square")} aria-pressed={format==="square"}>1:1 Square</Button></div></div><div className={`crop-preview ${format}`}><img src={src} alt={`Uploaded ${format} crop preview`} width={960} height={format==="square"?960:1200}/><span className="preview-format">{format==="square"?"1:1 SQUARE":"4:5 PORTRAIT"}</span><span className="bleed-border"/><span className="face-safe">FACE SAFE AREA</span></div><div className={`crop-warning ${loss>12?"warn":"good"}`}><span className="crop-warning-icon">{loss>12?<HelpCircle size={18}/>:<Check size={18}/>}</span><div><b>{loss>12?"Crop too tight":"Crop ready"}</b><span>{loss}% hidden from the {direction}.</span></div></div></section>
-   <aside className="session-quality"><div className="session-agent"><div className="session-agent-thumb"><img src={src} alt="" width={52} height={60}/></div><div><Badge tone="eyebrow">PHOTO PREFLIGHT</Badge><h1>{agent.agentName}</h1><p>Uploaded image · {dimensions.width} × {dimensions.height}px</p></div></div><div className={`session-score ${rating.tone}`} aria-live="polite"><div className="session-score-ring" style={{background:`conic-gradient(${scoreColor} ${rating.score*3.6}deg,#303835 0deg)`}}><span><strong>{checking?"—":rating.score}</strong><small>/100</small></span></div><div><span>Marketing readiness</span><b>{checking?"Checking…":rating.label}</b><small>Selected: {format==="square"?"1:1":"4:5"}</small></div></div><div className="session-metrics">{rating.metrics.map(metric=><div className="session-metric" key={metric.name}><div><span>{metric.name}<small>{metric.note}</small></span><b>{checking?"—":metric.score}</b></div><i><b style={{width:checking?"0%":`${metric.score}%`}}/></i></div>)}</div><p className="session-file"><span>File</span> {rating.file_note}{rating.file_status==="OK"?"":` · ${rating.file_reason}`}</p>{checking?null:<RatingFeedback rating={rating} appeal={{agentName:agent.agentName,agentId:agent.agentId,photo:src,sentId:request?.id,workflowStatus:request?.workflowStatus,onSent:request=>{setRequest(request);onPending(request,src,rating,dimensions.width,dimensions.height)}}}/>}{checking||approved?null:<ImproveWithAi rating={rating} onOpen={()=>setTab("enhance")}/>}<div className="session-method"><ShieldCheck size={18}/><p><b>Designer usability standard</b><span>Photo quality 30 · Body &amp; crop 30 · Face visibility 20 · Background &amp; editability 20. Only problems that stop a designer using the agent can force a retake — padding, file size, posing and clothing never do.</span></p></div><div className="upload-review-actions">{approved?<Button variant="primary" className="session-start" onClick={()=>onContinue(format)}>Continue <ArrowRight size={19}/></Button>:approvalRequested&&request&&rating.status!=="REJECT"?<Button variant="primary" className="session-start" onClick={()=>onUseOriginal(format,request)}>Continue with original photo <ArrowRight size={19}/></Button>:<Button variant="primary" className="session-start" onClick={onRetake}><Camera size={18}/>{rating.status==="REUPLOAD"?"Upload a larger file":"Retake / Upload Better Photo"}</Button>}<Button className="upload-review-secondary" onClick={()=>inputRef.current?.click()}><Upload size={17}/> Choose another file</Button></div><input ref={inputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={onUpload} aria-label="Choose another portrait photo"/></aside>
-  </div>
- </main>;
+function UploadedPhotoCheck({
+  src,
+  dimensions,
+  assessment,
+  agent,
+  pendingReview,
+  onContinue,
+  onUseOriginal,
+  onRetake,
+  onExit,
+  onUpload,
+  onPending,
+}: {
+  src: string;
+  dimensions: { width: number; height: number };
+  assessment: Assessment;
+  agent: SessionAgent;
+  pendingReview: ReviewRequest | null;
+  onContinue: (format: CropFormat) => void;
+  onUseOriginal: (format: CropFormat, request: ReviewRequest) => void;
+  onRetake: () => void;
+  onExit: () => void;
+  onUpload: (event: ChangeEvent<HTMLInputElement>) => void;
+  onPending: (
+    request: ReviewRequest,
+    src: string,
+    rating: PhotoRating,
+    width: number,
+    height: number,
+  ) => void;
+}) {
+  const [request, setRequest] = useState<ReviewRequest | null>(pendingReview),
+    [tab, setTab] = useState<"assessment" | "enhance">("assessment"),
+    [format, setFormat] = useState<CropFormat>("portrait"),
+    [rating, setRating] = useState<PhotoRating>(assessment),
+    [checking, setChecking] = useState(false),
+    inputRef = useRef<HTMLInputElement>(null),
+    ratingRunRef = useRef(0);
+  const target = format === "square" ? 1 : 0.8,
+    sourceRatio = dimensions.height
+      ? dimensions.width / dimensions.height
+      : 0.8,
+    loss =
+      sourceRatio > target
+        ? Math.round((1 - target / sourceRatio) * 100)
+        : Math.round((1 - sourceRatio / target) * 100),
+    direction =
+      sourceRatio > target ? "left and right sides" : "top and bottom",
+    scoreColor =
+      rating.tone === "good"
+        ? "#5ce493"
+        : rating.tone === "fair"
+          ? "#f3b44d"
+          : "#ef7656",
+    approved = isPhotoApproved(rating),
+    approvalRequested = request?.kind === "original_approval";
+  const selectFormat = async (nextFormat: CropFormat) => {
+    if (nextFormat === format) return;
+    const runId = ++ratingRunRef.current;
+    setFormat(nextFormat);
+    if (nextFormat === "portrait") {
+      setRating(assessment);
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    try {
+      const nextRating = await evaluatePhoto(src, 1);
+      if (ratingRunRef.current === runId) setRating(nextRating);
+    } catch {
+      if (ratingRunRef.current === runId)
+        setRating({ ...emptyPhotoRating, label: "Could not assess" });
+    } finally {
+      if (ratingRunRef.current === runId) setChecking(false);
+    }
+  };
+  if (tab === "enhance")
+    return (
+      <ReviewAndEnhance
+        src={src}
+        rating={rating}
+        agent={agent}
+        format={format}
+        dimensions={dimensions}
+        onBack={() => setTab("assessment")}
+        onExit={onExit}
+        onPending={onPending}
+      />
+    );
+  return (
+    <main className="session-profile-check uploaded-photo-check">
+      <header className="session-loaded-header">
+        <div className="session-loaded-title">
+          <div>
+            <Badge tone="eyebrow">PHOTO TO REVIEW</Badge>
+            <b>Review before continuing</b>
+          </div>
+        </div>
+        <div className="session-loaded-actions">
+          <div className="session-loaded-meta">
+            <span>Camera, phone or file</span>
+            <code>
+              {dimensions.width} × {dimensions.height}
+            </code>
+          </div>
+          <Button
+            className="session-exit"
+            onClick={onExit}
+            aria-label="Close photo check"
+            title="Close photo check"
+          >
+            <X size={20} />
+          </Button>
+        </div>
+      </header>
+      <div className="session-profile-grid">
+        <section className="crop-workbench">
+          <div className="crop-workbench-head">
+            <div>
+              <Badge tone="eyebrow">SOURCE PHOTO</Badge>
+              <b>Crop preview</b>
+            </div>
+            <div className="format-tabs" aria-label="Preview format">
+              <Button
+                className={format === "portrait" ? "active" : ""}
+                onClick={() => void selectFormat("portrait")}
+                aria-pressed={format === "portrait"}
+              >
+                4:5 Portrait
+              </Button>
+              <Button
+                className={format === "square" ? "active" : ""}
+                onClick={() => void selectFormat("square")}
+                aria-pressed={format === "square"}
+              >
+                1:1 Square
+              </Button>
+            </div>
+          </div>
+          <div className={`crop-preview ${format}`}>
+            <img
+              src={src}
+              alt={`Uploaded ${format} crop preview`}
+              width={960}
+              height={format === "square" ? 960 : 1200}
+            />
+            <span className="preview-format">
+              {format === "square" ? "1:1 SQUARE" : "4:5 PORTRAIT"}
+            </span>
+            <span className="bleed-border" />
+            <span className="face-safe">FACE SAFE AREA</span>
+          </div>
+          <div className={`crop-warning ${loss > 12 ? "warn" : "good"}`}>
+            <span className="crop-warning-icon">
+              {loss > 12 ? <HelpCircle size={18} /> : <Check size={18} />}
+            </span>
+            <div>
+              <b>{loss > 12 ? "Crop too tight" : "Crop ready"}</b>
+              <span>
+                {loss}% hidden from the {direction}.
+              </span>
+            </div>
+          </div>
+        </section>
+        <aside className="session-quality">
+          <div className="session-agent">
+            <div className="session-agent-thumb">
+              <img src={src} alt="" width={52} height={60} />
+            </div>
+            <div>
+              <Badge tone="eyebrow">PHOTO PREFLIGHT</Badge>
+              <h1>{agent.agentName}</h1>
+              <p>
+                Uploaded image · {dimensions.width} × {dimensions.height}px
+              </p>
+            </div>
+          </div>
+          <div className={`session-score ${rating.tone}`} aria-live="polite">
+            <div
+              className="session-score-ring"
+              style={{
+                background: `conic-gradient(${scoreColor} ${rating.score * 3.6}deg,#303835 0deg)`,
+              }}
+            >
+              <span>
+                <strong>{checking ? "—" : rating.score}</strong>
+                <small>/100</small>
+              </span>
+            </div>
+            <div>
+              <span>Marketing readiness</span>
+              <b>{checking ? "Checking…" : rating.label}</b>
+              <small>Selected: {format === "square" ? "1:1" : "4:5"}</small>
+            </div>
+          </div>
+          <div className="session-metrics">
+            {rating.metrics.map((metric) => (
+              <div className="session-metric" key={metric.name}>
+                <div>
+                  <span>
+                    {metric.name}
+                    <small>{metric.note}</small>
+                  </span>
+                  <b>{checking ? "—" : metric.score}</b>
+                </div>
+                <i>
+                  <b style={{ width: checking ? "0%" : `${metric.score}%` }} />
+                </i>
+              </div>
+            ))}
+          </div>
+          <p className="session-file">
+            <span>File</span> {rating.file_note}
+            {rating.file_status === "OK" ? "" : ` · ${rating.file_reason}`}
+          </p>
+          {checking ? null : (
+            <RatingFeedback
+              rating={rating}
+              appeal={{
+                agentName: agent.agentName,
+                agentId: agent.agentId,
+                photo: src,
+                sentId: request?.id,
+                workflowStatus: request?.workflowStatus,
+                onSent: (request) => {
+                  setRequest(request);
+                  onPending(
+                    request,
+                    src,
+                    rating,
+                    dimensions.width,
+                    dimensions.height,
+                  );
+                },
+              }}
+            />
+          )}
+          {checking || approved ? null : (
+            <ImproveWithAi rating={rating} onOpen={() => setTab("enhance")} />
+          )}
+          <div className="session-method">
+            <ShieldCheck size={18} />
+            <p>
+              <b>Designer usability standard</b>
+              <span>
+                Photo quality 30 · Body &amp; crop 30 · Face visibility 20 ·
+                Background &amp; editability 20. Only problems that stop a
+                designer using the agent can force a retake — padding, file
+                size, posing and clothing never do.
+              </span>
+            </p>
+          </div>
+          <div className="upload-review-actions">
+            {approved ? (
+              <Button
+                variant="primary"
+                className="session-start"
+                onClick={() => onContinue(format)}
+              >
+                Continue <ArrowRight size={19} />
+              </Button>
+            ) : approvalRequested && request && rating.status !== "REJECT" ? (
+              <Button
+                variant="primary"
+                className="session-start"
+                onClick={() => onUseOriginal(format, request)}
+              >
+                Continue with original photo <ArrowRight size={19} />
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                className="session-start"
+                onClick={onRetake}
+              >
+                <Camera size={18} />
+                {rating.status === "REUPLOAD"
+                  ? "Upload a larger file"
+                  : "Retake / Upload Better Photo"}
+              </Button>
+            )}
+            <Button
+              className="upload-review-secondary"
+              onClick={() => inputRef.current?.click()}
+            >
+              <Upload size={17} /> Choose another file
+            </Button>
+          </div>
+          <input
+            ref={inputRef}
+            className="sr-only"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={onUpload}
+            aria-label="Choose another portrait photo"
+          />
+        </aside>
+      </div>
+    </main>
+  );
 }
 
 // Option 2 on the assessment screen. AI usability is shown next to marketing readiness so the two
 // verdicts are visibly different questions; the tab opens only where the identity detail is there.
-function ImproveWithAi({rating,onOpen}:{rating:PhotoRating;onOpen:()=>void}){
- const eligible=rating.ai_enhancement_eligible;
- return <div className={`improve-ai ${eligible?"":"unavailable"}`}>
-  <div className="ai-usability-row"><span><small>AI Usability</small><strong>{rating.ai_usability}<i>/ 100</i></strong></span><b className={eligible?"good":"low"}>{eligible?"Suitable for AI Enhancement":"Not suitable for AI enhancement"}</b></div>
-  {eligible?<><span className="appeal-eyebrow">Or improve with AI</span><p>Create a professional corporate portrait while preserving your identity.</p><Button className="improve-ai-open" onClick={onOpen}><Sparkles size={16}/> Review &amp; Enhance</Button></>:<p className="appeal-blocked" role="note"><ShieldCheck size={15}/> <span><b>AI Enhancement Unavailable</b>This photo does not contain enough reliable identity detail for safe AI enhancement. Please upload or retake a clearer photo.<small>{rating.ai_usability_reason}</small></span></p>}
- </div>;
+function ImproveWithAi({
+  rating,
+  onOpen,
+}: {
+  rating: PhotoRating;
+  onOpen: () => void;
+}) {
+  const eligible = rating.ai_enhancement_eligible;
+  return (
+    <div className={`improve-ai ${eligible ? "" : "unavailable"}`}>
+      <div className="ai-usability-row">
+        <span>
+          <small>AI Usability</small>
+          <strong>
+            {rating.ai_usability}
+            <i>/ 100</i>
+          </strong>
+        </span>
+        <b className={eligible ? "good" : "low"}>
+          {eligible
+            ? "Suitable for AI Enhancement"
+            : "Not suitable for AI enhancement"}
+        </b>
+      </div>
+      {eligible ? (
+        <>
+          <span className="appeal-eyebrow">Or improve with AI</span>
+          <p>
+            Create a professional corporate portrait while preserving your
+            identity.
+          </p>
+          <Button className="improve-ai-open" onClick={onOpen}>
+            <Sparkles size={16} /> Review &amp; Enhance
+          </Button>
+        </>
+      ) : (
+        <p className="appeal-blocked" role="note">
+          <ShieldCheck size={15} />{" "}
+          <span>
+            <b>AI Enhancement Unavailable</b>This photo does not contain enough
+            reliable identity detail for safe AI enhancement. Please upload or
+            retake a clearer photo.<small>{rating.ai_usability_reason}</small>
+          </span>
+        </p>
+      )}
+    </div>
+  );
 }
 
 // The Review & Enhance tab. Generation, the second marketing assessment and the automatic checks all run
 // here, and the result is never presented as approved on its score alone: identity has to be confirmed
 // against the original and every check has to pass before "Use AI-Enhanced Photo" is offered. The
 // original rating is kept beside the enhanced one and never overwritten.
-function ReviewAndEnhance({src,rating,agent,format,dimensions,onBack,onExit,onPending}:{src:string;rating:PhotoRating;agent:SessionAgent;format:CropFormat;dimensions:{width:number;height:number};onBack:()=>void;onExit:()=>void;onPending:(request:ReviewRequest,src:string,rating:PhotoRating,width:number,height:number)=>void}){
- const targetAspect=format==="square"?1:.8,eligible=rating.ai_enhancement_eligible;
- const [phase,setPhase]=useState<"idle"|"generating"|"result">("idle"),[step,setStep]=useState(""),[error,setError]=useState(""),[result,setResult]=useState<EnhancedResult|null>(null),[enhancedRating,setEnhancedRating]=useState<PhotoRating|null>(null),[verdict,setVerdict]=useState<PortraitVerdict|null>(null),[satisfied,setSatisfied]=useState(false),[useOriginalAgreed,setUseOriginalAgreed]=useState(false),[sent,setSent]=useState<ReviewRequest|null>(null),[engine,setEngine]=useState<PortraitEngineStatus|null>(null),[usedEngine,setUsedEngine]=useState(""),[fallbackNote,setFallbackNote]=useState(""),[reference,setReference]=useState<PortraitReference|"">(""),[connecting,setConnecting]=useState(false),[connectError,setConnectError]=useState(""),[failedEngine,setFailedEngine]=useState(""),[remainingToday,setRemainingToday]=useState(()=>aiGenerationsRemainingToday(agent.agentId)),[croppedOriginal,setCroppedOriginal]=useState("");
- // The generated portrait is a new image with its own pose, framing and background -- there is no
- // shared pixel grid with the source, so a drag-to-compare split would be misleading (Defect 3).
- // The hold-to-reveal control still needs a *fair* original frame rather than the raw, differently-
- // proportioned capture, so it's cropped with the same face-aware logic renderProfessionalPhoto
- // used to produce the generated result, once the result is in and there is something to reveal.
- useEffect(()=>{if(phase!=="result")return;let active=true;prepareEnhancementAssets(src).then(assets=>cropSourceToAspect(src,assets,targetAspect)).then(cropped=>{if(active)setCroppedOriginal(cropped.dataUrl)}).catch(()=>{if(active)setCroppedOriginal(src)});return()=>{active=false}},[phase,src,targetAspect]);
- const refreshEngine=()=>portraitEngineStatus().then(setEngine);
- useEffect(()=>{let active=true;portraitEngineStatus().then(status=>{if(active)setEngine(status)});return()=>{active=false}},[]);
- const connect=async()=>{
-  if(connecting)return;
-  setConnecting(true);setConnectError("");
-  try{await connectPuter();await refreshEngine()}
-  catch(error){setConnectError(error instanceof Error?error.message:"Could not connect to Puter.")}
-  finally{setConnecting(false)}
- };
- const generative=phase==="result"?usedEngine!==localPortraitEngine:Boolean(engine?.available),engineLabel=phase==="result"?usedEngine:engine?.engine??"Checking portrait engine…",needsReference=Boolean(engine?.needsReference);
- const generate=async(allowLocalFallback=false)=>{
-  if(phase==="generating"||!eligible||(needsReference&&!reference)||remainingToday<=0)return;
-  setPhase("generating");setError("");setFailedEngine("");setSatisfied(false);setUseOriginalAgreed(false);
-  try{
-   setStep(allowLocalFallback?"Building the studio portrait…":engine?.available?"Generating the corporate portrait…":"Building the studio portrait…");const generated=await generateCorporatePortrait(src,targetAspect,reference||"female",{allowLocalFallback});setUsedEngine(generated.engine);setFallbackNote(generated.fallbackReason??"");
-   // Charged only on an actual generative result: a run that silently fell back to the local pipeline
-   // never reached a paid backend, so it must never spend the agent's daily allowance.
-   if(generated.generative)setRemainingToday(recordAiGeneration(agent.agentId));
-   setStep("Scoring marketing readiness…");const nextRating=await evaluatePhoto(generated.dataUrl,targetAspect);
-   setStep("Checking identity and anatomy…");const [originalAssets,enhancedAssets]=await Promise.all([prepareEnhancementAssets(src),prepareEnhancementAssets(generated.dataUrl)]);
-   const similarity=await compareIdentity(src,originalAssets,generated.dataUrl,enhancedAssets);
-   setVerdict(checkGeneratedPortrait(portraitCheckSignals(rating,originalAssets,dimensions.height?dimensions.width/dimensions.height:1),portraitCheckSignals(nextRating,enhancedAssets,generated.height?generated.width/generated.height:1),nextRating.score,similarity,photoApprovalThresholds.approved));
-   setResult({dataUrl:generated.dataUrl,width:generated.width,height:generated.height});setEnhancedRating(nextRating);setPhase("result");
-  }catch(cause){
-   // The agent asked for a generative portrait: say exactly why it did not happen rather than handing
-   // back an on-device render that looks like success. The on-device pipeline stays one click away.
-   setError(cause instanceof PortraitGenerationError?cause.message:cause instanceof Error&&cause.message?cause.message:"The AI portrait could not be generated on this device. Your original photo is unchanged — keep it, or try again.");
-   setFailedEngine(cause instanceof PortraitGenerationError?cause.engine:"");
-   setPhase("idle");
-  }
-  finally{setStep("")}
- };
- const sendToDesigner=()=>{
-  if(sent)return;
-  const request=recordReviewRequest({id:createReviewRequestId(),createdAt:new Date().toISOString(),agentName:agent.agentName,agentId:agent.agentId,kind:"enhanced_review",workflowStatus:workflowStatusFor.enhanced_review,photo:src,enhancedPhoto:result?.dataUrl,original:reviewScoresOf(rating),enhanced:enhancedRating?reviewScoresOf(enhancedRating):undefined,aiUsability:rating.ai_usability,disputedGates:rating.disputable_gates,concerns:verdict?.concerns??[],note:"",useOriginalRequested:false,designerDecision:"pending",state:"pending"});
-  // The agent submitted the AI-enhanced portrait, so that is the photo Photos must show: mirroring the
-  // original here would put an image nobody sent under Pending Designer Review.
-  void ingestReviewRequest(request);setSent(request);onPending(request,result?.dataUrl??src,enhancedRating??rating,result?.width??dimensions.width,result?.height??dimensions.height);
- };
- // Option chosen when the agent prefers the original over the freshly generated result: only the
- // original goes to the designer as the review candidate — the AI-enhanced image is never submitted
- // and never becomes an approved asset, kept only in this component's own state for comparison.
- const sendOriginalToDesigner=()=>{
-  if(sent)return;
-  const request=recordReviewRequest({id:createReviewRequestId(),createdAt:new Date().toISOString(),agentName:agent.agentName,agentId:agent.agentId,kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,photo:src,original:reviewScoresOf(rating),aiUsability:rating.ai_usability,disputedGates:rating.disputable_gates,concerns:[],note:"",useOriginalRequested:true,designerDecision:"pending",state:"pending"});
-  void ingestReviewRequest(request);setSent(request);onPending(request,src,rating,dimensions.width,dimensions.height);
- };
- const scoreCard=(label:string,item:PhotoRating|null,tone?:string)=><div className={`enhance-score ${tone??item?.tone??""}`}><small>{label}</small><strong>{item?item.score:"—"}<i>/ 100</i></strong><b>{item?item.label:"Not generated yet"}</b></div>;
- return <main className="session-profile-check uploaded-photo-check enhance-review">
-  <header className="session-loaded-header"><div className="session-loaded-title"><Button className="enhance-back" onClick={onBack}><ArrowLeft size={18}/> Back</Button><div><Badge tone="eyebrow">REVIEW &amp; ENHANCE</Badge><b>{phase==="result"?"Your AI-generated portrait":"Create an AI corporate portrait"}</b></div></div><div className="session-loaded-actions"><div className="session-loaded-meta"><span>{engineLabel}</span><code>{dimensions.width} × {dimensions.height}</code></div><Button className="session-exit" onClick={onExit} aria-label="Close photo check" title="Close photo check"><X size={20}/></Button></div></header>
-  <div className="session-profile-grid">
-   <section className="crop-workbench">{phase==="result"&&result?<><div className="crop-workbench-head"><div><Badge tone="eyebrow">RESULT</Badge><b>Your AI-generated portrait</b></div></div><HoldToRevealPreview enhanced={result.dataUrl} enhancedAlt="AI-generated corporate portrait" enhancedLabel={enhancedRating?`AI GENERATED · ${enhancedRating.score}`:"AI GENERATED"} original={croppedOriginal||src} originalAlt="Your original photo, in the same framing" width={result.width} height={result.height}/></>:<><div className="crop-workbench-head"><div><Badge tone="eyebrow">ORIGINAL PHOTO</Badge><b>Sole identity reference</b></div></div><div className={`crop-preview ${format}`}><img src={src} alt={`Original ${format} crop`} width={960} height={format==="square"?960:1200}/><span className="preview-format">{format==="square"?"1:1 SQUARE":"4:5 PORTRAIT"}</span><span className="bleed-border"/><span className="face-safe">FACE SAFE AREA</span></div></>}</section>
-   <aside className="session-quality">
-    <div className="session-agent"><div className="session-agent-thumb"><img src={src} alt="" width={52} height={60}/></div><div><Badge tone="eyebrow">{phase==="result"?"ENHANCED RESULT":"AI ENHANCEMENT"}</Badge><h1>{agent.agentName}</h1><p>Original rating is kept · never overwritten</p></div></div>
-    <div className="enhance-scores">{scoreCard("Marketing Readiness",rating)}{phase==="result"?scoreCard("AI Enhanced",enhancedRating):<div className={`enhance-score ${eligible?"good":"low"}`}><small>AI Usability</small><strong>{rating.ai_usability}<i>/ 100</i></strong><b>{eligible?"Suitable for AI Enhancement":"Not suitable"}</b></div>}</div>
-    {phase!=="result"?<>
-     <p className="enhance-explainer">AI Usability measures whether your photo contains enough reliable identity information for AI to create a professional portrait while preserving your appearance.</p>
-     {eligible?<div className="enhance-available"><span className="appeal-eyebrow good">AI Enhancement Available</span><p>Your photo contains sufficient identity detail for AI enhancement.</p><ul className="enhance-scope"><li><b>Rebuilds</b> {generative?"corporate pose, body framing, smart-casual wardrobe, camera perspective, studio background and lighting":"corporate framing, a studio background, studio lighting and the overall presentation"}</li><li><b>Preserves</b> your face, eyes, eyebrows, nose, lips, face shape, marks, skin tone, apparent age and hair</li><li><b>Never</b> beautifies, ages, de-ages or reshapes — the original stays the sole identity reference</li></ul>{needsReference?<fieldset className="reference-picker"><legend>Presentation reference — influences pose, wardrobe and lighting only, never identity</legend><div>{(Object.keys(portraitReferenceLabels) as PortraitReference[]).map(option=><Button key={option} className={reference===option?"active":""} onClick={()=>setReference(option)} aria-pressed={reference===option}>{portraitReferenceLabels[option]}</Button>)}</div></fieldset>:null}{!Number.isFinite(aiGenerationDailyCap)?null:remainingToday>0?<p className="enhance-explainer generation-quota">{remainingToday} of {aiGenerationDailyCap} AI generations left today for this agent.</p>:<p className="appeal-blocked" role="note"><ShieldCheck size={15}/> <span><b>Daily AI generation limit reached</b>This agent has used {aiGenerationDailyCap} of {aiGenerationDailyCap} AI generations today. The limit resets tomorrow — the original photo and local enhancement stay available now.</span></p>}<Button variant="primary" className="session-start" disabled={phase==="generating"||(needsReference&&!reference)||remainingToday<=0} onClick={()=>void generate(false)}>{phase==="generating"?<><RefreshCw className="spinning" size={18}/> {step||"Generating…"}</>:<><Sparkles size={18}/> Generate AI Portrait</>}</Button>{needsReference&&!reference&&phase!=="generating"?<p className="enhance-explainer">Choose a presentation reference to enable generation.</p>:null}{error?<div className="enhance-failed" role="alert"><p><b>AI generation did not run</b>{failedEngine?<small>{failedEngine}</small>:null}</p><p className="enhance-failed-reason">{error}</p><div className="enhance-failed-actions"><Button onClick={()=>void generate(false)}><RefreshCw size={15}/> Try again</Button><Button className="use-local" onClick={()=>void generate(true)}><Sparkles size={15}/> Use on-device studio pipeline instead</Button></div></div>:null}{engine?.puterSignedIn?<p className="puter-connected"><Check size={13}/> Connected to Puter — Generate will use {engine.engine}.</p>:engine?.puterConnectable?<Button className="puter-connect" disabled={connecting} onClick={()=>void connect()}>{connecting?<><RefreshCw className="spinning" size={13}/> Connecting…</>:"Connect AI generation (staff, one-time)"}</Button>:null}{connectError?<p className="enhance-error" role="alert">{connectError}</p>:null}</div>:<p className="appeal-blocked" role="note"><ShieldCheck size={15}/> <span><b>AI Enhancement Unavailable</b>This photo does not contain enough reliable identity detail for safe AI enhancement. Please upload or retake a clearer photo.<small>{rating.ai_usability_reason}</small></span></p>}
-    </>:verdict?<>
-     {fallbackNote?<p className="enhance-error" role="note">{fallbackNote} The on-device studio pipeline was used.</p>:null}
-     <ul className="portrait-checks" aria-label="Automatic checks on the AI-enhanced portrait">{verdict.checks.map(item=><li className={item.status.toLowerCase()} key={item.id}><i>{item.status==="PASS"?<Check size={13}/>:item.status==="FAIL"?<X size={13}/>:<HelpCircle size={13}/>}</i><span><b>{item.label}</b><small>{item.detail}</small></span><em>{item.status}</em></li>)}</ul>
-     {sent?<p className="appeal-sent" role="status"><Check size={15}/> <span><b>{sent.kind==="original_approval"?"Original Photo Sent for Approval":"AI-Enhanced Photo Sent for Approval"}</b>{sent.kind==="original_approval"?"Your original photo has been sent to our design team. You can track its status in Photos.":"Your AI-enhanced portrait has been sent to our design team. You can track its status in Photos."} · {sent.id}<small>Generation is not approval — a designer reviews the version you sent before it can appear in Approved Photos.</small></span></p>
-     :<>
-      {verdict.passed?<div className="enhance-passed"><span className="appeal-eyebrow good">AI Enhancement Passed</span><p>Identity confirmed against the original, no generation defects, marketing readiness {enhancedRating?.score}.</p></div>
-      :<div className="enhance-required"><span className="appeal-eyebrow low">Designer Review Required</span><p>The AI-generated portrait did not confidently meet our quality requirements.</p>{verdict.concerns.length?<ul>{verdict.concerns.map(concern=><li key={concern}>{concern}</li>)}</ul>:null}</div>}
-      <span className="appeal-eyebrow">Choose the photo you want reviewed</span>
-      <div className="enhance-decision">
-       <div className="appeal keep-original">
-        <p className="appeal-lead"><HelpCircle size={15}/> <span><b>I prefer my original photo</b> Your AI-enhanced photo will not be submitted. Your original photo will be sent to our design team for approval instead.</span></p>
-        <label className="appeal-toggle"><input type="checkbox" checked={useOriginalAgreed} onChange={event=>setUseOriginalAgreed(event.target.checked)}/><span>I want to submit my original photo for designer approval.</span></label>
-        <Button className="appeal-send" disabled={!useOriginalAgreed} onClick={sendOriginalToDesigner}>Send Original to Designer</Button>
-       </div>
-       <div className="appeal">
-        <p className="appeal-lead"><Sparkles size={15}/> <span><b>I like this AI-enhanced photo</b> Your AI-enhanced portrait will be sent to our design team, alongside your original for identity comparison.</span></p>
-        <label className="appeal-toggle"><input type="checkbox" checked={satisfied} onChange={event=>setSatisfied(event.target.checked)}/><span>I want to submit this AI-enhanced photo for designer approval.</span></label>
-        <Button className="appeal-send" disabled={!satisfied} onClick={sendToDesigner}>Send AI-Enhanced Photo to Designer</Button>
-       </div>
+function ReviewAndEnhance({
+  src,
+  rating,
+  agent,
+  format,
+  dimensions,
+  onBack,
+  onExit,
+  onPending,
+}: {
+  src: string;
+  rating: PhotoRating;
+  agent: SessionAgent;
+  format: CropFormat;
+  dimensions: { width: number; height: number };
+  onBack: () => void;
+  onExit: () => void;
+  onPending: (
+    request: ReviewRequest,
+    src: string,
+    rating: PhotoRating,
+    width: number,
+    height: number,
+  ) => void;
+}) {
+  const targetAspect = format === "square" ? 1 : 0.8,
+    eligible = rating.ai_enhancement_eligible;
+  const [phase, setPhase] = useState<"idle" | "generating" | "result">("idle"),
+    [step, setStep] = useState(""),
+    [error, setError] = useState(""),
+    [result, setResult] = useState<EnhancedResult | null>(null),
+    [enhancedRating, setEnhancedRating] = useState<PhotoRating | null>(null),
+    [verdict, setVerdict] = useState<PortraitVerdict | null>(null),
+    [satisfied, setSatisfied] = useState(false),
+    [useOriginalAgreed, setUseOriginalAgreed] = useState(false),
+    [sent, setSent] = useState<ReviewRequest | null>(null),
+    [engine, setEngine] = useState<PortraitEngineStatus | null>(null),
+    [usedEngine, setUsedEngine] = useState(""),
+    [fallbackNote, setFallbackNote] = useState(""),
+    [reference, setReference] = useState<PortraitReference | "">(""),
+    [connecting, setConnecting] = useState(false),
+    [connectError, setConnectError] = useState(""),
+    [failedEngine, setFailedEngine] = useState(""),
+    [remainingToday, setRemainingToday] = useState(() =>
+      aiGenerationsRemainingToday(agent.agentId),
+    ),
+    [croppedOriginal, setCroppedOriginal] = useState("");
+  // The generated portrait is a new image with its own pose, framing and background -- there is no
+  // shared pixel grid with the source, so a drag-to-compare split would be misleading (Defect 3).
+  // The hold-to-reveal control still needs a *fair* original frame rather than the raw, differently-
+  // proportioned capture, so it's cropped with the same face-aware logic renderProfessionalPhoto
+  // used to produce the generated result, once the result is in and there is something to reveal.
+  useEffect(() => {
+    if (phase !== "result") return;
+    let active = true;
+    prepareEnhancementAssets(src)
+      .then((assets) => cropSourceToAspect(src, assets, targetAspect))
+      .then((cropped) => {
+        if (active) setCroppedOriginal(cropped.dataUrl);
+      })
+      .catch(() => {
+        if (active) setCroppedOriginal(src);
+      });
+    return () => {
+      active = false;
+    };
+  }, [phase, src, targetAspect]);
+  const refreshEngine = () => portraitEngineStatus().then(setEngine);
+  useEffect(() => {
+    let active = true;
+    portraitEngineStatus().then((status) => {
+      if (active) setEngine(status);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const connect = async () => {
+    if (connecting) return;
+    setConnecting(true);
+    setConnectError("");
+    try {
+      await connectPuter();
+      await refreshEngine();
+    } catch (error) {
+      setConnectError(
+        error instanceof Error ? error.message : "Could not connect to Puter.",
+      );
+    } finally {
+      setConnecting(false);
+    }
+  };
+  const generative =
+      phase === "result"
+        ? usedEngine !== localPortraitEngine
+        : Boolean(engine?.available),
+    engineLabel =
+      phase === "result"
+        ? usedEngine
+        : (engine?.engine ?? "Checking portrait engine…"),
+    needsReference = Boolean(engine?.needsReference);
+  const generate = async (allowLocalFallback = false) => {
+    if (
+      phase === "generating" ||
+      !eligible ||
+      (needsReference && !reference) ||
+      remainingToday <= 0
+    )
+      return;
+    setPhase("generating");
+    setError("");
+    setFailedEngine("");
+    setSatisfied(false);
+    setUseOriginalAgreed(false);
+    try {
+      setStep(
+        allowLocalFallback
+          ? "Building the studio portrait…"
+          : engine?.available
+            ? "Generating the corporate portrait…"
+            : "Building the studio portrait…",
+      );
+      const generated = await generateCorporatePortrait(
+        src,
+        targetAspect,
+        reference || "female",
+        { allowLocalFallback },
+      );
+      setUsedEngine(generated.engine);
+      setFallbackNote(generated.fallbackReason ?? "");
+      // Charged only on an actual generative result: a run that silently fell back to the local pipeline
+      // never reached a paid backend, so it must never spend the agent's daily allowance.
+      if (generated.generative)
+        setRemainingToday(recordAiGeneration(agent.agentId));
+      setStep("Scoring marketing readiness…");
+      const nextRating = await evaluatePhoto(generated.dataUrl, targetAspect);
+      setStep("Checking identity and anatomy…");
+      const [originalAssets, enhancedAssets] = await Promise.all([
+        prepareEnhancementAssets(src),
+        prepareEnhancementAssets(generated.dataUrl),
+      ]);
+      const similarity = await compareIdentity(
+        src,
+        originalAssets,
+        generated.dataUrl,
+        enhancedAssets,
+      );
+      setVerdict(
+        checkGeneratedPortrait(
+          portraitCheckSignals(
+            rating,
+            originalAssets,
+            dimensions.height ? dimensions.width / dimensions.height : 1,
+          ),
+          portraitCheckSignals(
+            nextRating,
+            enhancedAssets,
+            generated.height ? generated.width / generated.height : 1,
+          ),
+          nextRating.score,
+          similarity,
+          photoApprovalThresholds.approved,
+        ),
+      );
+      setResult({
+        dataUrl: generated.dataUrl,
+        width: generated.width,
+        height: generated.height,
+      });
+      setEnhancedRating(nextRating);
+      setPhase("result");
+    } catch (cause) {
+      // The agent asked for a generative portrait: say exactly why it did not happen rather than handing
+      // back an on-device render that looks like success. The on-device pipeline stays one click away.
+      setError(
+        cause instanceof PortraitGenerationError
+          ? cause.message
+          : cause instanceof Error && cause.message
+            ? cause.message
+            : "The AI portrait could not be generated on this device. Your original photo is unchanged — keep it, or try again.",
+      );
+      setFailedEngine(
+        cause instanceof PortraitGenerationError ? cause.engine : "",
+      );
+      setPhase("idle");
+    } finally {
+      setStep("");
+    }
+  };
+  const sendToDesigner = () => {
+    if (sent) return;
+    const request = recordReviewRequest({
+      id: createReviewRequestId(),
+      createdAt: new Date().toISOString(),
+      agentName: agent.agentName,
+      agentId: agent.agentId,
+      kind: "enhanced_review",
+      workflowStatus: workflowStatusFor.enhanced_review,
+      photo: src,
+      enhancedPhoto: result?.dataUrl,
+      original: reviewScoresOf(rating),
+      enhanced: enhancedRating ? reviewScoresOf(enhancedRating) : undefined,
+      aiUsability: rating.ai_usability,
+      disputedGates: rating.disputable_gates,
+      concerns: verdict?.concerns ?? [],
+      note: "",
+      useOriginalRequested: false,
+      designerDecision: "pending",
+      state: "pending",
+    });
+    // The agent submitted the AI-enhanced portrait, so that is the photo Photos must show: mirroring the
+    // original here would put an image nobody sent under Pending Designer Review.
+    void ingestReviewRequest(request);
+    setSent(request);
+    onPending(
+      request,
+      result?.dataUrl ?? src,
+      enhancedRating ?? rating,
+      result?.width ?? dimensions.width,
+      result?.height ?? dimensions.height,
+    );
+  };
+  // Option chosen when the agent prefers the original over the freshly generated result: only the
+  // original goes to the designer as the review candidate — the AI-enhanced image is never submitted
+  // and never becomes an approved asset, kept only in this component's own state for comparison.
+  const sendOriginalToDesigner = () => {
+    if (sent) return;
+    const request = recordReviewRequest({
+      id: createReviewRequestId(),
+      createdAt: new Date().toISOString(),
+      agentName: agent.agentName,
+      agentId: agent.agentId,
+      kind: "original_approval",
+      workflowStatus: workflowStatusFor.original_approval,
+      photo: src,
+      original: reviewScoresOf(rating),
+      aiUsability: rating.ai_usability,
+      disputedGates: rating.disputable_gates,
+      concerns: [],
+      note: "",
+      useOriginalRequested: true,
+      designerDecision: "pending",
+      state: "pending",
+    });
+    void ingestReviewRequest(request);
+    setSent(request);
+    onPending(request, src, rating, dimensions.width, dimensions.height);
+  };
+  const scoreCard = (
+    label: string,
+    item: PhotoRating | null,
+    tone?: string,
+  ) => (
+    <div className={`enhance-score ${tone ?? item?.tone ?? ""}`}>
+      <small>{label}</small>
+      <strong>
+        {item ? item.score : "—"}
+        <i>/ 100</i>
+      </strong>
+      <b>{item ? item.label : "Not generated yet"}</b>
+    </div>
+  );
+  return (
+    <main className="session-profile-check uploaded-photo-check enhance-review">
+      <header className="session-loaded-header">
+        <div className="session-loaded-title">
+          <Button className="enhance-back" onClick={onBack}>
+            <ArrowLeft size={18} /> Back
+          </Button>
+          <div>
+            <Badge tone="eyebrow">REVIEW &amp; ENHANCE</Badge>
+            <b>
+              {phase === "result"
+                ? "Your AI-generated portrait"
+                : "Create an AI corporate portrait"}
+            </b>
+          </div>
+        </div>
+        <div className="session-loaded-actions">
+          <div className="session-loaded-meta">
+            <span>{engineLabel}</span>
+            <code>
+              {dimensions.width} × {dimensions.height}
+            </code>
+          </div>
+          <Button
+            className="session-exit"
+            onClick={onExit}
+            aria-label="Close photo check"
+            title="Close photo check"
+          >
+            <X size={20} />
+          </Button>
+        </div>
+      </header>
+      <div className="session-profile-grid">
+        <section className="crop-workbench">
+          {phase === "result" && result ? (
+            <>
+              <div className="crop-workbench-head">
+                <div>
+                  <Badge tone="eyebrow">RESULT</Badge>
+                  <b>Your AI-generated portrait</b>
+                </div>
+              </div>
+              <HoldToRevealPreview
+                enhanced={result.dataUrl}
+                enhancedAlt="AI-generated corporate portrait"
+                enhancedLabel={
+                  enhancedRating
+                    ? `AI GENERATED · ${enhancedRating.score}`
+                    : "AI GENERATED"
+                }
+                original={croppedOriginal || src}
+                originalAlt="Your original photo, in the same framing"
+                width={result.width}
+                height={result.height}
+              />
+            </>
+          ) : (
+            <>
+              <div className="crop-workbench-head">
+                <div>
+                  <Badge tone="eyebrow">ORIGINAL PHOTO</Badge>
+                  <b>Sole identity reference</b>
+                </div>
+              </div>
+              <div className={`crop-preview ${format}`}>
+                <img
+                  src={src}
+                  alt={`Original ${format} crop`}
+                  width={960}
+                  height={format === "square" ? 960 : 1200}
+                />
+                <span className="preview-format">
+                  {format === "square" ? "1:1 SQUARE" : "4:5 PORTRAIT"}
+                </span>
+                <span className="bleed-border" />
+                <span className="face-safe">FACE SAFE AREA</span>
+              </div>
+            </>
+          )}
+        </section>
+        <aside className="session-quality">
+          <div className="session-agent">
+            <div className="session-agent-thumb">
+              <img src={src} alt="" width={52} height={60} />
+            </div>
+            <div>
+              <Badge tone="eyebrow">
+                {phase === "result" ? "ENHANCED RESULT" : "AI ENHANCEMENT"}
+              </Badge>
+              <h1>{agent.agentName}</h1>
+              <p>Original rating is kept · never overwritten</p>
+            </div>
+          </div>
+          <div className="enhance-scores">
+            {scoreCard("Marketing Readiness", rating)}
+            {phase === "result" ? (
+              scoreCard("AI Enhanced", enhancedRating)
+            ) : (
+              <div className={`enhance-score ${eligible ? "good" : "low"}`}>
+                <small>AI Usability</small>
+                <strong>
+                  {rating.ai_usability}
+                  <i>/ 100</i>
+                </strong>
+                <b>
+                  {eligible ? "Suitable for AI Enhancement" : "Not suitable"}
+                </b>
+              </div>
+            )}
+          </div>
+          {phase !== "result" ? (
+            <>
+              <p className="enhance-explainer">
+                AI Usability measures whether your photo contains enough
+                reliable identity information for AI to create a professional
+                portrait while preserving your appearance.
+              </p>
+              {eligible ? (
+                <div className="enhance-available">
+                  <span className="appeal-eyebrow good">
+                    AI Enhancement Available
+                  </span>
+                  <p>
+                    Your photo contains sufficient identity detail for AI
+                    enhancement.
+                  </p>
+                  <ul className="enhance-scope">
+                    <li>
+                      <b>Rebuilds</b>{" "}
+                      {generative
+                        ? "corporate pose, body framing, smart-casual wardrobe, camera perspective, studio background and lighting"
+                        : "corporate framing, a studio background, studio lighting and the overall presentation"}
+                    </li>
+                    <li>
+                      <b>Preserves</b> your face, eyes, eyebrows, nose, lips,
+                      face shape, marks, skin tone, apparent age and hair
+                    </li>
+                    <li>
+                      <b>Never</b> beautifies, ages, de-ages or reshapes — the
+                      original stays the sole identity reference
+                    </li>
+                  </ul>
+                  {needsReference ? (
+                    <fieldset className="reference-picker">
+                      <legend>
+                        Presentation reference — influences pose, wardrobe and
+                        lighting only, never identity
+                      </legend>
+                      <div>
+                        {(
+                          Object.keys(
+                            portraitReferenceLabels,
+                          ) as PortraitReference[]
+                        ).map((option) => (
+                          <Button
+                            key={option}
+                            className={reference === option ? "active" : ""}
+                            onClick={() => setReference(option)}
+                            aria-pressed={reference === option}
+                          >
+                            {portraitReferenceLabels[option]}
+                          </Button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ) : null}
+                  {!Number.isFinite(
+                    aiGenerationDailyCap,
+                  ) ? null : remainingToday > 0 ? (
+                    <p className="enhance-explainer generation-quota">
+                      {remainingToday} of {aiGenerationDailyCap} AI generations
+                      left today for this agent.
+                    </p>
+                  ) : (
+                    <p className="appeal-blocked" role="note">
+                      <ShieldCheck size={15} />{" "}
+                      <span>
+                        <b>Daily AI generation limit reached</b>This agent has
+                        used {aiGenerationDailyCap} of {aiGenerationDailyCap} AI
+                        generations today. The limit resets tomorrow — the
+                        original photo and local enhancement stay available now.
+                      </span>
+                    </p>
+                  )}
+                  <Button
+                    variant="primary"
+                    className="session-start"
+                    disabled={
+                      phase === "generating" ||
+                      (needsReference && !reference) ||
+                      remainingToday <= 0
+                    }
+                    onClick={() => void generate(false)}
+                  >
+                    {phase === "generating" ? (
+                      <>
+                        <RefreshCw className="spinning" size={18} />{" "}
+                        {step || "Generating…"}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={18} /> Generate AI Portrait
+                      </>
+                    )}
+                  </Button>
+                  {needsReference && !reference && phase !== "generating" ? (
+                    <p className="enhance-explainer">
+                      Choose a presentation reference to enable generation.
+                    </p>
+                  ) : null}
+                  {error ? (
+                    <div className="enhance-failed" role="alert">
+                      <p>
+                        <b>AI generation did not run</b>
+                        {failedEngine ? <small>{failedEngine}</small> : null}
+                      </p>
+                      <p className="enhance-failed-reason">{error}</p>
+                      <div className="enhance-failed-actions">
+                        <Button onClick={() => void generate(false)}>
+                          <RefreshCw size={15} /> Try again
+                        </Button>
+                        <Button
+                          className="use-local"
+                          onClick={() => void generate(true)}
+                        >
+                          <Sparkles size={15} /> Use on-device studio pipeline
+                          instead
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {engine?.puterSignedIn ? (
+                    <p className="puter-connected">
+                      <Check size={13} /> Connected to Puter — Generate will use{" "}
+                      {engine.engine}.
+                    </p>
+                  ) : engine?.puterConnectable ? (
+                    <Button
+                      className="puter-connect"
+                      disabled={connecting}
+                      onClick={() => void connect()}
+                    >
+                      {connecting ? (
+                        <>
+                          <RefreshCw className="spinning" size={13} />{" "}
+                          Connecting…
+                        </>
+                      ) : (
+                        "Connect AI generation (staff, one-time)"
+                      )}
+                    </Button>
+                  ) : null}
+                  {connectError ? (
+                    <p className="enhance-error" role="alert">
+                      {connectError}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="appeal-blocked" role="note">
+                  <ShieldCheck size={15} />{" "}
+                  <span>
+                    <b>AI Enhancement Unavailable</b>This photo does not contain
+                    enough reliable identity detail for safe AI enhancement.
+                    Please upload or retake a clearer photo.
+                    <small>{rating.ai_usability_reason}</small>
+                  </span>
+                </p>
+              )}
+            </>
+          ) : verdict ? (
+            <>
+              {fallbackNote ? (
+                <p className="enhance-error" role="note">
+                  {fallbackNote} The on-device studio pipeline was used.
+                </p>
+              ) : null}
+              <ul
+                className="portrait-checks"
+                aria-label="Automatic checks on the AI-enhanced portrait"
+              >
+                {verdict.checks.map((item) => (
+                  <li className={item.status.toLowerCase()} key={item.id}>
+                    <i>
+                      {item.status === "PASS" ? (
+                        <Check size={13} />
+                      ) : item.status === "FAIL" ? (
+                        <X size={13} />
+                      ) : (
+                        <HelpCircle size={13} />
+                      )}
+                    </i>
+                    <span>
+                      <b>{item.label}</b>
+                      <small>{item.detail}</small>
+                    </span>
+                    <em>{item.status}</em>
+                  </li>
+                ))}
+              </ul>
+              {sent ? (
+                <p className="appeal-sent" role="status">
+                  <Check size={15} />{" "}
+                  <span>
+                    <b>
+                      {sent.kind === "original_approval"
+                        ? "Original Photo Sent for Approval"
+                        : "AI-Enhanced Photo Sent for Approval"}
+                    </b>
+                    {sent.kind === "original_approval"
+                      ? "Your original photo has been sent to our design team. You can track its status in Photos."
+                      : "Your AI-enhanced portrait has been sent to our design team. You can track its status in Photos."}{" "}
+                    · {sent.id}
+                    <small>
+                      Generation is not approval — a designer reviews the
+                      version you sent before it can appear in Approved Photos.
+                    </small>
+                  </span>
+                </p>
+              ) : (
+                <>
+                  {verdict.passed ? (
+                    <div className="enhance-passed">
+                      <span className="appeal-eyebrow good">
+                        AI Enhancement Passed
+                      </span>
+                      <p>
+                        Identity confirmed against the original, no generation
+                        defects, marketing readiness {enhancedRating?.score}.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="enhance-required">
+                      <span className="appeal-eyebrow low">
+                        Designer Review Required
+                      </span>
+                      <p>
+                        The AI-generated portrait did not confidently meet our
+                        quality requirements.
+                      </p>
+                      {verdict.concerns.length ? (
+                        <ul>
+                          {verdict.concerns.map((concern) => (
+                            <li key={concern}>{concern}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  )}
+                  <span className="appeal-eyebrow">
+                    Choose the photo you want reviewed
+                  </span>
+                  <div className="enhance-decision">
+                    <div className="appeal keep-original">
+                      <p className="appeal-lead">
+                        <HelpCircle size={15} />{" "}
+                        <span>
+                          <b>I prefer my original photo</b> Your AI-enhanced
+                          photo will not be submitted. Your original photo will
+                          be sent to our design team for approval instead.
+                        </span>
+                      </p>
+                      <label className="appeal-toggle">
+                        <input
+                          type="checkbox"
+                          checked={useOriginalAgreed}
+                          onChange={(event) =>
+                            setUseOriginalAgreed(event.target.checked)
+                          }
+                        />
+                        <span>
+                          I want to submit my original photo for designer
+                          approval.
+                        </span>
+                      </label>
+                      <Button
+                        className="appeal-send"
+                        disabled={!useOriginalAgreed}
+                        onClick={sendOriginalToDesigner}
+                      >
+                        Send Original to Designer
+                      </Button>
+                    </div>
+                    <div className="appeal">
+                      <p className="appeal-lead">
+                        <Sparkles size={15} />{" "}
+                        <span>
+                          <b>I like this AI-enhanced photo</b> Your AI-enhanced
+                          portrait will be sent to our design team, alongside
+                          your original for identity comparison.
+                        </span>
+                      </p>
+                      <label className="appeal-toggle">
+                        <input
+                          type="checkbox"
+                          checked={satisfied}
+                          onChange={(event) =>
+                            setSatisfied(event.target.checked)
+                          }
+                        />
+                        <span>
+                          I want to submit this AI-enhanced photo for designer
+                          approval.
+                        </span>
+                      </label>
+                      <Button
+                        className="appeal-send"
+                        disabled={!satisfied}
+                        onClick={sendToDesigner}
+                      >
+                        Send AI-Enhanced Photo to Designer
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          ) : null}
+          <div className="session-method">
+            <ShieldCheck size={18} />
+            <p>
+              <b>
+                {generative
+                  ? "Generative adapter · face locked to your photo"
+                  : "Non-generative, on this device"}
+              </b>
+              <span>
+                {generative
+                  ? "Your photo is the sole identity reference; the prompt forbids changing the face, and every result is re-scored and checked for identity, artefacts, hands and proportion before it can be used."
+                  : "Framing, background and light are rebuilt around the original pixels of the person; nothing about the face is invented."}{" "}
+                The original photo and its rating stay available for comparison
+                and designer review.
+              </span>
+            </p>
+          </div>
+        </aside>
       </div>
-     </>}
-    </>:null}
-    <div className="session-method"><ShieldCheck size={18}/><p><b>{generative?"Generative adapter · face locked to your photo":"Non-generative, on this device"}</b><span>{generative?"Your photo is the sole identity reference; the prompt forbids changing the face, and every result is re-scored and checked for identity, artefacts, hands and proportion before it can be used.":"Framing, background and light are rebuilt around the original pixels of the person; nothing about the face is invented."} The original photo and its rating stay available for comparison and designer review.</span></p></div>
-   </aside>
-  </div>
- </main>;
+    </main>
+  );
 }
 
 // The drag-to-compare split used right after "Continue" on an approved upload, and again for the
@@ -220,8 +1713,55 @@ function ReviewAndEnhance({src,rating,agent,format,dimensions,onBack,onExit,onPe
 // treatment. `original` must already be cropped to the same frame as `enhanced` (Defect 2) — this
 // component does not crop it itself, so both layers stay pixel-aligned under object-fit:contain
 // regardless of what aspect ratio the raw source was captured at.
-function ComparePreview({original,enhanced,afterLabel,enhancedAlt,position,onPosition}:{original:string;enhanced:string;afterLabel:string;enhancedAlt:string;position:number;onPosition:(value:number)=>void}){
- return <div className="enhance-preview"><img src={enhanced} alt={enhancedAlt} width={960} height={1200}/><img className="compare-original-image" src={original} alt="" aria-hidden="true" width={960} height={1200} style={{clipPath:`inset(0 ${100-position}% 0 0)`}}/><span className="enhance-preview-label original">ORIGINAL</span><span className="enhance-preview-label active after">{afterLabel}</span><div className="compare-divider" aria-hidden="true" style={{left:`${position}%`}}><span>↔</span></div><input className="compare-slider" type="range" min="0" max="100" step="1" value={position} onChange={event=>onPosition(Number(event.target.value))} aria-label="Compare original and enhanced photo" aria-valuetext={`${position}% original photo visible`}/></div>;
+function ComparePreview({
+  original,
+  enhanced,
+  afterLabel,
+  enhancedAlt,
+  position,
+  onPosition,
+}: {
+  original: string;
+  enhanced: string;
+  afterLabel: string;
+  enhancedAlt: string;
+  position: number;
+  onPosition: (value: number) => void;
+}) {
+  return (
+    <div className="enhance-preview">
+      <img src={enhanced} alt={enhancedAlt} width={960} height={1200} />
+      <img
+        className="compare-original-image"
+        src={original}
+        alt=""
+        aria-hidden="true"
+        width={960}
+        height={1200}
+        style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+      />
+      <span className="enhance-preview-label original">ORIGINAL</span>
+      <span className="enhance-preview-label active after">{afterLabel}</span>
+      <div
+        className="compare-divider"
+        aria-hidden="true"
+        style={{ left: `${position}%` }}
+      >
+        <span>↔</span>
+      </div>
+      <input
+        className="compare-slider"
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        value={position}
+        onChange={(event) => onPosition(Number(event.target.value))}
+        aria-label="Compare original and enhanced photo"
+        aria-valuetext={`${position}% original photo visible`}
+      />
+    </div>
+  );
 }
 
 // Defect 3: a generated portrait (behind "Generate AI Portrait") is a new image — pose, framing,
@@ -231,146 +1771,3107 @@ function ComparePreview({original,enhanced,afterLabel,enhancedAlt,position,onPos
 // time": instead of a divider, holding the control shows the original in full; releasing returns to
 // the generated result. `original` is expected pre-cropped to the same frame as `enhanced` (same
 // cropSourceToAspect helper as Defect 2) so what's revealed is a fair comparison, not a mismatched one.
-function HoldToRevealPreview({original,originalAlt,enhanced,enhancedAlt,enhancedLabel,width,height}:{original:string;originalAlt:string;enhanced:string;enhancedAlt:string;enhancedLabel:string;width:number;height:number}){
- const [held,setHeld]=useState(false),release=()=>setHeld(false);
- return <><div className="hold-reveal"><img src={original} alt={originalAlt} width={width} height={height}/><img className={`hold-reveal-enhanced${held?" hidden":""}`} src={enhanced} alt={enhancedAlt} width={width} height={height}/><span className="enhance-preview-label original">ORIGINAL</span><span className="enhance-preview-label active after">{enhancedLabel}</span></div><button type="button" className={`hold-reveal-button${held?" active":""}`} aria-pressed={held} aria-label={held?"Showing your original photo — release to see the AI-generated portrait again":"Hold to see your original photo"} onPointerDown={()=>setHeld(true)} onPointerUp={release} onPointerCancel={release} onPointerLeave={release} onKeyDown={event=>{if(event.key!==" "&&event.key!=="Enter")return;event.preventDefault();if(!event.repeat)setHeld(true)}} onKeyUp={event=>{if(event.key!==" "&&event.key!=="Enter")return;event.preventDefault();release()}} onBlur={release}><Eye size={16}/> {held?"Showing your original — release to return":"Hold to see original"}</button></>;
+function HoldToRevealPreview({
+  original,
+  originalAlt,
+  enhanced,
+  enhancedAlt,
+  enhancedLabel,
+  width,
+  height,
+}: {
+  original: string;
+  originalAlt: string;
+  enhanced: string;
+  enhancedAlt: string;
+  enhancedLabel: string;
+  width: number;
+  height: number;
+}) {
+  const [held, setHeld] = useState(false),
+    release = () => setHeld(false);
+  return (
+    <>
+      <div className="hold-reveal">
+        <img src={original} alt={originalAlt} width={width} height={height} />
+        <img
+          className={`hold-reveal-enhanced${held ? " hidden" : ""}`}
+          src={enhanced}
+          alt={enhancedAlt}
+          width={width}
+          height={height}
+        />
+        <span className="enhance-preview-label original">ORIGINAL</span>
+        <span className="enhance-preview-label active after">
+          {enhancedLabel}
+        </span>
+      </div>
+      <button
+        type="button"
+        className={`hold-reveal-button${held ? " active" : ""}`}
+        aria-pressed={held}
+        aria-label={
+          held
+            ? "Showing your original photo — release to see the AI-generated portrait again"
+            : "Hold to see your original photo"
+        }
+        onPointerDown={() => setHeld(true)}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onPointerLeave={release}
+        onKeyDown={(event) => {
+          if (event.key !== " " && event.key !== "Enter") return;
+          event.preventDefault();
+          if (!event.repeat) setHeld(true);
+        }}
+        onKeyUp={(event) => {
+          if (event.key !== " " && event.key !== "Enter") return;
+          event.preventDefault();
+          release();
+        }}
+        onBlur={release}
+      >
+        <Eye size={16} />{" "}
+        {held
+          ? "Showing your original — release to return"
+          : "Hold to see original"}
+      </button>
+    </>
+  );
 }
 
-function StudioEnhanceEditor({src,targetAspect,onBack,onContinue}:{src:string;targetAspect:number;onBack:()=>void;onContinue:(result:string,enhanced:boolean,dimensions:{width:number;height:number})=>Promise<void>}){
- const [enabled,setEnabled]=useState(true),[settings,setSettings]=useState<EnhanceSettings>({skin:24,light:32,definition:24,background:"white",highResolution:true}),[assets,setAssets]=useState<EnhancementAssets|null>(null),[matte,setMatte]=useState<HTMLCanvasElement|null>(null),[prepared,setPrepared]=useState(false),[preview,setPreview]=useState(src),[rendering,setRendering]=useState(true),[comparePosition,setComparePosition]=useState(50),[finishing,setFinishing]=useState(false),[baseSrc,setBaseSrc]=useState(src),[restoring,setRestoring]=useState(false),[restored,setRestored]=useState(false),[restoreError,setRestoreError]=useState(""),[fidelity,setFidelity]=useState(.8),[restoredFaces,setRestoredFaces]=useState(0),[restorationAvailable,setRestorationAvailable]=useState<"checking"|"available"|"unavailable">("checking"),restoredUrlRef=useRef<string|null>(null),[croppedOriginal,setCroppedOriginal]=useState(src);
- useEffect(()=>{let active=true;fetch("/api/codeformer",{cache:"no-store"}).then(response=>response.json()).then((result:{available?:boolean})=>{if(active)setRestorationAvailable(result.available?"available":"unavailable")}).catch(()=>{if(active)setRestorationAvailable("unavailable")});return()=>{active=false}},[]);
- useEffect(()=>()=>{if(restoredUrlRef.current)URL.revokeObjectURL(restoredUrlRef.current)},[]);
- useEffect(()=>{let active=true;prepareEnhancementAssets(baseSrc).then(async result=>{if(!active)return;setAssets(result);const nextMatte=await computePortraitMatte(baseSrc,result.personMask).catch(()=>null);if(!active)return;setMatte(nextMatte);setPrepared(true)}).catch(()=>{if(active){setAssets({face:null,faces:[],personMask:null,pose:null});setMatte(null);setPrepared(true)}});return()=>{active=false}},[baseSrc]);
- // Defect 2: object-fit:contain letterboxes each layer by its OWN aspect ratio, so comparing the
- // raw original (whatever ratio it was captured at) against the enhanced result (already cropped
- // to targetAspect) put the subject at a different scale and offset on each side of the divider.
- // Cropping the original with the same face-aware logic once assets are ready keeps both layers on
- // the same pixel grid, so the split genuinely compares one photo's treatment, not two framings.
- useEffect(()=>{if(!prepared||!assets)return;let active=true;cropSourceToAspect(src,assets,targetAspect).then(result=>{if(active)setCroppedOriginal(result.dataUrl)}).catch(()=>{if(active)setCroppedOriginal(src)});return()=>{active=false}},[prepared,assets,src,targetAspect]);
- useEffect(()=>{if(!enabled||!prepared||!assets)return;let active=true;const timer=window.setTimeout(()=>{if(!active)return;setRendering(true);renderProfessionalPhoto(baseSrc,settings,assets,true,targetAspect,matte).then(result=>{if(active)setPreview(result.dataUrl)}).catch(()=>{if(active)setPreview(baseSrc)}).finally(()=>{if(active)setRendering(false)})},160);return()=>{active=false;window.clearTimeout(timer)}},[enabled,prepared,assets,settings,baseSrc,targetAspect,matte]);
- const update=(key:keyof EnhanceSettings,value:number)=>setSettings(current=>({...current,[key]:value}));
- const restoreWithCodeFormer=async()=>{if(restoring||restorationAvailable!=="available")return;setRestoring(true);setRestoreError("");try{const source=await fetch(src).then(response=>response.blob()),response=await fetch(`/api/codeformer?fidelity=${fidelity.toFixed(2)}&upscale=2`,{method:"POST",headers:{"Content-Type":source.type||"image/png"},body:source});if(!response.ok){const result=await response.json().catch(()=>null) as {error?:string}|null;throw new Error(result?.error||"CodeFormer could not restore this photo.")}const resultUrl=URL.createObjectURL(await response.blob());if(restoredUrlRef.current)URL.revokeObjectURL(restoredUrlRef.current);restoredUrlRef.current=resultUrl;setPrepared(false);setRendering(true);setRestoredFaces(Number(response.headers.get("x-codeformer-faces")??0));setRestored(true);setBaseSrc(resultUrl);setPreview(resultUrl)}catch(error){setRestoreError(error instanceof Error?error.message:"CodeFormer could not restore this photo.")}finally{setRestoring(false)}};
- const finish=async()=>{if(finishing)return;setFinishing(true);try{if(enabled&&assets){const result=await renderProfessionalPhoto(baseSrc,settings,assets,false,targetAspect,matte);await onContinue(result.dataUrl,true,{width:result.width,height:result.height})}else{const image=await loadImage(baseSrc);await onContinue(baseSrc,restored,{width:image.naturalWidth,height:image.naturalHeight})}}finally{setFinishing(false)}};
- const busy=restoring||(enabled&&rendering),afterSrc=enabled?preview:baseSrc,afterLabel=restoring?"AI RESTORING…":!prepared?"ANALYSING…":busy?"UPDATING…":restored?"AI RESTORED":"PROFESSIONAL",subjectCopy=!prepared?"Finding subject…":matte?"Background removed · white":assets?.personMask?"Subject isolated":"Original background only",faceCopy=!prepared?"Finding face…":assets?.face?"Face-aware retouch ready":"Global adjustments only";
- return <main className="enhance-editor">
-  <header className="enhance-header"><Button className="enhance-back" onClick={onBack}><ArrowLeft size={18}/> Back</Button><div><Badge tone="eyebrow">FINISH PHOTO</Badge><b>Local edits</b></div><span className="enhance-local"><ShieldCheck size={15}/>{restored?" Restore plus local edits":" Private · on this device"}</span></header>
-  <div className="enhance-summary"><StatTile className={`enhance-summary-stat ${enabled?"approved":"zero"}`} label="Local finishing" value={enabled?"On":"Off"}/><StatTile className={`enhance-summary-stat ${restored?"approved":restorationAvailable==="available"?"pending":"zero"}`} label="Blur restore" value={restored?"Done":restorationAvailable==="checking"?"…":restorationAvailable==="available"?"Ready":"Off"}/></div>
-  <div className="enhance-layout">
-   <section className="enhance-preview-panel"><ComparePreview original={croppedOriginal} enhanced={afterSrc} afterLabel={afterLabel} enhancedAlt="Professionally enhanced portrait" position={comparePosition} onPosition={setComparePosition}/><p className="compare-instruction">Drag across the photo to compare original and enhanced</p><div className="enhance-pipeline" aria-label="Enhancement pipeline" aria-live="polite"><span className={prepared?"done":"active"}><i>{prepared?<Check size={13}/>:"1"}</i><b>Subject</b></span><span className={prepared&&!busy?"done":prepared?"active":""}><i>{prepared&&!busy?<Check size={13}/>:"2"}</i><b>Background</b></span><span className={prepared&&!busy?"done":""}><i>{prepared&&!busy?<Check size={13}/>:"3"}</i><b>Relight</b></span><span className={prepared&&!busy?"done":""}><i>{prepared&&!busy?<Check size={13}/>:"4"}</i><b>Retouch</b></span><span className={prepared&&!busy?"done":""}><i>{prepared&&!busy?<Check size={13}/>:"5"}</i><b>Export</b></span></div><div className="enhance-trust"><ScanFace size={17}/><span><b>{subjectCopy} · {faceCopy}</b><small>{restored?"CodeFormer reconstructs missing facial detail; compare identity before use.":"Local edits preserve the original facial structure."}</small></span></div></section>
-   <aside className="enhance-controls"><div className="enhance-title"><span><Sparkles size={18}/></span><div><h1>Finish the photo. Keep the face.</h1><p>Optional blur restore, then local edits for a profile export. Your original stays available.</p></div></div><section className={`codeformer-card ${restored?"restored":""}`} aria-labelledby="codeformer-title"><div className="codeformer-heading"><span><ScanFace size={17}/></span><div><b id="codeformer-title">Optional face restore</b><small>CodeFormer · only if the restore service is connected</small></div><i>{restored?"Restored":restorationAvailable==="checking"?"Checking":restorationAvailable==="available"?"Ready":"Service needed"}</i></div><label className="codeformer-fidelity"><span><b>Identity fidelity</b><small>Lower = more reconstruction · Higher = closer identity</small></span><output>{fidelity.toFixed(2)}</output><input type="range" min="0" max="1" step="0.05" value={fidelity} onChange={event=>setFidelity(Number(event.target.value))} disabled={restoring} aria-label="CodeFormer identity fidelity"/></label><Button className="codeformer-action" disabled={restoring||restorationAvailable!=="available"} onClick={()=>void restoreWithCodeFormer()}>{restoring?<><RefreshCw className="spinning" size={16}/> Restoring — this can take a minute</>:restored?<><RefreshCw size={16}/> Restore again</>:<><Sparkles size={16}/> Restore blur with CodeFormer</>}</Button><p className={restoreError?"codeformer-error":"codeformer-caption"} role={restoreError?"alert":undefined}>{restoreError||restorationAvailable==="unavailable"?restoreError||"Connect the optional CodeFormer service to enable true AI restoration. Local enhancement still works.":restored?`${restoredFaces} face${restoredFaces===1?"":"s"} restored. Check identity against the original before use.`:"Experimental · sends this photo to your configured private service."}</p><a href="https://github.com/sczhou/CodeFormer/blob/master/LICENSE" target="_blank" rel="noreferrer">S-Lab non-commercial license ↗</a></section><Button className={`enhance-toggle ${enabled?"on":""}`} onClick={()=>setEnabled(value=>!value)} aria-pressed={enabled}><span><b>Local finishing</b><small>{enabled?"Five-stage browser pipeline applied":restored?"AI-restored photo selected":"Original photo selected"}</small></span><i>{enabled?"On":"Off"}</i></Button><div className={`enhance-sliders ${enabled?"":"disabled"}`}><EnhanceSlider icon={<ScanFace size={17}/>} label="Face retouch" note="Softens texture, never features" value={settings.skin} max={60} onChange={value=>update("skin",value)}/><EnhanceSlider icon={<SunMedium size={17}/>} label="Adaptive light" note="Balances exposure and adds fill" value={settings.light} max={70} onChange={value=>update("light",value)}/><EnhanceSlider icon={<SlidersHorizontal size={17}/>} label="Definition" note="Adds clean studio contrast" value={settings.definition} max={60} onChange={value=>update("definition",value)}/></div><Button className={`resolution-toggle ${settings.highResolution?"on":""}`} onClick={()=>setSettings(current=>({...current,highResolution:!current.highResolution}))} disabled={!enabled} aria-pressed={settings.highResolution}><span><b>High-resolution export</b><small>Up to 2048px · high-quality resampling</small></span><i>{settings.highResolution?<Check size={14}/>:null}</i></Button><div className="enhance-note"><ShieldCheck size={17}/><p><b>{restored?"Private service restore + local finishing":"Private, local finishing"}</b><span>{restored?"The restored result is finished in this browser. The original remains available for comparison.":"The person mask, face check and edits stay in this browser. The original remains unchanged."}</span></p></div><Button className="enhance-continue" disabled={finishing||busy||!prepared} onClick={()=>void finish()}>{finishing?"Exporting high-resolution photo…":enabled?"Use professional version":restored?"Use AI-restored photo":"Use original"}<ArrowRight size={18}/></Button></aside>
-  </div>
- </main>;
+function StudioEnhanceEditor({
+  src,
+  targetAspect,
+  onBack,
+  onContinue,
+}: {
+  src: string;
+  targetAspect: number;
+  onBack: () => void;
+  onContinue: (
+    result: string,
+    enhanced: boolean,
+    dimensions: { width: number; height: number },
+  ) => Promise<void>;
+}) {
+  const [enabled, setEnabled] = useState(true),
+    [settings, setSettings] = useState<EnhanceSettings>({
+      skin: 24,
+      light: 32,
+      definition: 24,
+      background: "white",
+      highResolution: true,
+    }),
+    [assets, setAssets] = useState<EnhancementAssets | null>(null),
+    [matte, setMatte] = useState<HTMLCanvasElement | null>(null),
+    [prepared, setPrepared] = useState(false),
+    [preview, setPreview] = useState(src),
+    [rendering, setRendering] = useState(true),
+    [comparePosition, setComparePosition] = useState(50),
+    [finishing, setFinishing] = useState(false),
+    [baseSrc, setBaseSrc] = useState(src),
+    [restoring, setRestoring] = useState(false),
+    [restored, setRestored] = useState(false),
+    [restoreError, setRestoreError] = useState(""),
+    [fidelity, setFidelity] = useState(0.8),
+    [restoredFaces, setRestoredFaces] = useState(0),
+    [restorationAvailable, setRestorationAvailable] = useState<
+      "checking" | "available" | "unavailable"
+    >("checking"),
+    restoredUrlRef = useRef<string | null>(null),
+    [croppedOriginal, setCroppedOriginal] = useState(src);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/codeformer", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result: { available?: boolean }) => {
+        if (active)
+          setRestorationAvailable(
+            result.available ? "available" : "unavailable",
+          );
+      })
+      .catch(() => {
+        if (active) setRestorationAvailable("unavailable");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(
+    () => () => {
+      if (restoredUrlRef.current) URL.revokeObjectURL(restoredUrlRef.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    let active = true;
+    prepareEnhancementAssets(baseSrc)
+      .then(async (result) => {
+        if (!active) return;
+        setAssets(result);
+        const nextMatte = await computePortraitMatte(
+          baseSrc,
+          result.personMask,
+        ).catch(() => null);
+        if (!active) return;
+        setMatte(nextMatte);
+        setPrepared(true);
+      })
+      .catch(() => {
+        if (active) {
+          setAssets({ face: null, faces: [], personMask: null, pose: null });
+          setMatte(null);
+          setPrepared(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [baseSrc]);
+  // Defect 2: object-fit:contain letterboxes each layer by its OWN aspect ratio, so comparing the
+  // raw original (whatever ratio it was captured at) against the enhanced result (already cropped
+  // to targetAspect) put the subject at a different scale and offset on each side of the divider.
+  // Cropping the original with the same face-aware logic once assets are ready keeps both layers on
+  // the same pixel grid, so the split genuinely compares one photo's treatment, not two framings.
+  useEffect(() => {
+    if (!prepared || !assets) return;
+    let active = true;
+    cropSourceToAspect(src, assets, targetAspect)
+      .then((result) => {
+        if (active) setCroppedOriginal(result.dataUrl);
+      })
+      .catch(() => {
+        if (active) setCroppedOriginal(src);
+      });
+    return () => {
+      active = false;
+    };
+  }, [prepared, assets, src, targetAspect]);
+  useEffect(() => {
+    if (!enabled || !prepared || !assets) return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      if (!active) return;
+      setRendering(true);
+      renderProfessionalPhoto(
+        baseSrc,
+        settings,
+        assets,
+        true,
+        targetAspect,
+        matte,
+      )
+        .then((result) => {
+          if (active) setPreview(result.dataUrl);
+        })
+        .catch(() => {
+          if (active) setPreview(baseSrc);
+        })
+        .finally(() => {
+          if (active) setRendering(false);
+        });
+    }, 160);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [enabled, prepared, assets, settings, baseSrc, targetAspect, matte]);
+  const update = (key: keyof EnhanceSettings, value: number) =>
+    setSettings((current) => ({ ...current, [key]: value }));
+  const restoreWithCodeFormer = async () => {
+    if (restoring || restorationAvailable !== "available") return;
+    setRestoring(true);
+    setRestoreError("");
+    try {
+      const source = await fetch(src).then((response) => response.blob()),
+        response = await fetch(
+          `/api/codeformer?fidelity=${fidelity.toFixed(2)}&upscale=2`,
+          {
+            method: "POST",
+            headers: { "Content-Type": source.type || "image/png" },
+            body: source,
+          },
+        );
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(
+          result?.error || "CodeFormer could not restore this photo.",
+        );
+      }
+      const resultUrl = URL.createObjectURL(await response.blob());
+      if (restoredUrlRef.current) URL.revokeObjectURL(restoredUrlRef.current);
+      restoredUrlRef.current = resultUrl;
+      setPrepared(false);
+      setRendering(true);
+      setRestoredFaces(Number(response.headers.get("x-codeformer-faces") ?? 0));
+      setRestored(true);
+      setBaseSrc(resultUrl);
+      setPreview(resultUrl);
+    } catch (error) {
+      setRestoreError(
+        error instanceof Error
+          ? error.message
+          : "CodeFormer could not restore this photo.",
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
+  const finish = async () => {
+    if (finishing) return;
+    setFinishing(true);
+    try {
+      if (enabled && assets) {
+        const result = await renderProfessionalPhoto(
+          baseSrc,
+          settings,
+          assets,
+          false,
+          targetAspect,
+          matte,
+        );
+        await onContinue(result.dataUrl, true, {
+          width: result.width,
+          height: result.height,
+        });
+      } else {
+        const image = await loadImage(baseSrc);
+        await onContinue(baseSrc, restored, {
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        });
+      }
+    } finally {
+      setFinishing(false);
+    }
+  };
+  const busy = restoring || (enabled && rendering),
+    afterSrc = enabled ? preview : baseSrc,
+    afterLabel = restoring
+      ? "AI RESTORING…"
+      : !prepared
+        ? "ANALYSING…"
+        : busy
+          ? "UPDATING…"
+          : restored
+            ? "AI RESTORED"
+            : "PROFESSIONAL",
+    subjectCopy = !prepared
+      ? "Finding subject…"
+      : matte
+        ? "Background removed · white"
+        : assets?.personMask
+          ? "Subject isolated"
+          : "Original background only",
+    faceCopy = !prepared
+      ? "Finding face…"
+      : assets?.face
+        ? "Face-aware retouch ready"
+        : "Global adjustments only";
+  return (
+    <main className="enhance-editor">
+      <header className="enhance-header">
+        <Button className="enhance-back" onClick={onBack}>
+          <ArrowLeft size={18} /> Back
+        </Button>
+        <div>
+          <Badge tone="eyebrow">FINISH PHOTO</Badge>
+          <b>Local edits</b>
+        </div>
+        <span className="enhance-local">
+          <ShieldCheck size={15} />
+          {restored ? " Restore plus local edits" : " Private · on this device"}
+        </span>
+      </header>
+      <div className="enhance-summary">
+        <StatTile
+          className={`enhance-summary-stat ${enabled ? "approved" : "zero"}`}
+          label="Local finishing"
+          value={enabled ? "On" : "Off"}
+        />
+        <StatTile
+          className={`enhance-summary-stat ${restored ? "approved" : restorationAvailable === "available" ? "pending" : "zero"}`}
+          label="Blur restore"
+          value={
+            restored
+              ? "Done"
+              : restorationAvailable === "checking"
+                ? "…"
+                : restorationAvailable === "available"
+                  ? "Ready"
+                  : "Off"
+          }
+        />
+      </div>
+      <div className="enhance-layout">
+        <section className="enhance-preview-panel">
+          <ComparePreview
+            original={croppedOriginal}
+            enhanced={afterSrc}
+            afterLabel={afterLabel}
+            enhancedAlt="Professionally enhanced portrait"
+            position={comparePosition}
+            onPosition={setComparePosition}
+          />
+          <p className="compare-instruction">
+            Drag across the photo to compare original and enhanced
+          </p>
+          <div
+            className="enhance-pipeline"
+            aria-label="Enhancement pipeline"
+            aria-live="polite"
+          >
+            <span className={prepared ? "done" : "active"}>
+              <i>{prepared ? <Check size={13} /> : "1"}</i>
+              <b>Subject</b>
+            </span>
+            <span
+              className={prepared && !busy ? "done" : prepared ? "active" : ""}
+            >
+              <i>{prepared && !busy ? <Check size={13} /> : "2"}</i>
+              <b>Background</b>
+            </span>
+            <span className={prepared && !busy ? "done" : ""}>
+              <i>{prepared && !busy ? <Check size={13} /> : "3"}</i>
+              <b>Relight</b>
+            </span>
+            <span className={prepared && !busy ? "done" : ""}>
+              <i>{prepared && !busy ? <Check size={13} /> : "4"}</i>
+              <b>Retouch</b>
+            </span>
+            <span className={prepared && !busy ? "done" : ""}>
+              <i>{prepared && !busy ? <Check size={13} /> : "5"}</i>
+              <b>Export</b>
+            </span>
+          </div>
+          <div className="enhance-trust">
+            <ScanFace size={17} />
+            <span>
+              <b>
+                {subjectCopy} · {faceCopy}
+              </b>
+              <small>
+                {restored
+                  ? "CodeFormer reconstructs missing facial detail; compare identity before use."
+                  : "Local edits preserve the original facial structure."}
+              </small>
+            </span>
+          </div>
+        </section>
+        <aside className="enhance-controls">
+          <div className="enhance-title">
+            <span>
+              <Sparkles size={18} />
+            </span>
+            <div>
+              <h1>Finish the photo. Keep the face.</h1>
+              <p>
+                Optional blur restore, then local edits for a profile export.
+                Your original stays available.
+              </p>
+            </div>
+          </div>
+          <section
+            className={`codeformer-card ${restored ? "restored" : ""}`}
+            aria-labelledby="codeformer-title"
+          >
+            <div className="codeformer-heading">
+              <span>
+                <ScanFace size={17} />
+              </span>
+              <div>
+                <b id="codeformer-title">Optional face restore</b>
+                <small>
+                  CodeFormer · only if the restore service is connected
+                </small>
+              </div>
+              <i>
+                {restored
+                  ? "Restored"
+                  : restorationAvailable === "checking"
+                    ? "Checking"
+                    : restorationAvailable === "available"
+                      ? "Ready"
+                      : "Service needed"}
+              </i>
+            </div>
+            <label className="codeformer-fidelity">
+              <span>
+                <b>Identity fidelity</b>
+                <small>
+                  Lower = more reconstruction · Higher = closer identity
+                </small>
+              </span>
+              <output>{fidelity.toFixed(2)}</output>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={fidelity}
+                onChange={(event) => setFidelity(Number(event.target.value))}
+                disabled={restoring}
+                aria-label="CodeFormer identity fidelity"
+              />
+            </label>
+            <Button
+              className="codeformer-action"
+              disabled={restoring || restorationAvailable !== "available"}
+              onClick={() => void restoreWithCodeFormer()}
+            >
+              {restoring ? (
+                <>
+                  <RefreshCw className="spinning" size={16} /> Restoring — this
+                  can take a minute
+                </>
+              ) : restored ? (
+                <>
+                  <RefreshCw size={16} /> Restore again
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} /> Restore blur with CodeFormer
+                </>
+              )}
+            </Button>
+            <p
+              className={
+                restoreError ? "codeformer-error" : "codeformer-caption"
+              }
+              role={restoreError ? "alert" : undefined}
+            >
+              {restoreError || restorationAvailable === "unavailable"
+                ? restoreError ||
+                  "Connect the optional CodeFormer service to enable true AI restoration. Local enhancement still works."
+                : restored
+                  ? `${restoredFaces} face${restoredFaces === 1 ? "" : "s"} restored. Check identity against the original before use.`
+                  : "Experimental · sends this photo to your configured private service."}
+            </p>
+            <a
+              href="https://github.com/sczhou/CodeFormer/blob/master/LICENSE"
+              target="_blank"
+              rel="noreferrer"
+            >
+              S-Lab non-commercial license ↗
+            </a>
+          </section>
+          <Button
+            className={`enhance-toggle ${enabled ? "on" : ""}`}
+            onClick={() => setEnabled((value) => !value)}
+            aria-pressed={enabled}
+          >
+            <span>
+              <b>Local finishing</b>
+              <small>
+                {enabled
+                  ? "Five-stage browser pipeline applied"
+                  : restored
+                    ? "AI-restored photo selected"
+                    : "Original photo selected"}
+              </small>
+            </span>
+            <i>{enabled ? "On" : "Off"}</i>
+          </Button>
+          <div className={`enhance-sliders ${enabled ? "" : "disabled"}`}>
+            <EnhanceSlider
+              icon={<ScanFace size={17} />}
+              label="Face retouch"
+              note="Softens texture, never features"
+              value={settings.skin}
+              max={60}
+              onChange={(value) => update("skin", value)}
+            />
+            <EnhanceSlider
+              icon={<SunMedium size={17} />}
+              label="Adaptive light"
+              note="Balances exposure and adds fill"
+              value={settings.light}
+              max={70}
+              onChange={(value) => update("light", value)}
+            />
+            <EnhanceSlider
+              icon={<SlidersHorizontal size={17} />}
+              label="Definition"
+              note="Adds clean studio contrast"
+              value={settings.definition}
+              max={60}
+              onChange={(value) => update("definition", value)}
+            />
+          </div>
+          <Button
+            className={`resolution-toggle ${settings.highResolution ? "on" : ""}`}
+            onClick={() =>
+              setSettings((current) => ({
+                ...current,
+                highResolution: !current.highResolution,
+              }))
+            }
+            disabled={!enabled}
+            aria-pressed={settings.highResolution}
+          >
+            <span>
+              <b>High-resolution export</b>
+              <small>Up to 2048px · high-quality resampling</small>
+            </span>
+            <i>{settings.highResolution ? <Check size={14} /> : null}</i>
+          </Button>
+          <div className="enhance-note">
+            <ShieldCheck size={17} />
+            <p>
+              <b>
+                {restored
+                  ? "Private service restore + local finishing"
+                  : "Private, local finishing"}
+              </b>
+              <span>
+                {restored
+                  ? "The restored result is finished in this browser. The original remains available for comparison."
+                  : "The person mask, face check and edits stay in this browser. The original remains unchanged."}
+              </span>
+            </p>
+          </div>
+          <Button
+            className="enhance-continue"
+            disabled={finishing || busy || !prepared}
+            onClick={() => void finish()}
+          >
+            {finishing
+              ? "Exporting high-resolution photo…"
+              : enabled
+                ? "Use professional version"
+                : restored
+                  ? "Use AI-restored photo"
+                  : "Use original"}
+            <ArrowRight size={18} />
+          </Button>
+        </aside>
+      </div>
+    </main>
+  );
 }
 
-function EnhanceSlider({icon,label,note,value,max,onChange}:{icon:React.ReactNode;label:string;note:string;value:number;max:number;onChange:(value:number)=>void}){
- return <label className="enhance-slider"><span className="enhance-slider-icon">{icon}</span><span className="enhance-slider-copy"><b>{label}</b><small>{note}</small></span><output>{value}</output><input type="range" min="0" max={max} value={value} onChange={event=>onChange(Number(event.target.value))} aria-label={label}/></label>;
+function EnhanceSlider({
+  icon,
+  label,
+  note,
+  value,
+  max,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  note: string;
+  value: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="enhance-slider">
+      <span className="enhance-slider-icon">{icon}</span>
+      <span className="enhance-slider-copy">
+        <b>{label}</b>
+        <small>{note}</small>
+      </span>
+      <output>{value}</output>
+      <input
+        type="range"
+        min="0"
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label={label}
+      />
+    </label>
+  );
 }
 
-async function assess(src:string,targetAspect=.8):Promise<Assessment>{
- return evaluatePhoto(src,targetAspect);
+async function assess(src: string, targetAspect = 0.8): Promise<Assessment> {
+  return evaluatePhoto(src, targetAspect);
 }
-async function normalizePhoto(src:string){const img=await loadImage(src),max=1600,scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement("canvas"),ctx=c.getContext("2d");c.width=Math.round(img.naturalWidth*scale);c.height=Math.round(img.naturalHeight*scale);if(!ctx)return src;ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.88)}
+async function normalizePhoto(src: string) {
+  const img = await loadImage(src),
+    max = 1600,
+    scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)),
+    c = document.createElement("canvas"),
+    ctx = c.getContext("2d");
+  c.width = Math.round(img.naturalWidth * scale);
+  c.height = Math.round(img.naturalHeight * scale);
+  if (!ctx) return src;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.88);
+}
 
-export default function Studio(){
- const [view,setView]=useState<View>("personal"),[pendingReview,setPendingReview]=useState<ReviewRequest|null>(null),[originalAssessment,setOriginalAssessment]=useState<Assessment|null>(null),[toast,setToast]=useState(""),[count,setCount]=useState<number|null>(null),[cameraStatus,setCameraStatus]=useState<"idle"|"starting"|"live"|"error">("idle"),[cameraError,setCameraError]=useState(""),[photo,setPhoto]=useState<string>(""),[original,setOriginal]=useState<string>(""),[dimensions,setDimensions]=useState({width:0,height:0}),[assessment,setAssessment]=useState<Assessment|null>(null),[checking,setChecking]=useState(false),[enhanced,setEnhanced]=useState(false),[profileOK,setProfileOK]=useState(true),[brandOK,setBrandOK]=useState(true),[gallery,setGallery]=useState<Photo[]>([]);
- const [scanStatus,setScanStatus]=useState<"idle"|"starting"|"live"|"error">("idle"),[scanError,setScanError]=useState(""),[sessionCode,setSessionCode]=useState(""),[sessionAgent,setSessionAgent]=useState<SessionAgent|null>(null),[resetConfirm,setResetConfirm]=useState(false),[deletePhotoId,setDeletePhotoId]=useState<string|null>(null);
- const [reminder,setReminder]=useState<PhotoReminder|null>(null),[reminderAction,setReminderAction]=useState<"confirm_optout"|"opted_out"|null>(null);
- const [cameraDevices,setCameraDevices]=useState<CameraDevice[]>([]),[selectedCameraId,setSelectedCameraId]=useState(""),[discoveringCameras,setDiscoveringCameras]=useState(false),[printSize,setPrintSize]=useState<PrintSize>("auto");
- const [shotCount,setShotCount]=useState<1|2|3|5>(1),[cropFormat,setCropFormat]=useState<"portrait"|"square">("portrait"),[shooting,setShooting]=useState(false),[timer,setTimer]=useState<number|null>(null),[capturePreview,setCapturePreview]=useState(""),[captureRating,setCaptureRating]=useState<PhotoRating|null>(null),[shots,setShots]=useState<CapturedShot[]>([]),[selectedShotId,setSelectedShotId]=useState(""),[enhanceBackView,setEnhanceBackView]=useState<"review"|"batch">("review"),[placement,setPlacement]=useState<"checking"|"ready"|"close"|"far"|"center">("checking"),[,setFaceBox]=useState<{x:number;y:number;width:number;height:number}|null>(null);
- const videoRef=useRef<HTMLVideoElement>(null),cameraViewportRef=useRef<HTMLDivElement>(null),headGuideRef=useRef<HTMLDivElement>(null),sourceFaceRef=useRef<{x:number;y:number;width:number;height:number}|null>(null),scannerVideoRef=useRef<HTMLVideoElement>(null),scannerControlsRef=useRef<IScannerControls|null>(null),scannerStreamRef=useRef<MediaStream|null>(null),scannerRunRef=useRef(0),streamRef=useRef<MediaStream|null>(null),fileRef=useRef<HTMLInputElement>(null),placementRef=useRef(placement),shootingRef=useRef(false),captureRunRef=useRef(0),autoReadyRef=useRef<number|null>(null);
- useEffect(()=>{placementRef.current=placement},[placement]);
- useEffect(()=>{shootingRef.current=shooting},[shooting]);
- // The initial gallery state must start empty so the server render (no localStorage) matches the
- // client's first hydration pass — reading the stored gallery only after mount avoids a hydration
- // mismatch, at the cost of one extra render once real data lands.
- // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from localStorage, an external store React cannot see during SSR
- useEffect(()=>{const stored=readGallery();if(stored.length)setGallery(stored)},[]);
- useEffect(()=>{try{localStorage.setItem("ps-gallery",JSON.stringify(gallery.slice(0,6)))}catch{/* Storage may be unavailable in private browsing. */}},[gallery]);
- const [,setReviewTick]=useState(0);
- // The designer's decision lives in a separate store (photo-review-requests, IndexedDB assets) written
- // from the designer dashboard — a different tab in the same browser. A storage event is how that tab's
- // write reaches this one; re-checking on return to Photos covers same-tab/reload cases.
- useEffect(()=>{const onStorage=(event:StorageEvent)=>{if(!event.key||event.key==="studio-review-requests")setReviewTick(tick=>tick+1)};window.addEventListener("storage",onStorage);return()=>window.removeEventListener("storage",onStorage)},[]);
- const reviewDecisions:Record<string,ReviewRequest["designerDecision"]>={},reviewStatuses:Record<string,ReviewRequest["workflowStatus"]>={},reviewOutcomes:Record<string,{feedback?:string;reviewedAt?:string}>={};for(const request of listReviewRequests()){reviewDecisions[request.id]=request.designerDecision;reviewStatuses[request.id]=request.workflowStatus;reviewOutcomes[request.id]={feedback:request.designerFeedback,reviewedAt:request.reviewedAt}}
- // Photos tab: every final approval (automatic or designer) lands in Approved Photos; only an active,
- // undecided review request shows in Pending Designer Review. A retake/reupload decision is neither —
- // it is a completed review the agent has not acted on yet, so it surfaces as Action Required instead of
- // silently staying pending or disappearing. A designer's decision is read from the same review-request
- // record the designer dashboard writes (resolveReviewRequest shares its id with the submissionId in
- // designer-store), so approval here never needs a separate local pending state.
- const photoStatusOf=(item:Photo)=>{const decision=item.reviewRequestId?reviewDecisions[item.reviewRequestId]:undefined,pendingWorkflow=item.reviewRequestId?reviewStatuses[item.reviewRequestId]:undefined,outcome=item.reviewRequestId?reviewOutcomes[item.reviewRequestId]:undefined,approved=(item.rating?isPhotoApproved(item.rating):false)||decision==="approved",photoType=pendingWorkflow===workflowStatusFor.enhanced_review||(!pendingWorkflow&&item.enhanced)?"AI Enhanced":"Original Photo",approvalSource:"AI"|"DESIGNER"=decision==="approved"?"DESIGNER":"AI",actionRequired=decision==="retake"||decision==="reupload"?decision:undefined;return{decision,approved,pending:decision==="pending",photoType,approvalSource,actionRequired,designerFeedback:outcome?.feedback,reviewedAt:outcome?.reviewedAt}};
- const approvedPhotos=gallery.filter(item=>photoStatusOf(item).approved),pendingPhotos=gallery.filter(item=>{const status=photoStatusOf(item);return !status.approved&&status.pending}),actionRequiredPhotos=gallery.filter(item=>{const status=photoStatusOf(item);return !status.approved&&Boolean(status.actionRequired)});
- useEffect(()=>()=>streamRef.current?.getTracks().forEach(t=>t.stop()),[]);
- useEffect(()=>()=>{scannerRunRef.current+=1;scannerControlsRef.current?.stop();scannerStreamRef.current?.getTracks().forEach(track=>track.stop())},[]);
- useEffect(()=>{if(view!=="capture"||cameraStatus!=="live")return;let cancelled=false,detector:{detectForVideo:(video:HTMLVideoElement,time:number)=>{detections:Array<{boundingBox?:{originX:number;originY:number;width:number;height:number}}>} ;close:()=>void}|null=null,lastCheck=0,frame=0;const clearFace=()=>{sourceFaceRef.current=null;setFaceBox(null)};const run=async()=>{try{const vision=await import("@mediapipe/tasks-vision"),files=await vision.FilesetResolver.forVisionTasks("/mediapipe");detector=await vision.FaceDetector.createFromOptions(files,{baseOptions:{modelAssetPath:"/blaze_face_short_range.tflite"},runningMode:"VIDEO",minDetectionConfidence:.5});if(cancelled){detector.close();return}const check=(time:number)=>{if(cancelled)return;frame=requestAnimationFrame(check);if(time-lastCheck<140)return;lastCheck=time;const video=videoRef.current,viewport=cameraViewportRef.current,guide=headGuideRef.current;if(!video||!viewport||!guide||video.readyState<2)return;try{const detections=detector?.detectForVideo(video,time).detections??[];if(detections.length!==1||!detections[0].boundingBox){clearFace();setPlacement("center");return}const box=detections[0].boundingBox,vw=video.videoWidth,vh=video.videoHeight,vr=viewport.getBoundingClientRect(),gr=guide.getBoundingClientRect(),videoAspect=vw/vh,viewAspect=vr.width/vr.height;let rw=vr.width,rh=vr.height,ox=0,oy=0;if(videoAspect>viewAspect){rh=rw/videoAspect;oy=(vr.height-rh)/2}else{rw=rh*videoAspect;ox=(vr.width-rw)/2}const source={x:box.originX/vw,y:box.originY/vh,width:box.width/vw,height:box.height/vh},displayX=ox+(1-source.x-source.width)*rw,displayY=oy+source.y*rh,displayWidth=source.width*rw,displayHeight=source.height*rh,faceCenterX=vr.left+displayX+displayWidth/2,faceCenterY=vr.top+displayY+displayHeight/2,guideCenterX=gr.left+gr.width/2,guideCenterY=gr.top+gr.height/2,dx=Math.abs(faceCenterX-guideCenterX)/(gr.width/2),dy=Math.abs(faceCenterY-guideCenterY)/(gr.height/2),size=displayHeight/gr.height;sourceFaceRef.current=source;setFaceBox({x:displayX/vr.width,y:displayY/vr.height,width:displayWidth/vr.width,height:displayHeight/vr.height});if(size>1.08)setPlacement("close");else if(size<.36)setPlacement("far");else if(dx>.68||dy>.68)setPlacement("center");else setPlacement("ready")}catch{clearFace();setPlacement("checking")}};frame=requestAnimationFrame(check)}catch{if(!cancelled){clearFace();setPlacement("checking")}}};void run();return()=>{cancelled=true;cancelAnimationFrame(frame);detector?.close();sourceFaceRef.current=null}},[view,cameraStatus]);
- useEffect(()=>{const syncView=()=>{const params=new URLSearchParams(location.search),raw=params.get("view"),requested=(raw==="brand"?"personal":raw) as View|null;if(requested&&navigableViews.has(requested))setView(requested);else if(!params.get("session"))setView("personal")};syncView();addEventListener("popstate",syncView);return()=>removeEventListener("popstate",syncView)},[]);
- useEffect(()=>{const params=new URLSearchParams(location.search),token=params.get("reminder");if(!token)return;let active=true;designerStore().reminderByToken(token).then(record=>{if(!active||!record)return;setReminder(record);setSessionAgent({agentId:record.agentId,agentName:record.agentName});setView("console");if(params.get("reminder_action")==="optout")setReminderAction("confirm_optout")}).catch(error=>console.error("Photo reminder could not be opened",error));return()=>{active=false}},[]);
- useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(""),2600);return()=>clearTimeout(t)},[toast]);
- useEffect(()=>{if(!resetConfirm&&!deletePhotoId)return;const close=(event:KeyboardEvent)=>{if(event.key!=="Escape")return;setResetConfirm(false);setDeletePhotoId(null)};addEventListener("keydown",close);return()=>removeEventListener("keydown",close)},[deletePhotoId,resetConfirm]);
- useEffect(()=>{document.getElementById("app-content")?.scrollTo({top:0,behavior:"auto"});window.scrollTo({top:0,behavior:"auto"})},[view]);
- useEffect(()=>{const devices=navigator.mediaDevices;if(!devices?.enumerateDevices)return;const sync=async()=>{try{const cameras=(await devices.enumerateDevices()).filter(device=>device.kind==="videoinput").map((device,index)=>({deviceId:device.deviceId,label:device.label||`Camera ${index+1}`}));setCameraDevices(cameras);setSelectedCameraId(current=>current&&cameras.some(camera=>camera.deviceId===current)?current:cameras[0]?.deviceId??"")}catch{/* Device discovery is also retried from the Studio screen. */}};void sync();devices.addEventListener?.("devicechange",sync);return()=>devices.removeEventListener?.("devicechange",sync)},[]);
- const stopScanner=()=>{scannerRunRef.current+=1;scannerControlsRef.current?.stop();scannerControlsRef.current=null;scannerStreamRef.current?.getTracks().forEach(track=>track.stop());scannerStreamRef.current=null;if(scannerVideoRef.current)scannerVideoRef.current.srcObject=null};
- const go=(v:View)=>{if(v!=="capture")stopCamera();if(v!=="console")stopScanner();setView(v);if(navigableViews.has(v)){const next=v==="console"?"/":`/?view=${v}`;history.pushState({view:v},"",next)}document.getElementById("app-content")?.scrollTo({top:0,behavior:"smooth"});window.scrollTo({top:0,behavior:"smooth"})};
- const loadStudioSession=async(raw:string)=>{let code=raw.trim();try{const parsed=new URL(code);code=parsed.searchParams.get("session")||code}catch{/* Plain appointment codes are expected here. */}code=decodeURIComponent(code);setScanError("");try{let data:SessionAgent|null=null;const saved=localStorage.getItem(`photostudio-session:${code}`);if(saved)data=JSON.parse(saved);if(!data){const response=await fetch(`/api/studio-sessions?session=${encodeURIComponent(code)}`,{cache:"no-store"});if(!response.ok)throw new Error("Appointment not found");data=await response.json()}stopScanner();setSessionAgent(data);setSessionCode(code);setScanStatus("idle");setView("session");history.replaceState({},"",`/?session=${encodeURIComponent(code)}`);setToast(`${data.agentName} loaded`)}catch{stopScanner();setScanError("Appointment not found. Book in Atlas, then scan the new QR or enter its code.");setScanStatus("error")}};
- useEffect(()=>{const code=new URLSearchParams(location.search).get("session");if(!code)return;const timer=window.setTimeout(()=>void loadStudioSession(code),0);return()=>window.clearTimeout(timer)},[]);
- const startScanner=async()=>{if(scanStatus==="starting")return;stopScanner();const runId=scannerRunRef.current,setError=(message:string)=>{if(scannerRunRef.current!==runId)return;stopScanner();setScanStatus("error");setScanError(message)};setScanStatus("starting");setScanError("");let timedOut=false,timeoutId=0;try{if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera access is not supported in this browser.");const video=scannerVideoRef.current;if(!video)throw new Error("The QR preview is not ready. Try again.");const {BrowserQRCodeReader}=await import("@zxing/browser");if(scannerRunRef.current!==runId)return;const request=navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});request.then(stream=>{if(timedOut||scannerRunRef.current!==runId)stream.getTracks().forEach(track=>track.stop())}).catch(()=>{});const timeout=new Promise<never>((_,reject)=>{timeoutId=window.setTimeout(()=>{timedOut=true;reject(new Error("Camera permission timed out. Check the browser camera icon, then try again."))},10000)}),stream=await Promise.race([request,timeout]);window.clearTimeout(timeoutId);if(scannerRunRef.current!==runId){stream.getTracks().forEach(track=>track.stop());return}scannerStreamRef.current=stream;let found=false;const reader=new BrowserQRCodeReader(undefined,{delayBetweenScanAttempts:120,delayBetweenScanSuccess:800}),controls=await reader.decodeFromStream(stream,video,result=>{if(!result||found||scannerRunRef.current!==runId)return;found=true;stopScanner();setScanStatus("starting");void loadStudioSession(result.getText())});if(scannerRunRef.current!==runId){controls.stop();return}scannerControlsRef.current=controls;setScanStatus("live")}catch(e){window.clearTimeout(timeoutId);const error=e instanceof Error?e:null;if(error?.name==="NotAllowedError"||error?.name==="SecurityError")setError("Camera permission is off. Allow access in your browser, then try again.");else if(error?.name==="NotFoundError"||error?.name==="OverconstrainedError")setError("No camera was found. Connect or enable a camera, then try again.");else if(error?.name==="NotReadableError"||error?.name==="AbortError")setError("The camera is busy. Close other camera apps, then try again.");else setError(error?.message||"The QR camera could not start. Enter the appointment code below.")}};
- const stopCamera=()=>{streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null;setCameraStatus(s=>s==="error"?s:"idle")};
- const syncCameraDevices=async()=>{if(!navigator.mediaDevices?.enumerateDevices)return[];const cameras=(await navigator.mediaDevices.enumerateDevices()).filter(device=>device.kind==="videoinput").map((device,index)=>({deviceId:device.deviceId,label:device.label||`Camera ${index+1}`}));setCameraDevices(cameras);setSelectedCameraId(current=>current&&cameras.some(camera=>camera.deviceId===current)?current:cameras[0]?.deviceId??"");return cameras};
- const discoverCameras=async()=>{setDiscoveringCameras(true);setCameraError("");try{if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera access is not supported in this browser.");if(!streamRef.current){const permissionStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});permissionStream.getTracks().forEach(track=>track.stop())}const cameras=await syncCameraDevices();setToast(cameras.length?`${cameras.length} camera${cameras.length===1?"":"s"} found`:"No cameras found. Connect one, then refresh.")}catch(e){setCameraError(e instanceof Error&&e.name==="NotAllowedError"?"Camera permission is off. Allow access, then find cameras again.":e instanceof Error?e.message:"Cameras could not be detected.")}finally{setDiscoveringCameras(false)}};
- const startCamera=async(deviceId=selectedCameraId)=>{setCameraStatus("starting");setCameraError("");stopCamera();let timedOut=false,timeoutId=0;try{if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera access is not supported in this browser.");const video:MediaTrackConstraints=deviceId?{deviceId:{exact:deviceId},width:{ideal:1920},height:{ideal:1080}}:{facingMode:"user",width:{ideal:1920},height:{ideal:1080}};const request=navigator.mediaDevices.getUserMedia({video,audio:false});request.then(s=>{if(timedOut)s.getTracks().forEach(t=>t.stop())}).catch(()=>{});const timeout=new Promise<never>((_,reject)=>{timeoutId=window.setTimeout(()=>{timedOut=true;reject(new Error("Camera permission timed out. Check the browser camera icon, allow access, then try again."))},10000)});const stream=await Promise.race([request,timeout]);window.clearTimeout(timeoutId);streamRef.current=stream;const activeId=stream.getVideoTracks()[0]?.getSettings().deviceId;if(activeId)setSelectedCameraId(activeId);if(videoRef.current){videoRef.current.srcObject=stream;await videoRef.current.play()}await syncCameraDevices();setCameraStatus("live")}catch(e){window.clearTimeout(timeoutId);setCameraStatus("error");setCameraError(e instanceof Error&&e.name==="NotAllowedError"?"Camera permission is off. Allow camera access in your browser, then try again.":e instanceof Error&&e.name==="OverconstrainedError"?"That camera is no longer available. Refresh the camera list and choose another.":e instanceof Error?e.message:"Camera could not start.")}};
- const reviewPhoto=async(src:string)=>{setChecking(true);try{const img=await loadImage(src);setDimensions({width:img.naturalWidth,height:img.naturalHeight});const normalized=await normalizePhoto(src),result=await assess(normalized);setPhoto(normalized);setOriginal(normalized);setAssessment(result);setOriginalAssessment(result);setPendingReview(null);setEnhanced(false);setView("review")}catch{setToast("This image could not be opened. Choose a JPG, PNG or WebP file.")}finally{setChecking(false)}};
- const upload=async(e:ChangeEvent<HTMLInputElement>)=>{const file=e.target.files?.[0];e.target.value="";if(!file)return;if(!file.type.startsWith("image/")){setToast("Choose an image file: JPG, PNG or WebP.");return}if(file.size>12*1024*1024){setToast("Choose a photo smaller than 12 MB.");return}const reader=new FileReader();reader.onload=()=>typeof reader.result==="string"&&reviewPhoto(reader.result);reader.onerror=()=>setToast("The file could not be read. Try another photo.");reader.readAsDataURL(file)};
- const takePhoto=()=>{if(cameraStatus!=="live"||!videoRef.current){startCamera();return}setCount(3);let n=3;const timer=setInterval(()=>{n-=1;setCount(n);if(n>0)return;clearInterval(timer);const v=videoRef.current!;const c=document.createElement("canvas");c.width=v.videoWidth||960;c.height=v.videoHeight||960;c.getContext("2d")?.drawImage(v,0,0,c.width,c.height);const src=c.toDataURL("image/jpeg",.9);stopCamera();setCount(null);reviewPhoto(src)},700)};
- const waitCountdown=async(seconds:number,runId:number)=>{for(let value=seconds;value>0;value-=.1){if(placementRef.current!=="ready"||captureRunRef.current!==runId)return false;setTimer(Math.max(0,Math.round(value*10)/10));await new Promise(r=>setTimeout(r,100))}return captureRunRef.current===runId};
- const captureCurrent=()=>{const v=videoRef.current!,c=document.createElement("canvas"),ctx=c.getContext("2d")!,vw=v.videoWidth||1280,vh=v.videoHeight||720,target=cropFormat==="square"?1:.8;let sx=0,sy=0,sw=vw,sh=vh;if(vw/vh>target){sw=vh*target;sx=(vw-sw)/2}else{sh=vw/target;sy=(vh-sh)/2}c.width=960;c.height=cropFormat==="square"?960:1200;ctx.save();ctx.translate(c.width,0);ctx.scale(-1,1);ctx.drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);ctx.restore();return c.toDataURL("image/jpeg",.92)};
- const shootSequence=async()=>{if(cameraStatus!=="live"||shootingRef.current||placementRef.current!=="ready")return;const runId=++captureRunRef.current;setShooting(true);setShots([]);setSelectedShotId("");const next=[] as CapturedShot[];for(let i=0;i<shotCount;i++){const held=await waitCountdown(5,runId);if(!held||placementRef.current!=="ready"){setTimer(null);setCapturePreview("");setCaptureRating(null);setShooting(false);return}setTimer(null);const captured=captureCurrent(),rating=await evaluatePhoto(captured,cropFormat==="square"?1:.8).catch(()=>({...emptyPhotoRating,label:"Rating unavailable"}));if(captureRunRef.current!==runId){setShooting(false);return}const shot={id:crypto.randomUUID(),original:captured,rating};next.push(shot);setShots([...next]);setCapturePreview(captured);setCaptureRating(rating);await new Promise(resolve=>setTimeout(resolve,1400));setCapturePreview("");setCaptureRating(null);if(captureRunRef.current!==runId){setShooting(false);return}}const best=next.reduce((current,shot)=>shot.rating.score>current.rating.score?shot:current,next[0]);if(best)setSelectedShotId(best.id);setShooting(false);stopCamera();setView("batch")};
- const cancelAutoCapture=()=>{captureRunRef.current+=1;placementRef.current="checking";shootingRef.current=false;setTimer(null);setCapturePreview("");setCaptureRating(null);setShooting(false)};
- const closeGuidedCamera=()=>{cancelAutoCapture();sourceFaceRef.current=null;setFaceBox(null);stopCamera();if(sessionAgent)setView("session");else go("personal")};
- const selectCropFormat=(format:"portrait"|"square")=>{if(format===cropFormat)return;cancelAutoCapture();setCropFormat(format)};
- const removeShot=(id:string)=>{const remaining=shots.filter(shot=>shot.id!==id);setShots(remaining);if(selectedShotId===id)setSelectedShotId(remaining[0]?.id??"")};
- const continueWithSelectedShot=()=>{const selected=shots.find(shot=>shot.id===selectedShotId)??shots[0];if(!selected)return;setDimensions({width:960,height:cropFormat==="square"?960:1200});setPhoto(selected.original);setOriginal(selected.original);setOriginalAssessment(selected.rating);setPendingReview(null);setEnhanceBackView("batch");setView("select")};
- useEffect(()=>{if(view!=="capture"||cameraStatus!=="live"||placement!=="ready"||shooting){if(autoReadyRef.current){window.clearTimeout(autoReadyRef.current);autoReadyRef.current=null}return}autoReadyRef.current=window.setTimeout(()=>{autoReadyRef.current=null;void shootSequence()},700);return()=>{if(autoReadyRef.current){window.clearTimeout(autoReadyRef.current);autoReadyRef.current=null}}},[view,cameraStatus,placement,shooting]);
- const openGuidedCamera=()=>{setView("capture");setTimeout(()=>startCamera(),80)};
- const addPhoto=()=>openGuidedCamera();
- const exitLoadedSession=()=>{setSessionAgent(null);setSessionCode("");setScanError("");setView("console");history.replaceState({},"","/");window.scrollTo({top:0,behavior:"smooth"})};
- // A designer-approval or designer-review request must show under Pending Designer Review the moment it
- // is created — not only after the agent finishes capture/consent and clicks Save. This mirrors that
- // gallery entry immediately; confirm()'s dataUrl-based dedup later replaces it with the saved photo.
- const addPendingPhoto=(request:ReviewRequest,src:string,rating:PhotoRating,width:number,height:number)=>{
-  setGallery(g=>g.some(item=>item.reviewRequestId===request.id)?g:[{id:crypto.randomUUID(),dataUrl:src,createdAt:request.createdAt,category:"atlas",enhanced:request.kind==="enhanced_review",profileOK:true,brandOK:false,rating,reviewRequestId:request.id,agentName:request.agentName,agentId:request.agentId,agentMobile:sessionAgent?.agentMobile||demoAgent.agentMobile,agentRenTag:sessionAgent?.agentRenTag||demoAgent.agentRenTag,agentOfficePhone:sessionAgent?.agentOfficePhone||demoAgent.agentOfficePhone,width,height},...g.filter(item=>item.dataUrl!==src)].slice(0,6));
- };
- const confirm=()=>{const finalUrl=photo||original;if(!assessment||(!isPhotoApproved(assessment)&&!pendingReview)){setToast("Improve the photo until it reaches the approval standard.");return}const item:Photo={id:crypto.randomUUID(),dataUrl:finalUrl,createdAt:new Date().toISOString(),category:"atlas",enhanced,profileOK,brandOK:brandOK&&isPhotoApproved(assessment),rating:assessment,originalRating:originalAssessment??undefined,reviewRequestId:pendingReview?.id,agentName:sessionAgent?.agentName||demoAgent.agentName,agentId:sessionAgent?.agentId||demoAgent.agentId,agentMobile:sessionAgent?.agentMobile||demoAgent.agentMobile,agentRenTag:sessionAgent?.agentRenTag||demoAgent.agentRenTag,agentOfficePhone:sessionAgent?.agentOfficePhone||demoAgent.agentOfficePhone,...dimensions};setGallery(g=>[item,...g.filter(x=>x.dataUrl!==finalUrl)].slice(0,6));if(isPhotoApproved(assessment))void recordApprovedPhoto({photoId:item.id,dataUrl:item.dataUrl,agentId:item.agentId||"unknown",agentName:item.agentName||"Agent",marketingReadiness:assessment.score,aiUsability:assessment.ai_usability,enhanced:item.enhanced,createdAt:item.createdAt});if(reminder)void designerStore().recordReminderUpload(reminder.token);setView("success")};
- const download=(src:string,name="studio-professional-portrait.jpg")=>{const a=document.createElement("a");a.href=src;a.download=name;document.body.appendChild(a);a.click();a.remove();setToast("Photo downloaded")};
- const printPhoto=(src:string)=>{const w=window.open("","_blank","noopener,noreferrer");if(!w){setToast("Allow pop-ups to open the print page.");return}const pageSize={auto:"auto", "4x6":"4in 6in",a4:"A4",letter:"letter"}[printSize];w.document.write(`<title>Print Profile Lab AI Portrait</title><style>@page{size:${pageSize};margin:0}*{box-sizing:border-box}body{margin:0;display:grid;place-items:center;min-height:100vh;background:#eee}img{display:block;max-width:100%;max-height:100vh;object-fit:contain}@media print{html,body{width:100%;height:100%;background:#fff}img{width:100%;height:100%;object-fit:contain}}</style><img src="${src}" onload="setTimeout(()=>print(),120)" alt="Profile Lab AI portrait">`);w.document.close();setToast("Choose any installed printer in the system dialog")};
- const setPhotoCategory=(id:string,category:PhotoCategory)=>{setGallery(current=>current.map(item=>item.id===id?{...item,category}:item));setToast(category==="awards"?"Marked for awards night":"Marked as the Atlas photo")};
- const removePhoto=()=>{if(!deletePhotoId)return;setGallery(current=>current.filter(item=>item.id!==deletePhotoId));setDeletePhotoId(null);setToast("Photo removed")};
- const reset=()=>{stopCamera();stopScanner();setPhoto("");setOriginal("");setAssessment(null);setOriginalAssessment(null);setPendingReview(null);setEnhanced(false);setProfileOK(true);setBrandOK(true);setGallery([]);setSessionAgent(null);setSessionCode("");setResetConfirm(false);setDeletePhotoId(null);localStorage.removeItem("ps-gallery");setView("console");history.replaceState({},"","/");setToast("Session reset")};
- const cameraAgent=sessionAgent??demoAgent,qualityApproved=assessment?isPhotoApproved(assessment):false,savable=qualityApproved||Boolean(pendingReview);
- const confirmReminderOptOut=async()=>{if(!reminder)return;const agent=await designerStore().confirmPhotoOptOut(reminder.token);if(agent)setReminderAction("opted_out")};
- if(reminder&&reminderAction)return <main className="reminder-optout"><section><span className="reminder-optout-mark"><ShieldCheck size={28}/></span><Badge tone="eyebrow">PROFILE LAB AI PHOTO PREFERENCE</Badge><h1>{reminderAction==="opted_out"?"Photo submission skipped":"Skip Photo Submission?"}</h1><p>{reminderAction==="opted_out"?"Your preference has been saved. You can still upload a photo whenever you choose.":"You are choosing not to submit a Profile Lab AI profile photo at this time."}</p>{reminderAction==="opted_out"?<Button variant="primary" onClick={()=>{setReminderAction(null);history.replaceState({},"",reminder.uploadUrl);openGuidedCamera()}}>Upload a photo instead</Button>:<div><Button className="reminder-confirm-optout" onClick={()=>void confirmReminderOptOut()}>Confirm — I don&apos;t want to submit a photo</Button><Button variant="primary" onClick={()=>{setReminderAction(null);history.replaceState({},"",reminder.uploadUrl);openGuidedCamera()}}>Go Back &amp; Upload Photo</Button></div>}</section></main>;
- if(view==="session"&&sessionAgent)return <SessionProfile agent={sessionAgent} code={sessionCode} onStart={openGuidedCamera} onExit={exitLoadedSession} onPending={addPendingPhoto}/>;
- // Three exits from the assessment screen. An approved photo goes to the manual editor as before; an
- // original kept as-is and an enhanced-then-reviewed photo both go straight to consent with the ORIGINAL
- // photo and rating; a passed AI portrait goes to consent with the enhanced image and its own rating,
- // while `originalAssessment` keeps the first verdict.
- if(view==="review"&&assessment&&photo)return <UploadedPhotoCheck key={photo} src={photo} dimensions={dimensions} assessment={assessment} agent={cameraAgent} pendingReview={pendingReview} onContinue={format=>{setCropFormat(format);setEnhanceBackView("review");setView("select")}} onUseOriginal={(format,request)=>{setCropFormat(format);setPendingReview(request);setPhoto(original);setEnhanced(false);setAssessment(originalAssessment??assessment);setToast(`Designer approval requested · ${request.id}`);setView("consent")}} onRetake={openGuidedCamera} onExit={()=>go("personal")} onUpload={upload} onPending={addPendingPhoto}/>;
- if(view==="select"&&original)return <StudioEnhanceEditor key={original} src={original} targetAspect={cropFormat==="square"?1:.8} onBack={()=>setView(enhanceBackView)} onContinue={async(result,usedEnhancement,nextDimensions)=>{setPhoto(result);setDimensions(nextDimensions);setEnhanced(usedEnhancement);try{setAssessment(await assess(result,cropFormat==="square"?1:.8))}catch{setAssessment({...emptyPhotoRating,label:"Rating unavailable",recommendation:"Try exporting the photo again."})}setView("consent")}}/>;
- if(view==="capture"){const placementCopy={checking:"Detecting your face…",ready:capturePreview?`Photo ${shots.length} captured`:shooting?"Hold that pose":"Ready · hold for 5 seconds",close:"Take one small step back",far:"Move a little closer",center:"Move your face into the oval"}[placement],poseInstruction={checking:"Face the camera so we can guide you.",ready:"Look at the lens, relax your shoulders and keep your chin level.",close:"Step back until your head and shoulders fit inside the guide.",far:"Move closer until your face fills the oval.",center:"Move gently until your eyes and face sit inside the guide."}[placement],readinessScore={checking:35,ready:92,close:58,far:60,center:68}[placement],readinessTone=readinessScore>=85?"good":readinessScore>=60?"fair":"low";return <main className={`studio-camera placement-${placement} crop-${cropFormat}`}><div className="camera-workspace"><div className="camera-top"><Button className="camera-close" onClick={closeGuidedCamera} aria-label="Close camera"><span aria-hidden="true">×</span></Button><div><span>{cameraAgent.agentName}</span><small>We&apos;ll take the photo when you hold still</small></div><b className="capture-count" aria-label={`${shots.length} of ${shotCount} photos`}>{shots.length}/{shotCount}<small>Photos</small></b></div><div ref={cameraViewportRef} className="camera-viewport"><video ref={videoRef} autoPlay muted playsInline/><div className={`live-pose-card ${readinessTone}`} aria-live="polite"><div><span>Camera readiness</span><strong>{readinessScore}<small>/100</small></strong></div><i><b style={{width:`${readinessScore}%`}}/></i><p>{poseInstruction}</p><small>Framing and distance only</small></div><div className="camera-stage"><div className="ratio-label">{cropFormat==="square"?"1:1 SQUARE":"4:5 PORTRAIT"}</div><div className="crop-corners"><i/><i/><i/><i/></div><div ref={headGuideRef} className="head-guide"/><div className="waist-guide"><span>SHOULDERS</span></div></div>{timer!==null?<div className="studio-timer"><div className="countdown-pulse"><strong>{Math.max(1,Math.ceil(timer))}</strong></div></div>:null}{capturePreview?<><div className="camera-flash"/><div className="shot-preview"><div className={`shot-preview-frame ${cropFormat}`}><img src={capturePreview} alt={`Properly cropped capture ${shots.length} preview`} width={cropFormat==="square"?960:768} height={960}/><span className="preview-crop-label">{cropFormat==="square"?"1:1 crop":"4:5 crop"}</span></div>{captureRating?<CameraRating rating={captureRating}/>:null}<span className="shot-confirmation"><Check size={16}/> Photo {shots.length} captured</span></div></>:null}</div><div className={`placement-status ${placement}`}><i>{placement==="ready"?<Check size={17}/>:<ScanLine size={17}/>}</i><span>{placementCopy}</span></div><div className="camera-controls"><div className="format-options" aria-label="Photo crop"><Button className={cropFormat==="portrait"?"active":""} onClick={()=>selectCropFormat("portrait")} aria-pressed={cropFormat==="portrait"}>4:5 Portrait</Button><Button className={cropFormat==="square"?"active":""} onClick={()=>selectCropFormat("square")} aria-pressed={cropFormat==="square"}>1:1 Square</Button></div><div className="shot-options"><span>Photos</span>{([1,2,3,5] as const).map(n=><Button className={shotCount===n?"active":""} onClick={()=>setShotCount(n)} disabled={shooting} aria-pressed={shotCount===n} key={n}>{n}</Button>)}</div><div className="auto-capture"><Check size={16}/><span>We&apos;ll take it for you</span><small>Hold still for 5 seconds</small></div></div></div>{cameraStatus!=="live"?<div className="camera-loading">{cameraStatus==="error"?<><span>{cameraError}</span><Button onClick={()=>go("console")}>Back to Studio</Button></>:"Starting camera…"}</div>:null}</main>}
- if(view==="batch"){const selectedShot=shots.find(s=>s.id===selectedShotId),selectedScore=selectedShot?.rating.score??"—";return <main className={`batch-review batch-${cropFormat}`}><header><div><Badge tone="eyebrow">CHOOSE A PHOTO</Badge><h1>Select photo</h1><p>{shots.length===1?"Review the crop and rating before continuing.":"The highest-rated photo is selected. Compare the crops and choose your favourite."}</p></div><Button className="take-more" onClick={openGuidedCamera}><Camera size={18}/> Add photos</Button></header><div className="batch-summary"><StatTile className={`batch-summary-stat ${shots.length?"approved":"zero"}`} label="Photos" value={shots.length}/><StatTile className={`batch-summary-stat ${selectedShot?"approved":"zero"}`} label="Selected" value={selectedShot?"1":"0"}/><StatTile className={`batch-summary-stat ${selectedShot?.rating.tone==="good"?"approved":selectedShot?.rating.tone==="low"?"action":selectedShot?"pending":"zero"}`} label="Selected score" value={selectedScore}/></div><div className="batch-grid" role="list">{shots.map((shot,index)=>{const selected=selectedShotId===shot.id;return <Card className={selected?"selected":undefined} key={shot.id} role="listitem"><Button className="photo-choice" onClick={()=>setSelectedShotId(shot.id)} aria-pressed={selected}><img src={shot.original} alt={`Properly cropped capture ${index+1}`} width={cropFormat==="square"?960:768} height={960}/><span className="batch-crop-label">{cropFormat==="square"?"1:1 crop":"4:5 crop"}</span><CameraRating rating={shot.rating} compact/>{selected?<span className="selected-mark"><Check size={17}/> Selected</span>:null}</Button><div className="photo-meta"><span><b>Photo {index+1}</b><small>{cropFormat==="square"?"1:1 square":"4:5 portrait"} · Ready for enhancement</small></span><Button className="remove-shot" onClick={()=>removeShot(shot.id)} aria-label={`Remove photo ${index+1}`}><Trash2 size={17}/></Button></div></Card>})}</div><footer><span>{shots.length?`${shots.length} cropped photo${shots.length===1?"":"s"}`:"No photos selected"}</span><Button variant="primary" disabled={!shots.length} onClick={continueWithSelectedShot}>Continue <ArrowRight size={18}/></Button></footer></main>}
- return <main className="app-shell"><a className="skip-link" href="#app-content">Skip to content</a><nav className="app-nav" aria-label="Main navigation"><Button className="app-wordmark" onClick={()=>go("console")} aria-label="Profile Lab AI home"><img src="/profile-lab-logo.svg" alt="" width={219} height={200}/></Button><div className="app-nav-main">{nav.map(({id,label,icon:NavIcon})=><Button className={view===id?"active":""} onClick={()=>go(id)} aria-current={view===id?"page":undefined} key={id}><span aria-hidden="true"><NavIcon size={22}/></span><b>{label}</b></Button>)}</div><div className="rail-actions"><Button className="rail-help" onClick={()=>setToast("Help requested")} aria-label="Request help"><HelpCircle size={18}/><b>Help</b></Button><Button className="rail-reset" onClick={()=>setResetConfirm(true)}><RotateCcw size={18}/><b>Reset</b></Button></div></nav><div id="app-content" className="app-content">
- {view==="console"&&<section className="qr-home enter">{reminder?<div className="reminder-home-banner"><Mail size={22}/><span><small>PHOTO UPLOAD REMINDER</small><b>Hello {reminder.agentName}</b><p>Your reminder link is connected to Agent ID {reminder.agentId}. Uploading here will keep the photo with the correct agent record.</p></span></div>:null}<PageHeader className="qr-intro"><Badge tone="eyebrow">GET STARTED</Badge><h1>{reminder?"Upload your Profile Lab AI photo":"Take a photo or scan QR"}</h1><p>{reminder?"Upload a suitable existing photo, or take a new portrait instead.":"Take a new portrait, or scan your Atlas appointment QR. Already have a photo? Import it from Photos."}</p><div className="qr-main-actions">{reminder?<Button className="main-photo-action" onClick={()=>fileRef.current?.click()} disabled={checking}><Upload size={18}/> {checking?"Checking…":"Upload My Photo"}</Button>:null}<Button className="qr-secondary-action" onClick={openGuidedCamera}><Camera size={16}/> Take a photo</Button>{reminder?<Button className="reminder-home-optout" onClick={()=>setReminderAction("confirm_optout")}>I don&apos;t wish to submit a photo</Button>:<Link href="/atlas" prefetch={false}>Open Atlas <ArrowRight size={16}/></Link>}</div></PageHeader><input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} aria-label="Upload a portrait photo"/><div className={`qr-scanner ${scanStatus}`} aria-busy={scanStatus==="starting"}><video ref={scannerVideoRef} autoPlay muted playsInline/><div className="scan-shade"/><div className="scan-frame"><i/><i/><i/><i/>{scanStatus==="live"?<span role="status">Scanning…</span>:scanStatus==="starting"?<span role="status">Preparing camera…</span>:<QrCode size={54}/>}</div><span className={`scan-status-chip ${scanStatus}`}>{scanStatus==="error"?<AlertCircle size={14}/>:scanStatus==="live"?<ScanLine size={14}/>:<QrCode size={14}/>} {scanStatus==="live"?"Scanning":scanStatus==="starting"?"Starting camera":scanStatus==="error"?"Could not start":"Ready to scan"}</span>{scanStatus!=="live"?<Button className="scanner-start" onClick={startScanner} disabled={scanStatus==="starting"}><Camera size={19}/>{scanStatus==="starting"?"Starting camera…":scanStatus==="error"?"Try QR camera again":"Scan QR"}</Button>:null}</div><div className={scanError?"manual-checkin has-error":"manual-checkin"}><div><Keyboard size={19}/><span><b>Enter code</b></span></div><form onSubmit={e=>{e.preventDefault();loadStudioSession(sessionCode)}}><input name="appointment-code" autoComplete="off" spellCheck={false} translate="no" value={sessionCode} onChange={e=>setSessionCode(e.target.value)} placeholder="STUDIO-ATLAS-…" aria-label="Appointment code"/><Button type="submit"><ScanLine size={18}/> Load</Button></form>{scanError?<p role="alert">{scanError}</p>:null}</div></section>}
- {view==="capture"&&<section className="dark enter"><Stepper n={1} label="Photo"/><div className="capture"><div><Badge tone="eyebrow" className="pale">PHOTO</Badge><h1>{cameraStatus==="live"?"Ready":"Add a photo"}</h1><p>{cameraStatus==="live"?"Look at the lens. Hold still.":"Use the camera or upload."}</p><ul><li><span>1</span> One person in frame</li><li><span>2</span> Face the light</li></ul>{cameraError?<div className="camera-error" role="alert">{cameraError}</div>:null}<Button variant="gold" disabled={cameraStatus==="starting"||checking} onClick={takePhoto}><Camera size={19}/>{cameraStatus==="live"?"Take photo":cameraStatus==="starting"?"Starting…":cameraStatus==="error"?"Try again":"Start camera"}</Button><Button variant="upload" onClick={()=>fileRef.current?.click()} disabled={checking}><Upload size={18}/>{checking?"Checking…":"Upload"}</Button><input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} aria-label="Upload portrait photo"/></div><div className={`viewfinder ${cameraStatus==="live"?"has-video":""}`}><div className="vfhead"><span>DEVICE CAMERA</span><span className={cameraStatus==="live"?"live":""}>● {cameraStatus==="live"?"LIVE":"READY"}</span></div><video ref={videoRef} className="camera-video" autoPlay playsInline muted/><div className="person"><i/><b/></div><div className="oval"/><div className="cross x"/><div className="cross y"/><span className="tip">Eyes on line</span><div className="vfmeta"><span>LOCAL</span><span>PRIVATE</span><span>HD</span></div>{count!==null?<div className="count">{count||<Check size={72}/>}</div>:null}</div></div></section>}
- {view==="consent"&&<section className="flow narrow final-review enter"><Stepper n={4} label="Review"/><Badge tone="eyebrow">PHOTO CHECK</Badge><h1>Review your finished photo</h1><p className="lead">The export is scored for designer usability. Atlas profile and brand use are separate permissions.</p><div className="consent-summary"><StatTile className={`consent-summary-stat ${!assessment?"zero":qualityApproved?"approved":assessment.tone==="low"?"action":"pending"}`} label="Photo score" value={assessment?.score??"—"}/><StatTile className={`consent-summary-stat ${profileOK?"approved":"zero"}`} label="Atlas profile" value={profileOK?"On":"Off"}/><StatTile className={`consent-summary-stat ${brandOK?"approved":"zero"}`} label="Brand use" value={brandOK?"On":"Off"}/></div>{assessment?<div className={`final-quality ${qualityApproved?"approved":"needs-work"} ${assessment.tone}`} role="status"><div className="final-quality-summary"><span>{qualityApproved?<Check size={24}/>:<HelpCircle size={24}/>}</span><strong>{assessment.score}<small>/100</small></strong><div><small>{pendingReview?.workflowStatus??assessment.status}</small><b>{assessment.label}</b><p>{assessment.recommendation}</p></div></div><div className="final-quality-metrics">{assessment.metrics.map(metric=><StatTile key={metric.name} label={metric.name} value={metric.score}/>)}</div>{enhanced&&originalAssessment?<p className="session-file"><span>Scores</span> Original {originalAssessment.score} · AI enhanced {assessment.score} — the original rating is kept alongside.</p>:null}<p className="session-file"><span>File</span> {assessment.file_note}{assessment.file_status==="OK"?"":` · ${assessment.file_reason}`}</p><RatingFeedback rating={assessment} appeal={{agentName:sessionAgent?.agentName||demoAgent.agentName,agentId:sessionAgent?.agentId||demoAgent.agentId,photo:photo||original,sentId:pendingReview?.id,workflowStatus:pendingReview?.workflowStatus,onSent:request=>{setPendingReview(request);addPendingPhoto(request,photo||original,assessment,dimensions.width,dimensions.height);setToast(`Designer approval requested · ${request.id}`)}}}/></div>:null}{savable?<><div className="consents"><Toggle name="atlas-profile-permission" label="Atlas profile" note="Set as your profile photo." checked={profileOK} onChange={setProfileOK} ariaLabel="Allow use on my Atlas profile"/><Toggle name="brand-materials-permission" label="Brand use" note="Approve this photo for brand materials." checked={brandOK} onChange={setBrandOK} ariaLabel="Allow use in brand materials"/></div><p className="privacy">Photo approval and your permissions stay with this photo.</p></>:<p className="privacy quality-warning">{assessment?.status==="REUPLOAD"?assessment.recommendation:assessment?.status==="REVIEW"?"This photo needs a designer review before brand use.":`This photo needs ${photoApprovalThresholds.review}+ for review or ${photoApprovalThresholds.approved}+ for approval. Use the feedback above before retaking.`}</p>}<div className="final-review-actions"><Button className="review-back" onClick={()=>setView(pendingReview?"review":"select")}><ArrowLeft size={17}/>{pendingReview?"Back to assessment":savable?"Back to edit":"Improve photo"}</Button><Button variant="primary" disabled={!savable||!profileOK||!photo} onClick={confirm}>{pendingReview&&!qualityApproved?"Save pending designer review":"Save approved photo"}</Button></div></section>}
- {view==="success"&&<section className="success enter"><div className="tick"><Check size={36}/></div><Badge tone="eyebrow">SAVED</Badge><h1>Photo ready</h1><p>Saved to Photos. {brandOK?"Approved for brand use.":"Profile only."}</p><div className="success-summary"><StatTile className={`success-summary-stat ${profileOK?"approved":"zero"}`} label="Atlas profile" value={profileOK?"Saved":"Off"}/><StatTile className={`success-summary-stat ${brandOK?"approved":"zero"}`} label="Brand use" value={brandOK?"Approved":"Off"}/></div><div className="mini"><MediaFrame src={photo}/><div><small>Atlas profile</small><b>{sessionAgent?.agentName||demoAgent.agentName}</b><span className="success-saved-now"><Check size={14}/> Saved now</span></div></div><Button variant="primary" onClick={()=>go("personal")}>View in Photos <ArrowRight size={18}/></Button></section>}
- {/* The two photo-category-tag Badges below pass icon+label as children, not through the icon
+export default function Studio() {
+  const [view, setView] = useState<View>("personal"),
+    [pendingReview, setPendingReview] = useState<ReviewRequest | null>(null),
+    [originalAssessment, setOriginalAssessment] = useState<Assessment | null>(
+      null,
+    ),
+    [toast, setToast] = useState(""),
+    [count, setCount] = useState<number | null>(null),
+    [cameraStatus, setCameraStatus] = useState<
+      "idle" | "starting" | "live" | "error"
+    >("idle"),
+    [cameraError, setCameraError] = useState(""),
+    [photo, setPhoto] = useState<string>(""),
+    [original, setOriginal] = useState<string>(""),
+    [dimensions, setDimensions] = useState({ width: 0, height: 0 }),
+    [assessment, setAssessment] = useState<Assessment | null>(null),
+    [checking, setChecking] = useState(false),
+    [enhanced, setEnhanced] = useState(false),
+    [profileOK, setProfileOK] = useState(true),
+    [brandOK, setBrandOK] = useState(true),
+    [gallery, setGallery] = useState<Photo[]>([]);
+  const [scanStatus, setScanStatus] = useState<
+      "idle" | "starting" | "live" | "error"
+    >("idle"),
+    [scanError, setScanError] = useState(""),
+    [sessionCode, setSessionCode] = useState(""),
+    [sessionAgent, setSessionAgent] = useState<SessionAgent | null>(null),
+    [resetConfirm, setResetConfirm] = useState(false),
+    [deletePhotoId, setDeletePhotoId] = useState<string | null>(null);
+  const [reminder, setReminder] = useState<PhotoReminder | null>(null),
+    [reminderAction, setReminderAction] = useState<
+      "confirm_optout" | "opted_out" | null
+    >(null);
+  const [cameraDevices, setCameraDevices] = useState<CameraDevice[]>([]),
+    [selectedCameraId, setSelectedCameraId] = useState(""),
+    [discoveringCameras, setDiscoveringCameras] = useState(false),
+    [printSize, setPrintSize] = useState<PrintSize>("auto");
+  const [shotCount, setShotCount] = useState<1 | 2 | 3 | 5>(1),
+    [cropFormat, setCropFormat] = useState<"portrait" | "square">("portrait"),
+    [shooting, setShooting] = useState(false),
+    [timer, setTimer] = useState<number | null>(null),
+    [capturePreview, setCapturePreview] = useState(""),
+    [captureRating, setCaptureRating] = useState<PhotoRating | null>(null),
+    [shots, setShots] = useState<CapturedShot[]>([]),
+    [selectedShotId, setSelectedShotId] = useState(""),
+    [enhanceBackView, setEnhanceBackView] = useState<"review" | "batch">(
+      "review",
+    ),
+    [placement, setPlacement] = useState<
+      "checking" | "ready" | "close" | "far" | "center"
+    >("checking"),
+    [, setFaceBox] = useState<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null),
+    cameraViewportRef = useRef<HTMLDivElement>(null),
+    headGuideRef = useRef<HTMLDivElement>(null),
+    sourceFaceRef = useRef<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>(null),
+    scannerVideoRef = useRef<HTMLVideoElement>(null),
+    scannerControlsRef = useRef<IScannerControls | null>(null),
+    scannerStreamRef = useRef<MediaStream | null>(null),
+    scannerRunRef = useRef(0),
+    streamRef = useRef<MediaStream | null>(null),
+    fileRef = useRef<HTMLInputElement>(null),
+    placementRef = useRef(placement),
+    shootingRef = useRef(false),
+    captureRunRef = useRef(0),
+    autoReadyRef = useRef<number | null>(null);
+  useEffect(() => {
+    placementRef.current = placement;
+  }, [placement]);
+  useEffect(() => {
+    shootingRef.current = shooting;
+  }, [shooting]);
+  // The initial gallery state must start empty so the server render (no localStorage) matches the
+  // client's first hydration pass — reading the stored gallery only after mount avoids a hydration
+  // mismatch, at the cost of one extra render once real data lands.
+  useEffect(() => {
+    const stored = readGallery();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from localStorage, an external store React cannot see during SSR
+    if (stored.length) setGallery(stored);
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("ps-gallery", JSON.stringify(gallery.slice(0, 6)));
+    } catch {
+      /* Storage may be unavailable in private browsing. */
+    }
+  }, [gallery]);
+  const [, setReviewTick] = useState(0);
+  // The designer's decision lives in a separate store (photo-review-requests, IndexedDB assets) written
+  // from the designer dashboard — a different tab in the same browser. A storage event is how that tab's
+  // write reaches this one; re-checking on return to Photos covers same-tab/reload cases.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === "studio-review-requests")
+        setReviewTick((tick) => tick + 1);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  const reviewDecisions: Record<string, ReviewRequest["designerDecision"]> = {},
+    reviewStatuses: Record<string, ReviewRequest["workflowStatus"]> = {},
+    reviewOutcomes: Record<string, { feedback?: string; reviewedAt?: string }> =
+      {};
+  for (const request of listReviewRequests()) {
+    reviewDecisions[request.id] = request.designerDecision;
+    reviewStatuses[request.id] = request.workflowStatus;
+    reviewOutcomes[request.id] = {
+      feedback: request.designerFeedback,
+      reviewedAt: request.reviewedAt,
+    };
+  }
+  // Photos tab: every final approval (automatic or designer) lands in Approved Photos; only an active,
+  // undecided review request shows in Pending Designer Review. A retake/reupload decision is neither —
+  // it is a completed review the agent has not acted on yet, so it surfaces as Action Required instead of
+  // silently staying pending or disappearing. A designer's decision is read from the same review-request
+  // record the designer dashboard writes (resolveReviewRequest shares its id with the submissionId in
+  // designer-store), so approval here never needs a separate local pending state.
+  const photoStatusOf = (item: Photo) => {
+    const decision = item.reviewRequestId
+        ? reviewDecisions[item.reviewRequestId]
+        : undefined,
+      pendingWorkflow = item.reviewRequestId
+        ? reviewStatuses[item.reviewRequestId]
+        : undefined,
+      outcome = item.reviewRequestId
+        ? reviewOutcomes[item.reviewRequestId]
+        : undefined,
+      approved =
+        (item.rating ? isPhotoApproved(item.rating) : false) ||
+        decision === "approved",
+      photoType =
+        pendingWorkflow === workflowStatusFor.enhanced_review ||
+        (!pendingWorkflow && item.enhanced)
+          ? "AI Enhanced"
+          : "Original Photo",
+      approvalSource: "AI" | "DESIGNER" =
+        decision === "approved" ? "DESIGNER" : "AI",
+      actionRequired =
+        decision === "retake" || decision === "reupload" ? decision : undefined;
+    return {
+      decision,
+      approved,
+      pending: decision === "pending",
+      photoType,
+      approvalSource,
+      actionRequired,
+      designerFeedback: outcome?.feedback,
+      reviewedAt: outcome?.reviewedAt,
+    };
+  };
+  const approvedPhotos = gallery.filter((item) => photoStatusOf(item).approved),
+    pendingPhotos = gallery.filter((item) => {
+      const status = photoStatusOf(item);
+      return !status.approved && status.pending;
+    }),
+    actionRequiredPhotos = gallery.filter((item) => {
+      const status = photoStatusOf(item);
+      return !status.approved && Boolean(status.actionRequired);
+    });
+  useEffect(
+    () => () => streamRef.current?.getTracks().forEach((t) => t.stop()),
+    [],
+  );
+  useEffect(
+    () => () => {
+      scannerRunRef.current += 1;
+      scannerControlsRef.current?.stop();
+      scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
+    },
+    [],
+  );
+  useEffect(() => {
+    if (view !== "capture" || cameraStatus !== "live") return;
+    let cancelled = false,
+      detector: {
+        detectForVideo: (
+          video: HTMLVideoElement,
+          time: number,
+        ) => {
+          detections: Array<{
+            boundingBox?: {
+              originX: number;
+              originY: number;
+              width: number;
+              height: number;
+            };
+          }>;
+        };
+        close: () => void;
+      } | null = null,
+      lastCheck = 0,
+      frame = 0;
+    const clearFace = () => {
+      sourceFaceRef.current = null;
+      setFaceBox(null);
+    };
+    const run = async () => {
+      try {
+        const vision = await import("@mediapipe/tasks-vision"),
+          files = await vision.FilesetResolver.forVisionTasks("/mediapipe");
+        detector = await vision.FaceDetector.createFromOptions(files, {
+          baseOptions: { modelAssetPath: "/blaze_face_short_range.tflite" },
+          runningMode: "VIDEO",
+          minDetectionConfidence: 0.5,
+        });
+        if (cancelled) {
+          detector.close();
+          return;
+        }
+        const check = (time: number) => {
+          if (cancelled) return;
+          frame = requestAnimationFrame(check);
+          if (time - lastCheck < 140) return;
+          lastCheck = time;
+          const video = videoRef.current,
+            viewport = cameraViewportRef.current,
+            guide = headGuideRef.current;
+          if (!video || !viewport || !guide || video.readyState < 2) return;
+          try {
+            const detections =
+              detector?.detectForVideo(video, time).detections ?? [];
+            if (detections.length !== 1 || !detections[0].boundingBox) {
+              clearFace();
+              setPlacement("center");
+              return;
+            }
+            const box = detections[0].boundingBox,
+              vw = video.videoWidth,
+              vh = video.videoHeight,
+              vr = viewport.getBoundingClientRect(),
+              gr = guide.getBoundingClientRect(),
+              videoAspect = vw / vh,
+              viewAspect = vr.width / vr.height;
+            let rw = vr.width,
+              rh = vr.height,
+              ox = 0,
+              oy = 0;
+            if (videoAspect > viewAspect) {
+              rh = rw / videoAspect;
+              oy = (vr.height - rh) / 2;
+            } else {
+              rw = rh * videoAspect;
+              ox = (vr.width - rw) / 2;
+            }
+            const source = {
+                x: box.originX / vw,
+                y: box.originY / vh,
+                width: box.width / vw,
+                height: box.height / vh,
+              },
+              displayX = ox + (1 - source.x - source.width) * rw,
+              displayY = oy + source.y * rh,
+              displayWidth = source.width * rw,
+              displayHeight = source.height * rh,
+              faceCenterX = vr.left + displayX + displayWidth / 2,
+              faceCenterY = vr.top + displayY + displayHeight / 2,
+              guideCenterX = gr.left + gr.width / 2,
+              guideCenterY = gr.top + gr.height / 2,
+              dx = Math.abs(faceCenterX - guideCenterX) / (gr.width / 2),
+              dy = Math.abs(faceCenterY - guideCenterY) / (gr.height / 2),
+              size = displayHeight / gr.height;
+            sourceFaceRef.current = source;
+            setFaceBox({
+              x: displayX / vr.width,
+              y: displayY / vr.height,
+              width: displayWidth / vr.width,
+              height: displayHeight / vr.height,
+            });
+            if (size > 1.08) setPlacement("close");
+            else if (size < 0.36) setPlacement("far");
+            else if (dx > 0.68 || dy > 0.68) setPlacement("center");
+            else setPlacement("ready");
+          } catch {
+            clearFace();
+            setPlacement("checking");
+          }
+        };
+        frame = requestAnimationFrame(check);
+      } catch {
+        if (!cancelled) {
+          clearFace();
+          setPlacement("checking");
+        }
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      detector?.close();
+      sourceFaceRef.current = null;
+    };
+  }, [view, cameraStatus]);
+  useEffect(() => {
+    const syncView = () => {
+      const params = new URLSearchParams(location.search),
+        raw = params.get("view"),
+        requested = (raw === "brand" ? "personal" : raw) as View | null;
+      if (requested && navigableViews.has(requested)) setView(requested);
+      else if (!params.get("session")) setView("personal");
+    };
+    syncView();
+    addEventListener("popstate", syncView);
+    return () => removeEventListener("popstate", syncView);
+  }, []);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search),
+      token = params.get("reminder");
+    if (!token) return;
+    let active = true;
+    designerStore()
+      .reminderByToken(token)
+      .then((record) => {
+        if (!active || !record) return;
+        setReminder(record);
+        setSessionAgent({
+          agentId: record.agentId,
+          agentName: record.agentName,
+        });
+        setView("console");
+        if (params.get("reminder_action") === "optout")
+          setReminderAction("confirm_optout");
+      })
+      .catch((error) =>
+        console.error("Photo reminder could not be opened", error),
+      );
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(""), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+  useEffect(() => {
+    if (!resetConfirm && !deletePhotoId) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setResetConfirm(false);
+      setDeletePhotoId(null);
+    };
+    addEventListener("keydown", close);
+    return () => removeEventListener("keydown", close);
+  }, [deletePhotoId, resetConfirm]);
+  useEffect(() => {
+    document
+      .getElementById("app-content")
+      ?.scrollTo({ top: 0, behavior: "auto" });
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [view]);
+  useEffect(() => {
+    const devices = navigator.mediaDevices;
+    if (!devices?.enumerateDevices) return;
+    const sync = async () => {
+      try {
+        const cameras = (await devices.enumerateDevices())
+          .filter((device) => device.kind === "videoinput")
+          .map((device, index) => ({
+            deviceId: device.deviceId,
+            label: device.label || `Camera ${index + 1}`,
+          }));
+        setCameraDevices(cameras);
+        setSelectedCameraId((current) =>
+          current && cameras.some((camera) => camera.deviceId === current)
+            ? current
+            : (cameras[0]?.deviceId ?? ""),
+        );
+      } catch {
+        /* Device discovery is also retried from the Studio screen. */
+      }
+    };
+    void sync();
+    devices.addEventListener?.("devicechange", sync);
+    return () => devices.removeEventListener?.("devicechange", sync);
+  }, []);
+  const stopScanner = () => {
+    scannerRunRef.current += 1;
+    scannerControlsRef.current?.stop();
+    scannerControlsRef.current = null;
+    scannerStreamRef.current?.getTracks().forEach((track) => track.stop());
+    scannerStreamRef.current = null;
+    if (scannerVideoRef.current) scannerVideoRef.current.srcObject = null;
+  };
+  const go = (v: View) => {
+    if (v !== "capture") stopCamera();
+    if (v !== "console") stopScanner();
+    setView(v);
+    if (navigableViews.has(v)) {
+      const next = v === "console" ? "/" : `/?view=${v}`;
+      history.pushState({ view: v }, "", next);
+    }
+    document
+      .getElementById("app-content")
+      ?.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const loadStudioSession = async (raw: string) => {
+    let code = raw.trim();
+    try {
+      const parsed = new URL(code);
+      code = parsed.searchParams.get("session") || code;
+    } catch {
+      /* Plain appointment codes are expected here. */
+    }
+    code = decodeURIComponent(code);
+    setScanError("");
+    try {
+      let data: SessionAgent | null = null;
+      const saved = localStorage.getItem(`photostudio-session:${code}`);
+      if (saved) data = JSON.parse(saved);
+      if (!data) {
+        const response = await fetch(
+          `/api/studio-sessions?session=${encodeURIComponent(code)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error("Appointment not found");
+        data = await response.json();
+      }
+      stopScanner();
+      setSessionAgent(data);
+      setSessionCode(code);
+      setScanStatus("idle");
+      setView("session");
+      history.replaceState({}, "", `/?session=${encodeURIComponent(code)}`);
+      setToast(`${data.agentName} loaded`);
+    } catch {
+      stopScanner();
+      setScanError(
+        "Appointment not found. Book in Atlas, then scan the new QR or enter its code.",
+      );
+      setScanStatus("error");
+    }
+  };
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get("session");
+    if (!code) return;
+    const timer = window.setTimeout(() => void loadStudioSession(code), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const startScanner = async () => {
+    if (scanStatus === "starting") return;
+    stopScanner();
+    const runId = scannerRunRef.current,
+      setError = (message: string) => {
+        if (scannerRunRef.current !== runId) return;
+        stopScanner();
+        setScanStatus("error");
+        setScanError(message);
+      };
+    setScanStatus("starting");
+    setScanError("");
+    let timedOut = false,
+      timeoutId = 0;
+    try {
+      if (!navigator.mediaDevices?.getUserMedia)
+        throw new Error("Camera access is not supported in this browser.");
+      const video = scannerVideoRef.current;
+      if (!video) throw new Error("The QR preview is not ready. Try again.");
+      const { BrowserQRCodeReader } = await import("@zxing/browser");
+      if (scannerRunRef.current !== runId) return;
+      const request = navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      request
+        .then((stream) => {
+          if (timedOut || scannerRunRef.current !== runId)
+            stream.getTracks().forEach((track) => track.stop());
+        })
+        .catch(() => {});
+      const timeout = new Promise<never>((_, reject) => {
+          timeoutId = window.setTimeout(() => {
+            timedOut = true;
+            reject(
+              new Error(
+                "Camera permission timed out. Check the browser camera icon, then try again.",
+              ),
+            );
+          }, 10000);
+        }),
+        stream = await Promise.race([request, timeout]);
+      window.clearTimeout(timeoutId);
+      if (scannerRunRef.current !== runId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      scannerStreamRef.current = stream;
+      let found = false;
+      const reader = new BrowserQRCodeReader(undefined, {
+          delayBetweenScanAttempts: 120,
+          delayBetweenScanSuccess: 800,
+        }),
+        controls = await reader.decodeFromStream(stream, video, (result) => {
+          if (!result || found || scannerRunRef.current !== runId) return;
+          found = true;
+          stopScanner();
+          setScanStatus("starting");
+          void loadStudioSession(result.getText());
+        });
+      if (scannerRunRef.current !== runId) {
+        controls.stop();
+        return;
+      }
+      scannerControlsRef.current = controls;
+      setScanStatus("live");
+    } catch (e) {
+      window.clearTimeout(timeoutId);
+      const error = e instanceof Error ? e : null;
+      if (error?.name === "NotAllowedError" || error?.name === "SecurityError")
+        setError(
+          "Camera permission is off. Allow access in your browser, then try again.",
+        );
+      else if (
+        error?.name === "NotFoundError" ||
+        error?.name === "OverconstrainedError"
+      )
+        setError(
+          "No camera was found. Connect or enable a camera, then try again.",
+        );
+      else if (
+        error?.name === "NotReadableError" ||
+        error?.name === "AbortError"
+      )
+        setError(
+          "The camera is busy. Close other camera apps, then try again.",
+        );
+      else
+        setError(
+          error?.message ||
+            "The QR camera could not start. Enter the appointment code below.",
+        );
+    }
+  };
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraStatus((s) => (s === "error" ? s : "idle"));
+  };
+  const syncCameraDevices = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    const cameras = (await navigator.mediaDevices.enumerateDevices())
+      .filter((device) => device.kind === "videoinput")
+      .map((device, index) => ({
+        deviceId: device.deviceId,
+        label: device.label || `Camera ${index + 1}`,
+      }));
+    setCameraDevices(cameras);
+    setSelectedCameraId((current) =>
+      current && cameras.some((camera) => camera.deviceId === current)
+        ? current
+        : (cameras[0]?.deviceId ?? ""),
+    );
+    return cameras;
+  };
+  const discoverCameras = async () => {
+    setDiscoveringCameras(true);
+    setCameraError("");
+    try {
+      if (!navigator.mediaDevices?.getUserMedia)
+        throw new Error("Camera access is not supported in this browser.");
+      if (!streamRef.current) {
+        const permissionStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+        permissionStream.getTracks().forEach((track) => track.stop());
+      }
+      const cameras = await syncCameraDevices();
+      setToast(
+        cameras.length
+          ? `${cameras.length} camera${cameras.length === 1 ? "" : "s"} found`
+          : "No cameras found. Connect one, then refresh.",
+      );
+    } catch (e) {
+      setCameraError(
+        e instanceof Error && e.name === "NotAllowedError"
+          ? "Camera permission is off. Allow access, then find cameras again."
+          : e instanceof Error
+            ? e.message
+            : "Cameras could not be detected.",
+      );
+    } finally {
+      setDiscoveringCameras(false);
+    }
+  };
+  const startCamera = async (deviceId = selectedCameraId) => {
+    setCameraStatus("starting");
+    setCameraError("");
+    stopCamera();
+    let timedOut = false,
+      timeoutId = 0;
+    try {
+      if (!navigator.mediaDevices?.getUserMedia)
+        throw new Error("Camera access is not supported in this browser.");
+      const video: MediaTrackConstraints = deviceId
+        ? {
+            deviceId: { exact: deviceId },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          }
+        : {
+            facingMode: "user",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          };
+      const request = navigator.mediaDevices.getUserMedia({
+        video,
+        audio: false,
+      });
+      request
+        .then((s) => {
+          if (timedOut) s.getTracks().forEach((t) => t.stop());
+        })
+        .catch(() => {});
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          timedOut = true;
+          reject(
+            new Error(
+              "Camera permission timed out. Check the browser camera icon, allow access, then try again.",
+            ),
+          );
+        }, 10000);
+      });
+      const stream = await Promise.race([request, timeout]);
+      window.clearTimeout(timeoutId);
+      streamRef.current = stream;
+      const activeId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+      if (activeId) setSelectedCameraId(activeId);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      await syncCameraDevices();
+      setCameraStatus("live");
+    } catch (e) {
+      window.clearTimeout(timeoutId);
+      setCameraStatus("error");
+      setCameraError(
+        e instanceof Error && e.name === "NotAllowedError"
+          ? "Camera permission is off. Allow camera access in your browser, then try again."
+          : e instanceof Error && e.name === "OverconstrainedError"
+            ? "That camera is no longer available. Refresh the camera list and choose another."
+            : e instanceof Error
+              ? e.message
+              : "Camera could not start.",
+      );
+    }
+  };
+  const reviewPhoto = async (src: string) => {
+    setChecking(true);
+    try {
+      const img = await loadImage(src);
+      setDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+      const normalized = await normalizePhoto(src),
+        result = await assess(normalized);
+      setPhoto(normalized);
+      setOriginal(normalized);
+      setAssessment(result);
+      setOriginalAssessment(result);
+      setPendingReview(null);
+      setEnhanced(false);
+      setView("review");
+    } catch {
+      setToast(
+        "This image could not be opened. Choose a JPG, PNG or WebP file.",
+      );
+    } finally {
+      setChecking(false);
+    }
+  };
+  const upload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setToast("Choose an image file: JPG, PNG or WebP.");
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setToast("Choose a photo smaller than 12 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () =>
+      typeof reader.result === "string" && reviewPhoto(reader.result);
+    reader.onerror = () =>
+      setToast("The file could not be read. Try another photo.");
+    reader.readAsDataURL(file);
+  };
+  const takePhoto = () => {
+    if (cameraStatus !== "live" || !videoRef.current) {
+      startCamera();
+      return;
+    }
+    setCount(3);
+    let n = 3;
+    const timer = setInterval(() => {
+      n -= 1;
+      setCount(n);
+      if (n > 0) return;
+      clearInterval(timer);
+      const v = videoRef.current!;
+      const c = document.createElement("canvas");
+      c.width = v.videoWidth || 960;
+      c.height = v.videoHeight || 960;
+      c.getContext("2d")?.drawImage(v, 0, 0, c.width, c.height);
+      const src = c.toDataURL("image/jpeg", 0.9);
+      stopCamera();
+      setCount(null);
+      reviewPhoto(src);
+    }, 700);
+  };
+  const waitCountdown = async (seconds: number, runId: number) => {
+    for (let value = seconds; value > 0; value -= 0.1) {
+      if (placementRef.current !== "ready" || captureRunRef.current !== runId)
+        return false;
+      setTimer(Math.max(0, Math.round(value * 10) / 10));
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return captureRunRef.current === runId;
+  };
+  const captureCurrent = () => {
+    const v = videoRef.current!,
+      c = document.createElement("canvas"),
+      ctx = c.getContext("2d")!,
+      vw = v.videoWidth || 1280,
+      vh = v.videoHeight || 720,
+      target = cropFormat === "square" ? 1 : 0.8;
+    let sx = 0,
+      sy = 0,
+      sw = vw,
+      sh = vh;
+    if (vw / vh > target) {
+      sw = vh * target;
+      sx = (vw - sw) / 2;
+    } else {
+      sh = vw / target;
+      sy = (vh - sh) / 2;
+    }
+    c.width = 960;
+    c.height = cropFormat === "square" ? 960 : 1200;
+    ctx.save();
+    ctx.translate(c.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    ctx.restore();
+    return c.toDataURL("image/jpeg", 0.92);
+  };
+  const shootSequence = async () => {
+    if (
+      cameraStatus !== "live" ||
+      shootingRef.current ||
+      placementRef.current !== "ready"
+    )
+      return;
+    const runId = ++captureRunRef.current;
+    setShooting(true);
+    setShots([]);
+    setSelectedShotId("");
+    const next = [] as CapturedShot[];
+    for (let i = 0; i < shotCount; i++) {
+      const held = await waitCountdown(5, runId);
+      if (!held || placementRef.current !== "ready") {
+        setTimer(null);
+        setCapturePreview("");
+        setCaptureRating(null);
+        setShooting(false);
+        return;
+      }
+      setTimer(null);
+      const captured = captureCurrent(),
+        rating = await evaluatePhoto(
+          captured,
+          cropFormat === "square" ? 1 : 0.8,
+        ).catch(() => ({ ...emptyPhotoRating, label: "Rating unavailable" }));
+      if (captureRunRef.current !== runId) {
+        setShooting(false);
+        return;
+      }
+      const shot = { id: crypto.randomUUID(), original: captured, rating };
+      next.push(shot);
+      setShots([...next]);
+      setCapturePreview(captured);
+      setCaptureRating(rating);
+      await new Promise((resolve) => setTimeout(resolve, 1400));
+      setCapturePreview("");
+      setCaptureRating(null);
+      if (captureRunRef.current !== runId) {
+        setShooting(false);
+        return;
+      }
+    }
+    const best = next.reduce(
+      (current, shot) =>
+        shot.rating.score > current.rating.score ? shot : current,
+      next[0],
+    );
+    if (best) setSelectedShotId(best.id);
+    setShooting(false);
+    stopCamera();
+    setView("batch");
+  };
+  const cancelAutoCapture = () => {
+    captureRunRef.current += 1;
+    placementRef.current = "checking";
+    shootingRef.current = false;
+    setTimer(null);
+    setCapturePreview("");
+    setCaptureRating(null);
+    setShooting(false);
+  };
+  const closeGuidedCamera = () => {
+    cancelAutoCapture();
+    sourceFaceRef.current = null;
+    setFaceBox(null);
+    stopCamera();
+    if (sessionAgent) setView("session");
+    else go("personal");
+  };
+  const selectCropFormat = (format: "portrait" | "square") => {
+    if (format === cropFormat) return;
+    cancelAutoCapture();
+    setCropFormat(format);
+  };
+  const removeShot = (id: string) => {
+    const remaining = shots.filter((shot) => shot.id !== id);
+    setShots(remaining);
+    if (selectedShotId === id) setSelectedShotId(remaining[0]?.id ?? "");
+  };
+  const continueWithSelectedShot = () => {
+    const selected =
+      shots.find((shot) => shot.id === selectedShotId) ?? shots[0];
+    if (!selected) return;
+    setDimensions({ width: 960, height: cropFormat === "square" ? 960 : 1200 });
+    setPhoto(selected.original);
+    setOriginal(selected.original);
+    setOriginalAssessment(selected.rating);
+    setPendingReview(null);
+    setEnhanceBackView("batch");
+    setView("select");
+  };
+  useEffect(() => {
+    if (
+      view !== "capture" ||
+      cameraStatus !== "live" ||
+      placement !== "ready" ||
+      shooting
+    ) {
+      if (autoReadyRef.current) {
+        window.clearTimeout(autoReadyRef.current);
+        autoReadyRef.current = null;
+      }
+      return;
+    }
+    autoReadyRef.current = window.setTimeout(() => {
+      autoReadyRef.current = null;
+      void shootSequence();
+    }, 700);
+    return () => {
+      if (autoReadyRef.current) {
+        window.clearTimeout(autoReadyRef.current);
+        autoReadyRef.current = null;
+      }
+    };
+  }, [view, cameraStatus, placement, shooting]);
+  const openGuidedCamera = () => {
+    setView("capture");
+    setTimeout(() => startCamera(), 80);
+  };
+  const addPhoto = () => openGuidedCamera();
+  const exitLoadedSession = () => {
+    setSessionAgent(null);
+    setSessionCode("");
+    setScanError("");
+    setView("console");
+    history.replaceState({}, "", "/");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  // A designer-approval or designer-review request must show under Pending Designer Review the moment it
+  // is created — not only after the agent finishes capture/consent and clicks Save. This mirrors that
+  // gallery entry immediately; confirm()'s dataUrl-based dedup later replaces it with the saved photo.
+  const addPendingPhoto = (
+    request: ReviewRequest,
+    src: string,
+    rating: PhotoRating,
+    width: number,
+    height: number,
+  ) => {
+    setGallery((g) =>
+      g.some((item) => item.reviewRequestId === request.id)
+        ? g
+        : [
+            {
+              id: crypto.randomUUID(),
+              dataUrl: src,
+              createdAt: request.createdAt,
+              category: "atlas",
+              enhanced: request.kind === "enhanced_review",
+              profileOK: true,
+              brandOK: false,
+              rating,
+              reviewRequestId: request.id,
+              agentName: request.agentName,
+              agentId: request.agentId,
+              agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
+              agentRenTag: sessionAgent?.agentRenTag || demoAgent.agentRenTag,
+              agentOfficePhone:
+                sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
+              width,
+              height,
+            },
+            ...g.filter((item) => item.dataUrl !== src),
+          ].slice(0, 6),
+    );
+  };
+  const confirm = () => {
+    const finalUrl = photo || original;
+    if (!assessment || (!isPhotoApproved(assessment) && !pendingReview)) {
+      setToast("Improve the photo until it reaches the approval standard.");
+      return;
+    }
+    const item: Photo = {
+      id: crypto.randomUUID(),
+      dataUrl: finalUrl,
+      createdAt: new Date().toISOString(),
+      category: "atlas",
+      enhanced,
+      profileOK,
+      brandOK: brandOK && isPhotoApproved(assessment),
+      rating: assessment,
+      originalRating: originalAssessment ?? undefined,
+      reviewRequestId: pendingReview?.id,
+      agentName: sessionAgent?.agentName || demoAgent.agentName,
+      agentId: sessionAgent?.agentId || demoAgent.agentId,
+      agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
+      agentRenTag: sessionAgent?.agentRenTag || demoAgent.agentRenTag,
+      agentOfficePhone:
+        sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
+      ...dimensions,
+    };
+    setGallery((g) =>
+      [item, ...g.filter((x) => x.dataUrl !== finalUrl)].slice(0, 6),
+    );
+    if (isPhotoApproved(assessment))
+      void recordApprovedPhoto({
+        photoId: item.id,
+        dataUrl: item.dataUrl,
+        agentId: item.agentId || "unknown",
+        agentName: item.agentName || "Agent",
+        marketingReadiness: assessment.score,
+        aiUsability: assessment.ai_usability,
+        enhanced: item.enhanced,
+        createdAt: item.createdAt,
+      });
+    if (reminder) void designerStore().recordReminderUpload(reminder.token);
+    setView("success");
+  };
+  const download = (src: string, name = "studio-professional-portrait.jpg") => {
+    const a = document.createElement("a");
+    a.href = src;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setToast("Photo downloaded");
+  };
+  const printPhoto = (src: string) => {
+    const w = window.open("", "_blank", "noopener,noreferrer");
+    if (!w) {
+      setToast("Allow pop-ups to open the print page.");
+      return;
+    }
+    const pageSize = {
+      auto: "auto",
+      "4x6": "4in 6in",
+      a4: "A4",
+      letter: "letter",
+    }[printSize];
+    w.document.write(
+      `<title>Print Profile Lab AI Portrait</title><style>@page{size:${pageSize};margin:0}*{box-sizing:border-box}body{margin:0;display:grid;place-items:center;min-height:100vh;background:#eee}img{display:block;max-width:100%;max-height:100vh;object-fit:contain}@media print{html,body{width:100%;height:100%;background:#fff}img{width:100%;height:100%;object-fit:contain}}</style><img src="${src}" onload="setTimeout(()=>print(),120)" alt="Profile Lab AI portrait">`,
+    );
+    w.document.close();
+    setToast("Choose any installed printer in the system dialog");
+  };
+  const setPhotoCategory = (id: string, category: PhotoCategory) => {
+    setGallery((current) =>
+      current.map((item) => (item.id === id ? { ...item, category } : item)),
+    );
+    setToast(
+      category === "awards"
+        ? "Marked for awards night"
+        : "Marked as the Atlas photo",
+    );
+  };
+  const removePhoto = () => {
+    if (!deletePhotoId) return;
+    setGallery((current) =>
+      current.filter((item) => item.id !== deletePhotoId),
+    );
+    setDeletePhotoId(null);
+    setToast("Photo removed");
+  };
+  const reset = () => {
+    stopCamera();
+    stopScanner();
+    setPhoto("");
+    setOriginal("");
+    setAssessment(null);
+    setOriginalAssessment(null);
+    setPendingReview(null);
+    setEnhanced(false);
+    setProfileOK(true);
+    setBrandOK(true);
+    setGallery([]);
+    setSessionAgent(null);
+    setSessionCode("");
+    setResetConfirm(false);
+    setDeletePhotoId(null);
+    localStorage.removeItem("ps-gallery");
+    setView("console");
+    history.replaceState({}, "", "/");
+    setToast("Session reset");
+  };
+  const cameraAgent = sessionAgent ?? demoAgent,
+    qualityApproved = assessment ? isPhotoApproved(assessment) : false,
+    savable = qualityApproved || Boolean(pendingReview);
+  const confirmReminderOptOut = async () => {
+    if (!reminder) return;
+    const agent = await designerStore().confirmPhotoOptOut(reminder.token);
+    if (agent) setReminderAction("opted_out");
+  };
+  if (reminder && reminderAction)
+    return (
+      <main className="reminder-optout">
+        <section>
+          <span className="reminder-optout-mark">
+            <ShieldCheck size={28} />
+          </span>
+          <Badge tone="eyebrow">PROFILE LAB AI PHOTO PREFERENCE</Badge>
+          <h1>
+            {reminderAction === "opted_out"
+              ? "Photo submission skipped"
+              : "Skip Photo Submission?"}
+          </h1>
+          <p>
+            {reminderAction === "opted_out"
+              ? "Your preference has been saved. You can still upload a photo whenever you choose."
+              : "You are choosing not to submit a Profile Lab AI profile photo at this time."}
+          </p>
+          {reminderAction === "opted_out" ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setReminderAction(null);
+                history.replaceState({}, "", reminder.uploadUrl);
+                openGuidedCamera();
+              }}
+            >
+              Upload a photo instead
+            </Button>
+          ) : (
+            <div>
+              <Button
+                className="reminder-confirm-optout"
+                onClick={() => void confirmReminderOptOut()}
+              >
+                Confirm — I don&apos;t want to submit a photo
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setReminderAction(null);
+                  history.replaceState({}, "", reminder.uploadUrl);
+                  openGuidedCamera();
+                }}
+              >
+                Go Back &amp; Upload Photo
+              </Button>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  if (view === "session" && sessionAgent)
+    return (
+      <SessionProfile
+        agent={sessionAgent}
+        code={sessionCode}
+        onStart={openGuidedCamera}
+        onExit={exitLoadedSession}
+        onPending={addPendingPhoto}
+      />
+    );
+  // Three exits from the assessment screen. An approved photo goes to the manual editor as before; an
+  // original kept as-is and an enhanced-then-reviewed photo both go straight to consent with the ORIGINAL
+  // photo and rating; a passed AI portrait goes to consent with the enhanced image and its own rating,
+  // while `originalAssessment` keeps the first verdict.
+  if (view === "review" && assessment && photo)
+    return (
+      <UploadedPhotoCheck
+        key={photo}
+        src={photo}
+        dimensions={dimensions}
+        assessment={assessment}
+        agent={cameraAgent}
+        pendingReview={pendingReview}
+        onContinue={(format) => {
+          setCropFormat(format);
+          setEnhanceBackView("review");
+          setView("select");
+        }}
+        onUseOriginal={(format, request) => {
+          setCropFormat(format);
+          setPendingReview(request);
+          setPhoto(original);
+          setEnhanced(false);
+          setAssessment(originalAssessment ?? assessment);
+          setToast(`Designer approval requested · ${request.id}`);
+          setView("consent");
+        }}
+        onRetake={openGuidedCamera}
+        onExit={() => go("personal")}
+        onUpload={upload}
+        onPending={addPendingPhoto}
+      />
+    );
+  if (view === "select" && original)
+    return (
+      <StudioEnhanceEditor
+        key={original}
+        src={original}
+        targetAspect={cropFormat === "square" ? 1 : 0.8}
+        onBack={() => setView(enhanceBackView)}
+        onContinue={async (result, usedEnhancement, nextDimensions) => {
+          setPhoto(result);
+          setDimensions(nextDimensions);
+          setEnhanced(usedEnhancement);
+          try {
+            setAssessment(
+              await assess(result, cropFormat === "square" ? 1 : 0.8),
+            );
+          } catch {
+            setAssessment({
+              ...emptyPhotoRating,
+              label: "Rating unavailable",
+              recommendation: "Try exporting the photo again.",
+            });
+          }
+          setView("consent");
+        }}
+      />
+    );
+  if (view === "capture") {
+    const placementCopy = {
+        checking: "Detecting your face…",
+        ready: capturePreview
+          ? `Photo ${shots.length} captured`
+          : shooting
+            ? "Hold that pose"
+            : "Ready · hold for 5 seconds",
+        close: "Take one small step back",
+        far: "Move a little closer",
+        center: "Move your face into the oval",
+      }[placement],
+      poseInstruction = {
+        checking: "Face the camera so we can guide you.",
+        ready:
+          "Look at the lens, relax your shoulders and keep your chin level.",
+        close: "Step back until your head and shoulders fit inside the guide.",
+        far: "Move closer until your face fills the oval.",
+        center: "Move gently until your eyes and face sit inside the guide.",
+      }[placement],
+      readinessScore = {
+        checking: 35,
+        ready: 92,
+        close: 58,
+        far: 60,
+        center: 68,
+      }[placement],
+      readinessTone =
+        readinessScore >= 85 ? "good" : readinessScore >= 60 ? "fair" : "low";
+    return (
+      <main
+        className={`studio-camera placement-${placement} crop-${cropFormat}`}
+      >
+        <div className="camera-workspace">
+          <div className="camera-top">
+            <Button
+              className="camera-close"
+              onClick={closeGuidedCamera}
+              aria-label="Close camera"
+            >
+              <span aria-hidden="true">×</span>
+            </Button>
+            <div>
+              <span>{cameraAgent.agentName}</span>
+              <small>We&apos;ll take the photo when you hold still</small>
+            </div>
+            <b
+              className="capture-count"
+              aria-label={`${shots.length} of ${shotCount} photos`}
+            >
+              {shots.length}/{shotCount}
+              <small>Photos</small>
+            </b>
+          </div>
+          <div ref={cameraViewportRef} className="camera-viewport">
+            <video ref={videoRef} autoPlay muted playsInline />
+            <div
+              className={`live-pose-card ${readinessTone}`}
+              aria-live="polite"
+            >
+              <div>
+                <span>Camera readiness</span>
+                <strong>
+                  {readinessScore}
+                  <small>/100</small>
+                </strong>
+              </div>
+              <i>
+                <b style={{ width: `${readinessScore}%` }} />
+              </i>
+              <p>{poseInstruction}</p>
+              <small>Framing and distance only</small>
+            </div>
+            <div className="camera-stage">
+              <div className="ratio-label">
+                {cropFormat === "square" ? "1:1 SQUARE" : "4:5 PORTRAIT"}
+              </div>
+              <div className="crop-corners">
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+              <div ref={headGuideRef} className="head-guide" />
+              <div className="waist-guide">
+                <span>SHOULDERS</span>
+              </div>
+            </div>
+            {timer !== null ? (
+              <div className="studio-timer">
+                <div className="countdown-pulse">
+                  <strong>{Math.max(1, Math.ceil(timer))}</strong>
+                </div>
+              </div>
+            ) : null}
+            {capturePreview ? (
+              <>
+                <div className="camera-flash" />
+                <div className="shot-preview">
+                  <div className={`shot-preview-frame ${cropFormat}`}>
+                    <img
+                      src={capturePreview}
+                      alt={`Properly cropped capture ${shots.length} preview`}
+                      width={cropFormat === "square" ? 960 : 768}
+                      height={960}
+                    />
+                    <span className="preview-crop-label">
+                      {cropFormat === "square" ? "1:1 crop" : "4:5 crop"}
+                    </span>
+                  </div>
+                  {captureRating ? (
+                    <CameraRating rating={captureRating} />
+                  ) : null}
+                  <span className="shot-confirmation">
+                    <Check size={16} /> Photo {shots.length} captured
+                  </span>
+                </div>
+              </>
+            ) : null}
+          </div>
+          <div className={`placement-status ${placement}`}>
+            <i>
+              {placement === "ready" ? (
+                <Check size={17} />
+              ) : (
+                <ScanLine size={17} />
+              )}
+            </i>
+            <span>{placementCopy}</span>
+          </div>
+          <div className="camera-controls">
+            <div className="format-options" aria-label="Photo crop">
+              <Button
+                className={cropFormat === "portrait" ? "active" : ""}
+                onClick={() => selectCropFormat("portrait")}
+                aria-pressed={cropFormat === "portrait"}
+              >
+                4:5 Portrait
+              </Button>
+              <Button
+                className={cropFormat === "square" ? "active" : ""}
+                onClick={() => selectCropFormat("square")}
+                aria-pressed={cropFormat === "square"}
+              >
+                1:1 Square
+              </Button>
+            </div>
+            <div className="shot-options">
+              <span>Photos</span>
+              {([1, 2, 3, 5] as const).map((n) => (
+                <Button
+                  className={shotCount === n ? "active" : ""}
+                  onClick={() => setShotCount(n)}
+                  disabled={shooting}
+                  aria-pressed={shotCount === n}
+                  key={n}
+                >
+                  {n}
+                </Button>
+              ))}
+            </div>
+            <div className="auto-capture">
+              <Check size={16} />
+              <span>We&apos;ll take it for you</span>
+              <small>Hold still for 5 seconds</small>
+            </div>
+          </div>
+        </div>
+        {cameraStatus !== "live" ? (
+          <div className="camera-loading">
+            {cameraStatus === "error" ? (
+              <>
+                <span>{cameraError}</span>
+                <Button onClick={() => go("console")}>Back to Studio</Button>
+              </>
+            ) : (
+              "Starting camera…"
+            )}
+          </div>
+        ) : null}
+      </main>
+    );
+  }
+  if (view === "batch") {
+    const selectedShot = shots.find((s) => s.id === selectedShotId),
+      selectedScore = selectedShot?.rating.score ?? "—";
+    return (
+      <main className={`batch-review batch-${cropFormat}`}>
+        <header>
+          <div>
+            <Badge tone="eyebrow">CHOOSE A PHOTO</Badge>
+            <h1>Select photo</h1>
+            <p>
+              {shots.length === 1
+                ? "Review the crop and rating before continuing."
+                : "The highest-rated photo is selected. Compare the crops and choose your favourite."}
+            </p>
+          </div>
+          <Button className="take-more" onClick={openGuidedCamera}>
+            <Camera size={18} /> Add photos
+          </Button>
+        </header>
+        <div className="batch-summary">
+          <StatTile
+            className={`batch-summary-stat ${shots.length ? "approved" : "zero"}`}
+            label="Photos"
+            value={shots.length}
+          />
+          <StatTile
+            className={`batch-summary-stat ${selectedShot ? "approved" : "zero"}`}
+            label="Selected"
+            value={selectedShot ? "1" : "0"}
+          />
+          <StatTile
+            className={`batch-summary-stat ${selectedShot?.rating.tone === "good" ? "approved" : selectedShot?.rating.tone === "low" ? "action" : selectedShot ? "pending" : "zero"}`}
+            label="Selected score"
+            value={selectedScore}
+          />
+        </div>
+        <div className="batch-grid" role="list">
+          {shots.map((shot, index) => {
+            const selected = selectedShotId === shot.id;
+            return (
+              <Card
+                className={selected ? "selected" : undefined}
+                key={shot.id}
+                role="listitem"
+              >
+                <Button
+                  className="photo-choice"
+                  onClick={() => setSelectedShotId(shot.id)}
+                  aria-pressed={selected}
+                >
+                  <img
+                    src={shot.original}
+                    alt={`Properly cropped capture ${index + 1}`}
+                    width={cropFormat === "square" ? 960 : 768}
+                    height={960}
+                  />
+                  <span className="batch-crop-label">
+                    {cropFormat === "square" ? "1:1 crop" : "4:5 crop"}
+                  </span>
+                  <CameraRating rating={shot.rating} compact />
+                  {selected ? (
+                    <span className="selected-mark">
+                      <Check size={17} /> Selected
+                    </span>
+                  ) : null}
+                </Button>
+                <div className="photo-meta">
+                  <span>
+                    <b>Photo {index + 1}</b>
+                    <small>
+                      {cropFormat === "square" ? "1:1 square" : "4:5 portrait"}{" "}
+                      · Ready for enhancement
+                    </small>
+                  </span>
+                  <Button
+                    className="remove-shot"
+                    onClick={() => removeShot(shot.id)}
+                    aria-label={`Remove photo ${index + 1}`}
+                  >
+                    <Trash2 size={17} />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+        <footer>
+          <span>
+            {shots.length
+              ? `${shots.length} cropped photo${shots.length === 1 ? "" : "s"}`
+              : "No photos selected"}
+          </span>
+          <Button
+            variant="primary"
+            disabled={!shots.length}
+            onClick={continueWithSelectedShot}
+          >
+            Continue <ArrowRight size={18} />
+          </Button>
+        </footer>
+      </main>
+    );
+  }
+  return (
+    <main className="app-shell">
+      <a className="skip-link" href="#app-content">
+        Skip to content
+      </a>
+      <nav className="app-nav" aria-label="Main navigation">
+        <Button
+          className="app-wordmark"
+          onClick={() => go("console")}
+          aria-label="Profile Lab AI home"
+        >
+          <img src="/profile-lab-logo.svg" alt="" width={219} height={200} />
+        </Button>
+        <div className="app-nav-main">
+          {nav.map(({ id, label, icon: NavIcon }) => (
+            <Button
+              className={view === id ? "active" : ""}
+              onClick={() => go(id)}
+              aria-current={view === id ? "page" : undefined}
+              key={id}
+            >
+              <span aria-hidden="true">
+                <NavIcon size={22} />
+              </span>
+              <b>{label}</b>
+            </Button>
+          ))}
+        </div>
+        <div className="rail-actions">
+          <Button
+            className="rail-help"
+            onClick={() => setToast("Help requested")}
+            aria-label="Request help"
+          >
+            <HelpCircle size={18} />
+            <b>Help</b>
+          </Button>
+          <Button className="rail-reset" onClick={() => setResetConfirm(true)}>
+            <RotateCcw size={18} />
+            <b>Reset</b>
+          </Button>
+        </div>
+      </nav>
+      <div id="app-content" className="app-content">
+        {view === "console" && (
+          <section className="qr-home enter">
+            {reminder ? (
+              <div className="reminder-home-banner">
+                <Mail size={22} />
+                <span>
+                  <small>PHOTO UPLOAD REMINDER</small>
+                  <b>Hello {reminder.agentName}</b>
+                  <p>
+                    Your reminder link is connected to Agent ID{" "}
+                    {reminder.agentId}. Uploading here will keep the photo with
+                    the correct agent record.
+                  </p>
+                </span>
+              </div>
+            ) : null}
+            <PageHeader className="qr-intro">
+              <h1>
+                {reminder
+                  ? "Upload your Profile Lab AI photo"
+                  : "Take a photo or scan QR"}
+              </h1>
+              <p>
+                {reminder
+                  ? "Upload a suitable existing photo, or take a new portrait instead."
+                  : "Take a new portrait, or scan your Atlas appointment QR. Already have a photo? Import it from Photos."}
+              </p>
+              <div className="qr-main-actions">
+                {reminder ? (
+                  <Button
+                    className="main-photo-action"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={checking}
+                  >
+                    <Upload size={18} />{" "}
+                    {checking ? "Checking…" : "Upload My Photo"}
+                  </Button>
+                ) : null}
+                <Button
+                  className="qr-secondary-action"
+                  onClick={openGuidedCamera}
+                >
+                  <Camera size={16} /> Take a photo
+                </Button>
+                {reminder ? (
+                  <Button
+                    className="reminder-home-optout"
+                    onClick={() => setReminderAction("confirm_optout")}
+                  >
+                    I don&apos;t wish to submit a photo
+                  </Button>
+                ) : (
+                  <Link href="/atlas" prefetch={false}>
+                    Open Atlas <ArrowRight size={16} />
+                  </Link>
+                )}
+              </div>
+            </PageHeader>
+            <input
+              ref={fileRef}
+              className="sr-only"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={upload}
+              aria-label="Upload a portrait photo"
+            />
+            <div
+              className={`qr-scanner ${scanStatus}`}
+              aria-busy={scanStatus === "starting"}
+            >
+              <video ref={scannerVideoRef} autoPlay muted playsInline />
+              <div className="scan-shade" />
+              <div className="scan-frame">
+                <i />
+                <i />
+                <i />
+                <i />
+                {scanStatus === "live" ? (
+                  <span role="status">Scanning…</span>
+                ) : scanStatus === "starting" ? (
+                  <span role="status">Preparing camera…</span>
+                ) : (
+                  <QrCode size={54} />
+                )}
+              </div>
+              {scanStatus !== "live" ? (
+                <Button
+                  className="scanner-start"
+                  onClick={startScanner}
+                  disabled={scanStatus === "starting"}
+                >
+                  <Camera size={19} />
+                  {scanStatus === "starting"
+                    ? "Starting camera…"
+                    : scanStatus === "error"
+                      ? "Try QR camera again"
+                      : "Scan QR"}
+                </Button>
+              ) : null}
+            </div>
+            <div
+              className={
+                scanError ? "manual-checkin has-error" : "manual-checkin"
+              }
+            >
+              <div>
+                <Keyboard size={19} />
+                <span>
+                  <b>Enter code</b>
+                </span>
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  loadStudioSession(sessionCode);
+                }}
+              >
+                <input
+                  name="appointment-code"
+                  autoComplete="off"
+                  spellCheck={false}
+                  translate="no"
+                  value={sessionCode}
+                  onChange={(e) => setSessionCode(e.target.value)}
+                  placeholder="STUDIO-ATLAS-…"
+                  aria-label="Appointment code"
+                />
+                <Button type="submit">
+                  <ScanLine size={18} /> Load
+                </Button>
+              </form>
+              {scanError ? <p role="alert">{scanError}</p> : null}
+            </div>
+          </section>
+        )}
+        {view === "capture" && (
+          <section className="dark enter">
+            <Stepper n={1} label="Photo" />
+            <div className="capture">
+              <div>
+                <Badge tone="eyebrow" className="pale">
+                  PHOTO
+                </Badge>
+                <h1>{cameraStatus === "live" ? "Ready" : "Add a photo"}</h1>
+                <p>
+                  {cameraStatus === "live"
+                    ? "Look at the lens. Hold still."
+                    : "Use the camera or upload."}
+                </p>
+                <ul>
+                  <li>
+                    <span>1</span> One person in frame
+                  </li>
+                  <li>
+                    <span>2</span> Face the light
+                  </li>
+                </ul>
+                {cameraError ? (
+                  <div className="camera-error" role="alert">
+                    {cameraError}
+                  </div>
+                ) : null}
+                <Button
+                  variant="gold"
+                  disabled={cameraStatus === "starting" || checking}
+                  onClick={takePhoto}
+                >
+                  <Camera size={19} />
+                  {cameraStatus === "live"
+                    ? "Take photo"
+                    : cameraStatus === "starting"
+                      ? "Starting…"
+                      : cameraStatus === "error"
+                        ? "Try again"
+                        : "Start camera"}
+                </Button>
+                <Button
+                  variant="upload"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={checking}
+                >
+                  <Upload size={18} />
+                  {checking ? "Checking…" : "Upload"}
+                </Button>
+                <input
+                  ref={fileRef}
+                  className="sr-only"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={upload}
+                  aria-label="Upload portrait photo"
+                />
+              </div>
+              <div
+                className={`viewfinder ${cameraStatus === "live" ? "has-video" : ""}`}
+              >
+                <div className="vfhead">
+                  <span>DEVICE CAMERA</span>
+                  <span className={cameraStatus === "live" ? "live" : ""}>
+                    ● {cameraStatus === "live" ? "LIVE" : "READY"}
+                  </span>
+                </div>
+                <video
+                  ref={videoRef}
+                  className="camera-video"
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                <div className="person">
+                  <i />
+                  <b />
+                </div>
+                <div className="oval" />
+                <div className="cross x" />
+                <div className="cross y" />
+                <span className="tip">Eyes on line</span>
+                <div className="vfmeta">
+                  <span>LOCAL</span>
+                  <span>PRIVATE</span>
+                  <span>HD</span>
+                </div>
+                {count !== null ? (
+                  <div className="count">{count || <Check size={72} />}</div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        )}
+        {view === "consent" && (
+          <section className="flow narrow final-review enter">
+            <Stepper n={4} label="Review" />
+            <Badge tone="eyebrow">PHOTO CHECK</Badge>
+            <h1>Review your finished photo</h1>
+            <p className="lead">
+              The export is scored for designer usability. Atlas profile and
+              brand use are separate permissions.
+            </p>
+            <div className="consent-summary">
+              <StatTile
+                className={`consent-summary-stat ${!assessment ? "zero" : qualityApproved ? "approved" : assessment.tone === "low" ? "action" : "pending"}`}
+                label="Photo score"
+                value={assessment?.score ?? "—"}
+              />
+              <StatTile
+                className={`consent-summary-stat ${profileOK ? "approved" : "zero"}`}
+                label="Atlas profile"
+                value={profileOK ? "On" : "Off"}
+              />
+              <StatTile
+                className={`consent-summary-stat ${brandOK ? "approved" : "zero"}`}
+                label="Brand use"
+                value={brandOK ? "On" : "Off"}
+              />
+            </div>
+            {assessment ? (
+              <div
+                className={`final-quality ${qualityApproved ? "approved" : "needs-work"} ${assessment.tone}`}
+                role="status"
+              >
+                <div className="final-quality-summary">
+                  <span>
+                    {qualityApproved ? (
+                      <Check size={24} />
+                    ) : (
+                      <HelpCircle size={24} />
+                    )}
+                  </span>
+                  <strong>
+                    {assessment.score}
+                    <small>/100</small>
+                  </strong>
+                  <div>
+                    <small>
+                      {pendingReview?.workflowStatus ?? assessment.status}
+                    </small>
+                    <b>{assessment.label}</b>
+                    <p>{assessment.recommendation}</p>
+                  </div>
+                </div>
+                <div className="final-quality-metrics">
+                  {assessment.metrics.map((metric) => (
+                    <StatTile
+                      key={metric.name}
+                      label={metric.name}
+                      value={metric.score}
+                    />
+                  ))}
+                </div>
+                {enhanced && originalAssessment ? (
+                  <p className="session-file">
+                    <span>Scores</span> Original {originalAssessment.score} · AI
+                    enhanced {assessment.score} — the original rating is kept
+                    alongside.
+                  </p>
+                ) : null}
+                <p className="session-file">
+                  <span>File</span> {assessment.file_note}
+                  {assessment.file_status === "OK"
+                    ? ""
+                    : ` · ${assessment.file_reason}`}
+                </p>
+                <RatingFeedback
+                  rating={assessment}
+                  appeal={{
+                    agentName: sessionAgent?.agentName || demoAgent.agentName,
+                    agentId: sessionAgent?.agentId || demoAgent.agentId,
+                    photo: photo || original,
+                    sentId: pendingReview?.id,
+                    workflowStatus: pendingReview?.workflowStatus,
+                    onSent: (request) => {
+                      setPendingReview(request);
+                      addPendingPhoto(
+                        request,
+                        photo || original,
+                        assessment,
+                        dimensions.width,
+                        dimensions.height,
+                      );
+                      setToast(`Designer approval requested · ${request.id}`);
+                    },
+                  }}
+                />
+              </div>
+            ) : null}
+            {savable ? (
+              <>
+                <div className="consents">
+                  <Toggle
+                    name="atlas-profile-permission"
+                    label="Atlas profile"
+                    note="Set as your profile photo."
+                    checked={profileOK}
+                    onChange={setProfileOK}
+                    ariaLabel="Allow use on my Atlas profile"
+                  />
+                  <Toggle
+                    name="brand-materials-permission"
+                    label="Brand use"
+                    note="Approve this photo for brand materials."
+                    checked={brandOK}
+                    onChange={setBrandOK}
+                    ariaLabel="Allow use in brand materials"
+                  />
+                </div>
+                <p className="privacy">
+                  Photo approval and your permissions stay with this photo.
+                </p>
+              </>
+            ) : (
+              <p className="privacy quality-warning">
+                {assessment?.status === "REUPLOAD"
+                  ? assessment.recommendation
+                  : assessment?.status === "REVIEW"
+                    ? "This photo needs a designer review before brand use."
+                    : `This photo needs ${photoApprovalThresholds.review}+ for review or ${photoApprovalThresholds.approved}+ for approval. Use the feedback above before retaking.`}
+              </p>
+            )}
+            <div className="final-review-actions">
+              <Button
+                className="review-back"
+                onClick={() => setView(pendingReview ? "review" : "select")}
+              >
+                <ArrowLeft size={17} />
+                {pendingReview
+                  ? "Back to assessment"
+                  : savable
+                    ? "Back to edit"
+                    : "Improve photo"}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!savable || !profileOK || !photo}
+                onClick={confirm}
+              >
+                {pendingReview && !qualityApproved
+                  ? "Save pending designer review"
+                  : "Save approved photo"}
+              </Button>
+            </div>
+          </section>
+        )}
+        {view === "success" && (
+          <section className="success enter">
+            <div className="tick">
+              <Check size={36} />
+            </div>
+            <Badge tone="eyebrow">SAVED</Badge>
+            <h1>Photo ready</h1>
+            <p>
+              Saved to Photos.{" "}
+              {brandOK ? "Approved for brand use." : "Profile only."}
+            </p>
+            <div className="success-summary">
+              <StatTile
+                className={`success-summary-stat ${profileOK ? "approved" : "zero"}`}
+                label="Atlas profile"
+                value={profileOK ? "Saved" : "Off"}
+              />
+              <StatTile
+                className={`success-summary-stat ${brandOK ? "approved" : "zero"}`}
+                label="Brand use"
+                value={brandOK ? "Approved" : "Off"}
+              />
+            </div>
+            <div className="mini">
+              <MediaFrame src={photo} />
+              <div>
+                <small>Atlas profile</small>
+                <b>{sessionAgent?.agentName || demoAgent.agentName}</b>
+                <span className="success-saved-now">
+                  <Check size={14} /> Saved now
+                </span>
+              </div>
+            </div>
+            <Button variant="primary" onClick={() => go("personal")}>
+              View in Photos <ArrowRight size={18} />
+            </Button>
+          </section>
+        )}
+        {/* The two photo-category-tag Badges below pass icon+label as children, not through the icon
      prop -- that markup runs the icon straight into the label with no space, and Badge's icon
      prop always inserts one (matching .badge's own icon+text markup elsewhere). Routing it
      through icon here would open a gap that is not in the source. */}
- {view==="personal"&&<section className="gallery photos-page enter"><Toolbar className="photos-toolbar"><PageHeader className="photos-heading"><h1>Photos</h1><span className="photos-context">Synced to your Atlas profile, subsale banners and event artwork{sessionAgent?` · ${sessionAgent.agentName}`:""}</span></PageHeader><div className="photos-actions"><Button variant="primary" onClick={()=>fileRef.current?.click()} disabled={checking}><Upload size={18}/>{checking?"Checking…":"Import photo"}</Button><Button variant="take-photo" onClick={addPhoto}><Camera size={18}/> Take a photo</Button></div></Toolbar>{gallery.length?<div className="photos-summary"><StatTile className={`photos-summary-stat action${actionRequiredPhotos.length?"":" zero"}`} label="Action required" value={actionRequiredPhotos.length}/><StatTile className={`photos-summary-stat approved${approvedPhotos.length?"":" zero"}`} label="Approved" value={approvedPhotos.length}/><StatTile className={`photos-summary-stat pending${pendingPhotos.length?"":" zero"}`} label="Pending review" value={pendingPhotos.length}/></div>:null}<input ref={fileRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} aria-label="Import a photo from a camera, phone, or computer"/>{actionRequiredPhotos.length?<Panel className="photos-section action-required"><div className="photos-section-head"><h2>Action Required</h2><span>{actionRequiredPhotos.length} {actionRequiredPhotos.length===1?"photo":"photos"}</span></div><div className="personal-grid">{actionRequiredPhotos.map(item=>{const status=photoStatusOf(item),reupload=status.actionRequired==="reupload";return <Card className="photo-card action-card" key={item.id}><MediaFrame src={item.dataUrl} badge={status.photoType} badgeTone="action"/><div className="photo-card-info"><div><b>{item.agentName||"Aisha Rahman"}</b><Badge tone="photo-type-tag">{status.photoType}</Badge><span>Reviewed by our design team{status.reviewedAt?` · ${new Intl.DateTimeFormat(undefined,{dateStyle:"medium"}).format(new Date(status.reviewedAt))}`:""}</span></div><div className="photo-actions"><Button variant="remove-photo" onClick={()=>setDeletePhotoId(item.id)} aria-label="Dismiss" title="Dismiss"><Trash2 size={18}/><span>Dismiss</span></Button></div></div><div className="action-note"><strong>{reupload?"Higher-Quality Photo Required":"New Photo Required"}</strong><p>{reupload?"Our design team has reviewed your photo. Please upload the original or a higher-quality version of the same photo.":"Our design team has reviewed your photo and recommends uploading a new photo."}</p>{status.designerFeedback?<em className="designer-feedback">&ldquo;{status.designerFeedback}&rdquo;</em>:null}<Button className="action-cta" onClick={()=>fileRef.current?.click()} disabled={checking}><Upload size={16}/>{reupload?"Upload Higher-Quality Photo":"Upload New Photo"}</Button></div></Card>})}</div></Panel>:null}<Panel className="photos-section"><div className="photos-section-head"><h2>Approved Photos</h2><span>{approvedPhotos.length} {approvedPhotos.length===1?"photo":"photos"}</span></div>{approvedPhotos.length?<div className="personal-grid">{approvedPhotos.map(item=>{const status=photoStatusOf(item),isFirst=gallery[0]?.id===item.id;return <Card className="photo-card" key={item.id}><MediaFrame src={item.dataUrl} badge={isFirst?"Approved · Profile":"Approved"}/><div className={`photo-card-category ${categoryOf(item)}`}><Badge tone="photo-category-tag">{categoryOf(item)==="awards"?<Award size={13}/>:<Images size={13}/>}{photoCategories.find(category=>category.id===categoryOf(item))?.label}</Badge><div className="photo-category-switch" role="group" aria-label={`Photo category for ${item.agentName||"this portrait"}`}>{photoCategories.map(category=><Button key={category.id} className={categoryOf(item)===category.id?"active":""} aria-pressed={categoryOf(item)===category.id} title={category.note} onClick={()=>setPhotoCategory(item.id,category.id)}>{category.label}</Button>)}</div></div><div className="photo-card-info"><div><b>{item.agentName||"Aisha Rahman"}</b><Badge tone="photo-type-tag">{status.photoType}</Badge><span>{status.approvalSource==="DESIGNER"?"Approved by our design team":"Approved automatically"} · {new Intl.DateTimeFormat(undefined,{dateStyle:"medium"}).format(new Date(item.createdAt))}</span></div><div className="photo-actions"><Button onClick={()=>download(item.dataUrl)} aria-label="Download photo" title="Download"><Download size={18}/><span>Download</span></Button><Button onClick={()=>printPhoto(item.dataUrl)} aria-label="Print photo" title="Print"><Printer size={18}/><span>Print</span></Button><Button variant="remove-photo" onClick={()=>setDeletePhotoId(item.id)} aria-label="Remove photo" title="Remove"><Trash2 size={18}/><span>Remove</span></Button></div></div></Card>})}</div>:gallery.length===0?<div className="photos-empty"><span><Images size={28}/></span><h2>No photos</h2><p>Import a portrait or take one with the studio camera.</p><div className="photos-actions"><Button variant="primary" onClick={()=>fileRef.current?.click()} disabled={checking}><Upload size={18}/>{checking?"Checking…":"Import photo"}</Button><Button variant="take-photo" onClick={addPhoto}><Camera size={18}/> Take a photo</Button></div></div>:<p className="photos-section-empty">No approved photos yet.</p>}</Panel>{pendingPhotos.length?<Panel className="photos-section pending"><div className="photos-section-head"><h2>Pending Designer Review</h2><span>{pendingPhotos.length} {pendingPhotos.length===1?"photo":"photos"}</span></div><div className="personal-grid">{pendingPhotos.map(item=>{const status=photoStatusOf(item);return <Card className="photo-card pending-card" key={item.id}><MediaFrame src={item.dataUrl} badge="Pending Review" badgeTone="pending"/><div className={`photo-card-category ${categoryOf(item)}`}><Badge tone="photo-category-tag">{categoryOf(item)==="awards"?<Award size={13}/>:<Images size={13}/>}{photoCategories.find(category=>category.id===categoryOf(item))?.label}</Badge><div className="photo-category-switch" role="group" aria-label={`Photo category for ${item.agentName||"this portrait"}`}>{photoCategories.map(category=><Button key={category.id} className={categoryOf(item)===category.id?"active":""} aria-pressed={categoryOf(item)===category.id} title={category.note} onClick={()=>setPhotoCategory(item.id,category.id)}>{category.label}</Button>)}</div></div><div className="photo-card-info"><div><b>{item.agentName||"Aisha Rahman"}</b><Badge tone="photo-type-tag">{status.photoType}</Badge><span>Awaiting Designer Approval · Submitted {new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(item.createdAt))}</span></div><div className="photo-actions"><Button onClick={()=>download(item.dataUrl)} aria-label="Download photo" title="Download"><Download size={18}/><span>Download</span></Button><Button variant="remove-photo" onClick={()=>setDeletePhotoId(item.id)} aria-label="Remove photo" title="Remove"><Trash2 size={18}/><span>Remove</span></Button></div></div><p className="pending-note"><HelpCircle size={14}/> Your photo has been sent to our design team and is waiting for approval.</p></Card>})}</div></Panel>:null}</section>}
- {view==="assets"&&<BrandAssetStudio photos={approvedPhotos.filter(item=>item.brandOK)} onOpenPhotos={()=>go("personal")} onToast={setToast}/>}
- {view==="console"&&<section className="console enter"><Toolbar className="console-title"><div><Badge tone="eyebrow">DEVICE SETUP</Badge><h1>Connect your studio</h1><p>Choose a camera and print through any printer installed on this device.</p></div><span className="studio-privacy"><ShieldCheck size={14}/> Local and private</span></Toolbar><div className="studio-summary"><StatTile className={`studio-summary-stat ${cameraStatus==="error"?"action":cameraDevices.length?"approved":"zero"}`} label="Cameras" value={cameraDevices.length}/><StatTile className="studio-summary-stat approved" label="Printer" value="Ready"/></div><div className="devices portable-devices"><Card className={cameraStatus==="error"?"needs-attention":undefined}><i><Camera size={34}/></i><small>CAMERA INPUT</small><h2>Any camera</h2><b className={cameraStatus==="error"?"offline":"ready"}>{cameraStatus==="error"?<AlertCircle size={14}/>:<Check size={14}/>} {cameraStatus==="live"?"Connected":cameraStatus==="error"?"Needs attention":cameraDevices.length?`${cameraDevices.length} found`:"Ready to scan"}</b><p>Webcam, phone webcam, USB camera, or DSLR/mirrorless through webcam mode or a capture card.</p><Field className="device-field" label="Camera"><select value={selectedCameraId} onChange={event=>setSelectedCameraId(event.target.value)}>{cameraDevices.length?cameraDevices.map(device=><option value={device.deviceId} key={device.deviceId}>{device.label}</option>):<option value="">Default camera</option>}</select></Field>{cameraError?<div className="device-error" role="alert">{cameraError}</div>:null}<div className="device-buttons"><Button onClick={()=>void discoverCameras()} disabled={discoveringCameras}><RefreshCw size={17}/>{discoveringCameras?"Finding…":"Find cameras"}</Button><Button className="device-primary" onClick={addPhoto}><Camera size={17}/> Use camera</Button></div></Card><Card><i><Printer size={34}/></i><small>PRINT OUTPUT</small><h2>Any printer</h2><b className="ready"><Check size={14}/> System ready</b><p>USB, Wi-Fi, network, AirPrint, or PDF. Choose the printer and copies in your system print dialog.</p><Field className="device-field" label="Paper preset"><select value={printSize} onChange={event=>setPrintSize(event.target.value as PrintSize)}><option value="auto">Printer default</option><option value="4x6">4 × 6 in photo</option><option value="a4">A4</option><option value="letter">US Letter</option></select></Field><div className="device-buttons"><Button disabled={!gallery[0]} onClick={()=>gallery[0]&&printPhoto(gallery[0].dataUrl)}><Printer size={17}/> Open print dialog</Button></div></Card></div></section>}
- {toast?<div className="toast" role="status" aria-live="polite"><Check size={18}/> {toast}</div>:null}
- {deletePhotoId?<div className="reset-backdrop"><section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="remove-photo-title" aria-describedby="remove-photo-copy"><Button className="reset-close" onClick={()=>setDeletePhotoId(null)} aria-label="Close remove dialog"><X size={19}/></Button><span className="reset-icon delete-icon"><Trash2 size={22}/></span><Badge tone="eyebrow">PHOTO</Badge><h2 id="remove-photo-title">Remove this photo?</h2><p id="remove-photo-copy">This deletes it from Photos on this device.</p><div className="reset-actions"><Button onClick={()=>setDeletePhotoId(null)}>Keep photo</Button><Button variant="danger" onClick={removePhoto}>Remove</Button></div></section></div>:null}
- {resetConfirm?<div className="reset-backdrop"><section className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-title" aria-describedby="reset-copy"><Button className="reset-close" onClick={()=>setResetConfirm(false)} aria-label="Close reset dialog"><X size={19}/></Button><span className="reset-icon"><RotateCcw size={22}/></span><Badge tone="eyebrow">RESET</Badge><h2 id="reset-title">Reset session?</h2><p id="reset-copy">Clears the photo and local gallery.</p><div className="reset-actions"><Button onClick={()=>setResetConfirm(false)}>Keep session</Button><Button variant="danger" onClick={reset}>Reset</Button></div></section></div>:null}
- </div></main>
+        {view === "personal" && (
+          <section className="gallery photos-page enter">
+            <Toolbar className="photos-toolbar">
+              <PageHeader className="photos-heading">
+                <h1>Photos</h1>
+                <span className="photos-context">
+                  Synced to your Atlas profile, subsale banners and event
+                  artwork{sessionAgent ? ` · ${sessionAgent.agentName}` : ""}
+                </span>
+              </PageHeader>
+              <div className="photos-actions">
+                <Button
+                  variant="primary"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={checking}
+                >
+                  <Upload size={18} />
+                  {checking ? "Checking…" : "Import photo"}
+                </Button>
+                <Button variant="take-photo" onClick={addPhoto}>
+                  <Camera size={18} /> Take a photo
+                </Button>
+              </div>
+            </Toolbar>
+            <input
+              ref={fileRef}
+              className="sr-only"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={upload}
+              aria-label="Import a photo from a camera, phone, or computer"
+            />
+            {actionRequiredPhotos.length ? (
+              <Panel className="photos-section action-required">
+                <div className="photos-section-head">
+                  <h2>Action Required</h2>
+                  <span>
+                    {actionRequiredPhotos.length}{" "}
+                    {actionRequiredPhotos.length === 1 ? "photo" : "photos"}
+                  </span>
+                </div>
+                <div className="personal-grid">
+                  {actionRequiredPhotos.map((item) => {
+                    const status = photoStatusOf(item),
+                      reupload = status.actionRequired === "reupload";
+                    return (
+                      <Card className="photo-card action-card" key={item.id}>
+                        <MediaFrame
+                          src={item.dataUrl}
+                          badge={status.photoType}
+                          badgeTone="action"
+                        />
+                        <div className="photo-card-info">
+                          <div>
+                            <b>{item.agentName || "Aisha Rahman"}</b>
+                            <Badge tone="photo-type-tag">
+                              {status.photoType}
+                            </Badge>
+                            <span>
+                              Reviewed by our design team
+                              {status.reviewedAt
+                                ? ` · ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(status.reviewedAt))}`
+                                : ""}
+                            </span>
+                          </div>
+                          <div className="photo-actions">
+                            <Button
+                              variant="remove-photo"
+                              onClick={() => setDeletePhotoId(item.id)}
+                              aria-label="Dismiss"
+                              title="Dismiss"
+                            >
+                              <Trash2 size={18} />
+                              <span>Dismiss</span>
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="action-note">
+                          <strong>
+                            {reupload
+                              ? "Higher-Quality Photo Required"
+                              : "New Photo Required"}
+                          </strong>
+                          <p>
+                            {reupload
+                              ? "Our design team has reviewed your photo. Please upload the original or a higher-quality version of the same photo."
+                              : "Our design team has reviewed your photo and recommends uploading a new photo."}
+                          </p>
+                          {status.designerFeedback ? (
+                            <em className="designer-feedback">
+                              &ldquo;{status.designerFeedback}&rdquo;
+                            </em>
+                          ) : null}
+                          <Button
+                            className="action-cta"
+                            onClick={() => fileRef.current?.click()}
+                            disabled={checking}
+                          >
+                            <Upload size={16} />
+                            {reupload
+                              ? "Upload Higher-Quality Photo"
+                              : "Upload New Photo"}
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </Panel>
+            ) : null}
+            <Panel className="photos-section">
+              <div className="photos-section-head">
+                <h2>Approved Photos</h2>
+                <span>
+                  {approvedPhotos.length}{" "}
+                  {approvedPhotos.length === 1 ? "photo" : "photos"}
+                </span>
+              </div>
+              {approvedPhotos.length ? (
+                <div className="personal-grid">
+                  {approvedPhotos.map((item) => {
+                    const status = photoStatusOf(item),
+                      isFirst = gallery[0]?.id === item.id;
+                    return (
+                      <Card className="photo-card" key={item.id}>
+                        <MediaFrame
+                          src={item.dataUrl}
+                          badge={isFirst ? "Approved · Profile" : "Approved"}
+                        />
+                        <div
+                          className={`photo-card-category ${categoryOf(item)}`}
+                        >
+                          <Badge tone="photo-category-tag">
+                            {categoryOf(item) === "awards" ? (
+                              <Award size={13} />
+                            ) : (
+                              <Images size={13} />
+                            )}
+                            {
+                              photoCategories.find(
+                                (category) => category.id === categoryOf(item),
+                              )?.label
+                            }
+                          </Badge>
+                          <div
+                            className="photo-category-switch"
+                            role="group"
+                            aria-label={`Photo category for ${item.agentName || "this portrait"}`}
+                          >
+                            {photoCategories.map((category) => (
+                              <Button
+                                key={category.id}
+                                className={
+                                  categoryOf(item) === category.id
+                                    ? "active"
+                                    : ""
+                                }
+                                aria-pressed={categoryOf(item) === category.id}
+                                title={category.note}
+                                onClick={() =>
+                                  setPhotoCategory(item.id, category.id)
+                                }
+                              >
+                                {category.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="photo-card-info">
+                          <div>
+                            <b>{item.agentName || "Aisha Rahman"}</b>
+                            <Badge tone="photo-type-tag">
+                              {status.photoType}
+                            </Badge>
+                            <span>
+                              {status.approvalSource === "DESIGNER"
+                                ? "Approved by our design team"
+                                : "Approved automatically"}{" "}
+                              ·{" "}
+                              {new Intl.DateTimeFormat(undefined, {
+                                dateStyle: "medium",
+                              }).format(new Date(item.createdAt))}
+                            </span>
+                          </div>
+                          <div className="photo-actions">
+                            <Button
+                              onClick={() => download(item.dataUrl)}
+                              aria-label="Download photo"
+                              title="Download"
+                            >
+                              <Download size={18} />
+                              <span>Download</span>
+                            </Button>
+                            <Button
+                              onClick={() => printPhoto(item.dataUrl)}
+                              aria-label="Print photo"
+                              title="Print"
+                            >
+                              <Printer size={18} />
+                              <span>Print</span>
+                            </Button>
+                            <Button
+                              variant="remove-photo"
+                              onClick={() => setDeletePhotoId(item.id)}
+                              aria-label="Remove photo"
+                              title="Remove"
+                            >
+                              <Trash2 size={18} />
+                              <span>Remove</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : gallery.length === 0 ? (
+                <div className="photos-empty">
+                  <span>
+                    <Images size={28} />
+                  </span>
+                  <h2>No photos</h2>
+                  <p>Import a portrait or take one with the studio camera.</p>
+                  <div className="photos-actions">
+                    <Button
+                      variant="primary"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={checking}
+                    >
+                      <Upload size={18} />
+                      {checking ? "Checking…" : "Import photo"}
+                    </Button>
+                    <Button variant="take-photo" onClick={addPhoto}>
+                      <Camera size={18} /> Take a photo
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="photos-section-empty">No approved photos yet.</p>
+              )}
+            </Panel>
+            {pendingPhotos.length ? (
+              <Panel className="photos-section pending">
+                <div className="photos-section-head">
+                  <h2>Pending Designer Review</h2>
+                  <span>
+                    {pendingPhotos.length}{" "}
+                    {pendingPhotos.length === 1 ? "photo" : "photos"}
+                  </span>
+                </div>
+                <div className="personal-grid">
+                  {pendingPhotos.map((item) => {
+                    const status = photoStatusOf(item);
+                    return (
+                      <Card className="photo-card pending-card" key={item.id}>
+                        <MediaFrame
+                          src={item.dataUrl}
+                          badge="Pending Review"
+                          badgeTone="pending"
+                        />
+                        <div
+                          className={`photo-card-category ${categoryOf(item)}`}
+                        >
+                          <Badge tone="photo-category-tag">
+                            {categoryOf(item) === "awards" ? (
+                              <Award size={13} />
+                            ) : (
+                              <Images size={13} />
+                            )}
+                            {
+                              photoCategories.find(
+                                (category) => category.id === categoryOf(item),
+                              )?.label
+                            }
+                          </Badge>
+                          <div
+                            className="photo-category-switch"
+                            role="group"
+                            aria-label={`Photo category for ${item.agentName || "this portrait"}`}
+                          >
+                            {photoCategories.map((category) => (
+                              <Button
+                                key={category.id}
+                                className={
+                                  categoryOf(item) === category.id
+                                    ? "active"
+                                    : ""
+                                }
+                                aria-pressed={categoryOf(item) === category.id}
+                                title={category.note}
+                                onClick={() =>
+                                  setPhotoCategory(item.id, category.id)
+                                }
+                              >
+                                {category.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="photo-card-info">
+                          <div>
+                            <b>{item.agentName || "Aisha Rahman"}</b>
+                            <Badge tone="photo-type-tag">
+                              {status.photoType}
+                            </Badge>
+                            <span>
+                              Awaiting Designer Approval · Submitted{" "}
+                              {new Intl.DateTimeFormat(undefined, {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              }).format(new Date(item.createdAt))}
+                            </span>
+                          </div>
+                          <div className="photo-actions">
+                            <Button
+                              onClick={() => download(item.dataUrl)}
+                              aria-label="Download photo"
+                              title="Download"
+                            >
+                              <Download size={18} />
+                              <span>Download</span>
+                            </Button>
+                            <Button
+                              variant="remove-photo"
+                              onClick={() => setDeletePhotoId(item.id)}
+                              aria-label="Remove photo"
+                              title="Remove"
+                            >
+                              <Trash2 size={18} />
+                              <span>Remove</span>
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="pending-note">
+                          <HelpCircle size={14} /> Your photo has been sent to
+                          our design team and is waiting for approval.
+                        </p>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </Panel>
+            ) : null}
+          </section>
+        )}
+        {view === "assets" && (
+          <BrandAssetStudio
+            photos={approvedPhotos.filter((item) => item.brandOK)}
+            onOpenPhotos={() => go("personal")}
+            onToast={setToast}
+          />
+        )}
+        {view === "console" && (
+          <section className="console enter">
+            <Toolbar className="console-title">
+              <div>
+                <Badge tone="eyebrow">DEVICE SETUP</Badge>
+                <h1>Connect your studio</h1>
+                <p>
+                  Choose a camera and print through any printer installed on
+                  this device.
+                </p>
+              </div>
+              <span className="studio-privacy">
+                <ShieldCheck size={14} /> Local and private
+              </span>
+            </Toolbar>
+            <div className="devices portable-devices">
+              <Card
+                className={
+                  cameraStatus === "error" ? "needs-attention" : undefined
+                }
+              >
+                <i>
+                  <Camera size={34} />
+                </i>
+                <small>CAMERA INPUT</small>
+                <h2>Any camera</h2>
+                <b className={cameraStatus === "error" ? "offline" : "ready"}>
+                  {cameraStatus === "error" ? (
+                    <AlertCircle size={14} />
+                  ) : (
+                    <Check size={14} />
+                  )}{" "}
+                  {cameraStatus === "live"
+                    ? "Connected"
+                    : cameraStatus === "error"
+                      ? "Needs attention"
+                      : cameraDevices.length
+                        ? `${cameraDevices.length} found`
+                        : "Ready to scan"}
+                </b>
+                <p>
+                  Webcam, phone webcam, USB camera, or DSLR/mirrorless through
+                  webcam mode or a capture card.
+                </p>
+                <Field className="device-field" label="Camera">
+                  <select
+                    value={selectedCameraId}
+                    onChange={(event) =>
+                      setSelectedCameraId(event.target.value)
+                    }
+                  >
+                    {cameraDevices.length ? (
+                      cameraDevices.map((device) => (
+                        <option value={device.deviceId} key={device.deviceId}>
+                          {device.label}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">Default camera</option>
+                    )}
+                  </select>
+                </Field>
+                {cameraError ? (
+                  <div className="device-error" role="alert">
+                    {cameraError}
+                  </div>
+                ) : null}
+                <div className="device-buttons">
+                  <Button
+                    onClick={() => void discoverCameras()}
+                    disabled={discoveringCameras}
+                  >
+                    <RefreshCw size={17} />
+                    {discoveringCameras ? "Finding…" : "Find cameras"}
+                  </Button>
+                  <Button className="device-primary" onClick={addPhoto}>
+                    <Camera size={17} /> Use camera
+                  </Button>
+                </div>
+              </Card>
+              <Card>
+                <i>
+                  <Printer size={34} />
+                </i>
+                <small>PRINT OUTPUT</small>
+                <h2>Any printer</h2>
+                <b className="ready">
+                  <Check size={14} /> System ready
+                </b>
+                <p>
+                  USB, Wi-Fi, network, AirPrint, or PDF. Choose the printer and
+                  copies in your system print dialog.
+                </p>
+                <Field className="device-field" label="Paper preset">
+                  <select
+                    value={printSize}
+                    onChange={(event) =>
+                      setPrintSize(event.target.value as PrintSize)
+                    }
+                  >
+                    <option value="auto">Printer default</option>
+                    <option value="4x6">4 × 6 in photo</option>
+                    <option value="a4">A4</option>
+                    <option value="letter">US Letter</option>
+                  </select>
+                </Field>
+                <div className="device-buttons">
+                  <Button
+                    disabled={!gallery[0]}
+                    onClick={() => gallery[0] && printPhoto(gallery[0].dataUrl)}
+                  >
+                    <Printer size={17} /> Open print dialog
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </section>
+        )}
+        {toast ? (
+          <div className="toast" role="status" aria-live="polite">
+            <Check size={18} /> {toast}
+          </div>
+        ) : null}
+        {deletePhotoId ? (
+          <div className="reset-backdrop">
+            <section
+              className="reset-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="remove-photo-title"
+              aria-describedby="remove-photo-copy"
+            >
+              <Button
+                className="reset-close"
+                onClick={() => setDeletePhotoId(null)}
+                aria-label="Close remove dialog"
+              >
+                <X size={19} />
+              </Button>
+              <span className="reset-icon delete-icon">
+                <Trash2 size={22} />
+              </span>
+              <Badge tone="eyebrow">PHOTO</Badge>
+              <h2 id="remove-photo-title">Remove this photo?</h2>
+              <p id="remove-photo-copy">
+                This deletes it from Photos on this device.
+              </p>
+              <div className="reset-actions">
+                <Button onClick={() => setDeletePhotoId(null)}>
+                  Keep photo
+                </Button>
+                <Button variant="danger" onClick={removePhoto}>
+                  Remove
+                </Button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+        {resetConfirm ? (
+          <div className="reset-backdrop">
+            <section
+              className="reset-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reset-title"
+              aria-describedby="reset-copy"
+            >
+              <Button
+                className="reset-close"
+                onClick={() => setResetConfirm(false)}
+                aria-label="Close reset dialog"
+              >
+                <X size={19} />
+              </Button>
+              <span className="reset-icon">
+                <RotateCcw size={22} />
+              </span>
+              <Badge tone="eyebrow">RESET</Badge>
+              <h2 id="reset-title">Reset session?</h2>
+              <p id="reset-copy">Clears the photo and local gallery.</p>
+              <div className="reset-actions">
+                <Button onClick={() => setResetConfirm(false)}>
+                  Keep session
+                </Button>
+                <Button variant="danger" onClick={reset}>
+                  Reset
+                </Button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </div>
+    </main>
+  );
 }
