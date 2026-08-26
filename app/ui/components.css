@@ -732,4 +732,41 @@
  .enhance-back { min-height: 44px; }
 }
 
+/* Consent (final-review). Form on ivory, so the Photos summary strip and tints apply
+   directly. Atlas-profile and brand-use stay two independent Toggle rows -- the
+   input+i adjacent-sibling switch is not touched. "FINAL PHOTO PREFLIGHT" became
+   "Photo check". Actions were already 52px. No new hue. */
+.consent-summary {
+ display: flex; flex-wrap: wrap; gap: 10px;
+ margin: 0 0 18px;
+}
+.consent-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+}
+.consent-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.consent-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--color-ink); }
+.consent-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.consent-summary-stat.action b { color: #7a2b13; }
+.consent-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.consent-summary-stat.pending b { color: #8a5a12; }
+.consent-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.consent-summary-stat.approved b { color: #1f6b4c; }
+.consent-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.consent-summary-stat.zero b { color: var(--color-muted); }
+.final-quality { border-color: #bfe4d3; background: #eaf6f0; }
+.final-quality.needs-work { border-color: #f6d7ce; background: #fff3ef; }
+.consents label:has(input:checked) { border-color: #bfe4d3; background: #eaf6f0; }
+.final-review-actions button { min-height: 52px; }
+
+@media (max-width: 620px) {
+ .consent-summary { gap: 8px; }
+ .consent-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .consent-summary-stat b { font-size: 20px; }
+}
+
 }
