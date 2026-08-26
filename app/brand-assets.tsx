@@ -6,6 +6,7 @@ import {mockAgent} from "./mock-agent";
 import {createOrderId, deliveryOptions, formatMYR, paymentMethods, printSizes, recordPrintOrder, type PrintOrder} from "./print-orders";
 import {mattePortrait} from "./portrait-matting";
 import {recordCutoutAsset} from "./designer-store";
+import {StatTile} from "./ui";
 
 export type BrandAssetPhoto={id:string;dataUrl:string;category?:"atlas"|"awards";agentName?:string;agentId?:string;agentMobile?:string;agentRenTag?:string;agentOfficePhone?:string};
 type Template="subsale"|"awards";
@@ -28,9 +29,10 @@ export default function BrandAssetStudio({photos,onOpenPhotos,onToast}:{photos:B
  const confirmPrintOrder=(placed:PrintOrder)=>{setOrder(placed);onToast(`Print order ${placed.id} paid · ${formatMYR(placed.total)}`)};
  const previewFullscreen=async()=>{try{await previewRef.current?.requestFullscreen()}catch{onToast("Full-screen preview is not available in this browser.")}};
  useEffect(()=>{if(!photo?.dataUrl)return;let active=true;createPortraitCutout(photo.dataUrl).then(result=>{if(active)keepCutout(result)}).catch(()=>{if(active)onToast("Background removal could not finish. Choose another portrait or retry.")}).finally(()=>{if(active)setRemoving(false)});return()=>{active=false}},[photo?.dataUrl,keepCutout,onToast]);
- if(!photo)return <section className="asset-empty"><span><Images size={28}/></span><h1>Create brand assets</h1><p>Save or import a portrait first. Your approved photo can then be placed into designer-supplied templates.</p><button type="button" onClick={onOpenPhotos}>Open Photos</button></section>;
+ if(!photo)return <section className="asset-empty"><span><Images size={28}/></span><h1>Create brand assets</h1><p>Save or import a portrait first. Your approved photo can then be placed into a banner template.</p><button type="button" onClick={onOpenPhotos}>Open Photos</button></section>;
  if(screen==="select")return <section className="asset-studio">
-  <header className="asset-header"><div><span className="eyebrow">DESIGNER TEMPLATES</span><h1>Choose a format to build.</h1><p>Pick a designer-supplied template. More formats are on the way.</p></div><span className="asset-local"><ShieldCheck size={15}/> Local &amp; private</span></header>
+  <header className="asset-header"><div><span className="eyebrow">BRAND TEMPLATES</span><h1>Choose a format.</h1><p>Pick a template. More formats are on the way.</p></div><span className="asset-local"><ShieldCheck size={15}/> Local and private</span></header>
+  <div className="asset-summary"><StatTile className={`asset-summary-stat ${photos.length?"approved":"zero"}`} label="Approved photos" value={photos.length}/><StatTile className="asset-summary-stat approved" label="Ready now" value="1"/><StatTile className="asset-summary-stat pending" label="Coming soon" value="2"/></div>
   <div className="asset-template-grid">
    <button type="button" className="asset-template-card" onClick={()=>setScreen("editor")}><LayoutTemplate size={22}/><b>Subsale banner</b><small>Designer artwork · Print ready</small></button>
    <button type="button" className="asset-template-card" disabled aria-disabled="true"><CreditCard size={22}/><b>Business card</b><small>Agent contact card for print</small><i className="asset-coming-soon">Coming soon</i></button>
@@ -39,7 +41,8 @@ export default function BrandAssetStudio({photos,onOpenPhotos,onToast}:{photos:B
  </section>;
  return <section className="asset-studio">
   <button type="button" className="asset-back" onClick={()=>setScreen("select")}><ArrowLeft size={15}/> All formats</button>
-  <header className="asset-header"><div><span className="eyebrow">DESIGNER TEMPLATES</span><h1>Place your portrait. Keep the brand intact.</h1><p>Choose a designer-supplied format, apply the automatic cutout, and export without changing the locked artwork.</p></div><span className="asset-local"><ShieldCheck size={15}/> Local &amp; private</span></header>
+  <header className="asset-header"><div><span className="eyebrow">BRAND TEMPLATES</span><h1>Place your portrait.</h1><p>The cutout is automatic. Logo, colours and layout stay locked.</p></div><span className="asset-local"><ShieldCheck size={15}/> Local and private</span></header>
+  <div className="asset-summary"><StatTile className={`asset-summary-stat ${photos.length?"approved":"zero"}`} label="Approved photos" value={photos.length}/><StatTile className={`asset-summary-stat ${cutout?"approved":"pending"}`} label="Background" value={removing?"Working":cutout?"Removed":"Needed"}/></div>
   <div className="asset-layout">
    <aside className="asset-controls">
     <section className="asset-control-group"><div className="asset-group-title"><span>01</span><div><b>Choose portrait</b><small>Approved photos</small></div></div><div className="asset-photo-list" role="list">{photos.map(item=><button type="button" className={`${item.id===photo.id?"active":""} ${categoryOf(item)}`} onClick={()=>choosePhoto(item)} aria-pressed={item.id===photo.id} key={item.id}><img src={item.dataUrl} alt={`${item.agentName||"Saved portrait"} · ${categoryOf(item)==="awards"?"Awards night photo":"Atlas photo"}`} width={58} height={72}/><em>{categoryOf(item)==="awards"?"Awards":"Atlas"}</em>{item.id===photo.id?<i><Check size={13}/></i>:null}</button>)}</div></section>

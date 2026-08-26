@@ -810,4 +810,70 @@
  .success-summary-stat b { font-size: 20px; }
 }
 
+/* Assets (BrandAssetStudio). Gallery of templates then a focused workbench. Summary
+   strip: approved photos + ready/coming-soon on the picker, photos + background
+   status on the editor. Empty state has no strip -- there is nothing to count, and
+   the next action is the message. H1 dropped from 52px so the banner preview stays
+   the subject. DESIGNER TEMPLATES became Brand templates. #f57721 (off-palette)
+   restyled to gold / Photos tints. Back, tab, field, close, and quantity controls
+   were under 44px (32/39/42). Coming-soon already pairs colour with text.
+   No new hue. */
+.asset-summary {
+ display: flex; flex-wrap: wrap; gap: 10px;
+ margin: 0 0 22px;
+}
+.asset-summary-stat {
+ display: flex; flex-direction: column; gap: 3px;
+ min-width: 132px;
+ padding: 12px 16px;
+ border-radius: var(--radius-control);
+ border: 1px solid var(--color-line);
+ background: #fff;
+}
+.asset-summary-stat small { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-muted); }
+.asset-summary-stat b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; color: var(--color-ink); }
+.asset-summary-stat.action { border-color: #f6d7ce; background: #fff3ef; }
+.asset-summary-stat.action b { color: #7a2b13; }
+.asset-summary-stat.pending { border-color: #f3ebd6; background: #fff8ec; }
+.asset-summary-stat.pending b { color: #8a5a12; }
+.asset-summary-stat.approved { border-color: #bfe4d3; background: #eaf6f0; }
+.asset-summary-stat.approved b { color: #1f6b4c; }
+.asset-summary-stat.zero { background: #fff; border-color: var(--color-line); }
+.asset-summary-stat.zero b { color: var(--color-muted); }
+.asset-header h1 { font-size: clamp(28px, 4vw, 34px); }
+.asset-local {
+ min-height: 44px;
+ width: fit-content;
+ border-color: #bfe4d3;
+ background: #eaf6f0;
+ color: #1f6b4c;
+}
+.asset-back { min-height: 44px; }
+.asset-tabs { gap: 8px; }
+.asset-tabs button { min-height: 44px; }
+.asset-field input, .asset-field select { height: 44px; min-height: 44px; }
+.asset-empty button { min-height: 44px; }
+.asset-template-card>svg { color: #ee6538; }
+.asset-template-card:not(:disabled):hover { border-color: #ee653866; }
+.asset-photo-list button.active { border-color: #ee6538; }
+.asset-photo-list i { background: #ee6538; }
+.asset-ai-button { border-color: #f6d7ce; background: #fff3ef; color: #7a2b13; }
+.asset-ai-button.done { border-color: #bfe4d3; background: #eaf6f0; color: #1f6b4c; }
+.asset-export-bar button, .print-pay { background: #ee6538; }
+.print-option.active { border-color: #ee6538; background: #fff3ef; }
+.print-card header button { width: 44px; height: 44px; min-height: 44px; }
+.print-quantity>div { gap: 8px; }
+.print-quantity button { width: 44px; height: 44px; min-height: 44px; }
+.asset-range input { accent-color: #ee6538; }
+
+@media (max-width: 700px) {
+ .asset-summary { gap: 8px; }
+ .asset-summary-stat { min-width: 0; flex: 1 1 100px; padding: 10px 12px; }
+ .asset-summary-stat b { font-size: 20px; }
+ .asset-header h1 { font-size: 28px; }
+}
+@media (max-width: 420px) {
+ .asset-tabs button { min-height: 44px; }
+}
+
 }
