@@ -647,4 +647,20 @@
  .batch-summary-stat b { font-size: 20px; }
 }
 
+/* Review (UploadedPhotoCheck). Same dark workbench as session, so the crop stays the
+   subject. Session already raised format-tabs and session-exit to 44px; this pass adds
+   the missing summary strip (score + hidden-by-crop) and the 44px floor on Review &
+   Enhance / Back. "PHOTO UPLOADED" became "Photo to review". Improve-with-AI used an
+   off-palette blue; it now uses the Photos action tint so colour stays in-family and
+   never sits alone (icon + label already on the button). */
+.improve-ai-open {
+ min-height: 44px;
+ border-color: #f6d7ce;
+ background: #fff3ef;
+ color: #7a2b13;
+}
+.improve-ai-open:hover { border-color: #ee6538; background: #fff1eb; color: #7a2b13; }
+.enhance-review .session-loaded-title .enhance-back { min-height: 44px; }
+.upload-review-actions { gap: 8px; }
+
 }
