@@ -2,7 +2,7 @@
 name: photo-scoring-invariants
 description: The rules the Profile Lab AI photo verdict engine must keep. Use before editing app/photo-decision.ts, photo-score.ts, photo-quality.ts, photo-body.ts or photo-artifacts.ts, and when a photo is scored, approved, rejected, capped or sent to designer review in a way that looks wrong.
 metadata:
-  author: studio-plus
+  author: profile-lab-ai
   version: "1.0.0"
 ---
 
@@ -97,6 +97,6 @@ Do not duplicate these numbers into components or tests — import them.
   without its comments; keep that standard.
 - Every scoring change needs a test in `tests/photo-decision.test.mjs`, `photo-score.test.mjs`
   or `photo-body.test.mjs`, with an assertion message stating the rule it protects.
-- Run `npm run verify` (108 tests at last check) before reporting the change.
+- Run `npm run verify` (199 tests at last check) before reporting the change.
 - If a real photo is scored wrongly, find the signal that is wrong before moving a threshold.
   Thresholds are calibrated against designer decisions, not against one disappointing result.

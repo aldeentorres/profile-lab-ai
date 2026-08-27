@@ -21,7 +21,7 @@ PROCESS_TIMEOUT_SECONDS = int(os.getenv("CODEFORMER_TIMEOUT_SECONDS", "300"))
 FACE_COUNT_PATTERN = re.compile(r"detect\s+(\d+)\s+faces")
 inference_lock = asyncio.Semaphore(1)
 
-app = FastAPI(title="Studio+ CodeFormer service", version="1.0.0")
+app = FastAPI(title="Profile Lab AI CodeFormer service", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",") if origin.strip()],

@@ -1,11 +1,10 @@
 # Profile Lab AI — instructions for AI coding agents
 
-Profile Lab AI is an offline-first, white-label AI portrait studio built for a live product demo.
+Profile Lab AI is an offline-first, white-label AI portrait studio. The name is **Profile Lab AI**
+everywhere a person reads it — never Studio+, Studio Plus, or studio-plus.
+
 The whole product journey — capture, scoring, enhancement, consent, galleries, banner
 artwork, download and print — runs in the browser with no API keys and no network.
-
-**Demo day is imminent. Read [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) before touching
-anything, and treat the repository as frozen unless the user explicitly asks for a change.**
 
 ## Commands
 
@@ -19,15 +18,15 @@ npm run demo:setup   # npm ci + verify, for a clean machine
 ```
 
 Last verified state: preflight passes, 199/199 tests pass, lint reports 22 warnings and 0
-errors (`<img>` usage and two `react-hooks/exhaustive-deps`). Do not "fix" those warnings
-during the freeze — `next/image` is not wired up and the effect deps are deliberate.
+errors (`<img>` usage and two `react-hooks/exhaustive-deps`). Do not "fix" those warnings —
+`next/image` is not wired up and the effect deps are deliberate.
 
 ## Where things live
 
 | Path | Job |
 | --- | --- |
 | `app/studio.tsx` | The whole studio flow: views `profile → session → capture → batch → review → select → consent → personal → assets → console` |
-| `app/atlas/` | Atlas agent profile demo, booking, QR handoff |
+| `app/atlas/` | Atlas agent profile, booking, QR handoff |
 | `app/designer/` | Internal designer desk: overview, review queue, approved assets, agent directory, history |
 | `app/designer-records.ts`, `app/designer-store.ts`, `app/agent-directory.ts` | Designer domain rules, IndexedDB/local-memory persistence, IQI directory normalization and search |
 | `app/photo-quality.ts` | Orchestrates the browser-side assessment and produces `PhotoRating` |
@@ -48,12 +47,15 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
 | `scripts/demo-preflight.mjs` | Frozen-asset and environment check |
 | `.claude/skills/`, `.agents/skills/` | Project skills (same files, `.agents` symlinks into `.claude`) |
 
+The designer IndexedDB database is still named `studio-plus-designer`. That string is a
+persistence key, not a product name — renaming it would drop the local library.
+
 ## Invariants — do not break these
 
 1. **Offline-first.** The core journey must finish with no internet. Atlas data, CodeFormer
    and payments are adapters with local fallbacks; never make one a hard dependency.
-2. **No new dependencies** during the freeze. `npm ci` from the committed lockfile must keep
-   reproducing the demo.
+2. **No new dependencies** unless the user asks. `npm ci` from the committed lockfile must keep
+   reproducing the build.
 3. **Frozen assets.** The seven files hashed in `scripts/demo-preflight.mjs` (portraits,
    MediaPipe models, WASM) must not be re-encoded or replaced.
 4. **Local enhancement is non-generative.** The local pipeline never invents or reshapes facial
@@ -85,6 +87,10 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
    original attached for identity comparison only. Enforced in the engine (`designerReviewEligible`,
    `assessAiUsability`) and again at the queue (`reviewRequestBlockedBy`, `recordReviewRequest`,
    `ingestReviewRequest`), so a stale button or a direct call cannot open a case that is closed.
+10. **Deleting a photograph withdraws the case.** Photos calls `withdrawPhoto`, which removes the
+    review request, queue submission, approved asset, cutout, history, and blobs. A withdrawal is
+    not a designer decision. Designer-approved portraits belong on Brand Assets even when the AI
+    had not marked them `brandOK` at save time.
 
 ## Conventions
 
@@ -98,9 +104,9 @@ during the freeze — `next/image` is not wired up and the effect deps are delib
   describing user-visible behaviour, and a body explaining the reasoning.
 - Run `npm run verify` before claiming anything works.
 
-## Demo-day mode
+## Working on this product
 
 - Prefer the smallest change that fixes the actual problem. No refactors, no renames, no
-  dependency bumps, no new screens.
+  dependency bumps, no new screens unless the user asks.
 - If a change cannot be verified end to end, do not ship it — say so instead.
-- After any change: `npm run verify`, then re-rehearse the affected step of the judge flow.
+- After any change: `npm run verify`.

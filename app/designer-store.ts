@@ -111,6 +111,7 @@ function openDesignerDatabase(){
    request.onsuccess=()=>done(()=>resolve(request.result));
    request.onblocked=()=>{};
   };
+  // Persistence key is historical. Renaming the database would drop the local designer library.
   const first=indexedDB.open("studio-plus-designer",2);
   listen(first);
   first.onerror=()=>{

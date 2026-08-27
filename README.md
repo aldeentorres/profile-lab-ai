@@ -1,12 +1,12 @@
 # Profile Lab AI
 
-For the frozen setup, event-day checklist, recovery paths, and exact three-minute product flow, use [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md). For the rules AI coding agents must follow in this repository, use [CLAUDE.md](./CLAUDE.md) (also served as `AGENTS.md`).
+For the rules AI coding agents must follow in this repository, use [CLAUDE.md](./CLAUDE.md) (also served as `AGENTS.md`).
 
-Profile Lab AI is a demo-ready, white-label AI portrait studio. It helps agents replace missing or weak profile photos, gives friendly technical retake guidance, lets an agent challenge a verdict they believe is wrong, records profile and brand-use consent separately, and turns approved high-resolution portraits into ready-to-print marketing artwork.
+Profile Lab AI is a white-label AI portrait studio. It helps agents replace missing or weak profile photos, gives friendly technical retake guidance, records profile and brand-use consent separately, and turns approved high-resolution portraits into ready-to-print marketing artwork.
 
-The app is deliberately offline-first. Browser camera capture, image upload, photo assessment, enhancement, background removal, banner composition, gallery storage, downloads, and printing work without external APIs. Atlas, IQPilot, n8n, hardware tethering, payments, and notifications remain clearly labelled integration adapters.
+The app is deliberately offline-first. Browser camera capture, image upload, photo assessment, enhancement, background removal, banner composition, gallery storage, downloads, and printing work without external APIs. Atlas, IQPilot, hardware tethering, payments, and notifications remain clearly labelled integration adapters.
 
-## What the demo proves
+## What the product proves
 
 ```text
 Weak or missing profile photo
@@ -19,7 +19,7 @@ Retake guidance, designer review, or approval
         ↓
 Original/enhanced selection + consent
         ↓
-Mock Atlas update + personal gallery
+Atlas update + personal gallery
         ↓
 Permissioned Brand Asset Gallery
         ↓
@@ -38,18 +38,19 @@ The on-device preflight answers one question: **can a designer use this file to 
 - Multi-shot capture with per-shot scoring, so the best frame can be chosen
 - On-device assessment using bundled MediaPipe face detection, pose, and person segmentation
 - Four verdicts — `APPROVED`, `REVIEW`, `REUPLOAD`, `REJECT` — with a transparent score trace
-- Designer review requests: an agent can send a photo to a human, or challenge a rejection they disagree with
+- Designer review for a `REVIEW` original, or for an AI portrait generated from a retake-recommended photo whose face still clears AI usability
 - No more than two friendly instructions for a retake
 - Optional professional enhancement with person segmentation, studio background replacement, adaptive relighting, face-aware texture smoothing, definition controls, and up-to-2048px export
 - Optional genuine CodeFormer face restoration with Real-ESRGAN whole-image upscaling through a private self-hosted service
 - Separate consent for Atlas profile use and brand materials
-- Local Atlas demo update, persistent personal gallery, real downloads, and system-printer output with photo-paper presets
-- Brand Asset Gallery with visible consent status, AI background removal, and subsale banner composition
+- Local Atlas update, persistent personal gallery, real downloads, and system-printer output with photo-paper presets
+- Brand Asset Gallery with visible consent status, AI background removal, and subsale banner composition — including portraits a designer approved
+- Deleting a photograph in Photos withdraws its designer case, approved asset, and cutout
 - Mock print shop: board sizes, delivery, FPX/card/e-wallet payment states, and a local order book
 - Operator console for camera, printer, payment, and print systems
 - Ready/offline equipment states with plain-language recovery guidance
 - Large controls, keyboard focus, responsive layouts, and reduced-motion support
-- Demo reset, local progress preservation, and bundled offline imagery
+- Reset, local progress preservation, and bundled offline imagery
 
 ## Requirements and local setup
 
@@ -63,29 +64,27 @@ npm install
 npm run dev
 ```
 
-For a clean, lockfile-reproducible demo setup, use `npm run demo:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify` — it runs the preflight, the build, 131 tests, and lint.
+For a clean, lockfile-reproducible setup, use `npm run demo:setup`. To re-check an existing installation without reinstalling dependencies, use `npm run verify` — it runs the preflight, the build, 199 tests, and lint.
 
 Open the local address printed in the terminal, normally [http://localhost:3000](http://localhost:3000).
 
-### Atlas integration demo
-
-The repository contains two separate demo surfaces:
+### Surfaces
 
 - **Atlas agent profile:** [http://localhost:3000/atlas](http://localhost:3000/atlas)
-- **Profile Lab AI check-in:** [http://localhost:3000](http://localhost:3000)
+- **Profile Lab AI:** [http://localhost:3000](http://localhost:3000)
 - **Designer desk:** [http://localhost:3000/designer](http://localhost:3000/designer)
 
 Atlas also supports dynamic agent URLs using the source API slug: `http://localhost:3000/atlas/{agent}`. For example, Niel Kingston is available at [http://localhost:3000/atlas/niel-kingston](http://localhost:3000/atlas/niel-kingston). Agent slugs are validated before being passed to the source API.
 
-The Atlas page demonstrates the agent profile, photo preflight, quality warning, local upload, appointment booking, and appointment QR generation. To demo the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Profile Lab AI first screen. A manual appointment-code field is included as a fallback.
+The Atlas page shows the agent profile, photo preflight, quality warning, local upload, appointment booking, and appointment QR generation. To walk the handoff, book an appointment in Atlas, display the generated QR, then scan it from the Profile Lab AI first screen. A manual appointment-code field is included as a fallback.
 
 The profile loads Niel Kingston from the public Atlas endpoint through the local `/api/atlas-agent` proxy. The proxy avoids browser CORS issues, caches briefly, and the interface retains an Niel Kingston fallback record if Atlas is temporarily unavailable.
 
-Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the Profile Lab AI check-in URL and an opaque appointment ID. Profile Lab AI validates that ID before opening the capture workflow. For production, replace the in-memory demo session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
+Booking creates a session through `/api/studio-sessions` and also stores a browser-local fallback under `photostudio-session:<session-id>`. The generated QR contains only the Profile Lab AI check-in URL and an opaque appointment ID. Profile Lab AI validates that ID before opening the capture workflow. For production, replace the in-memory session store with authenticated Atlas appointment endpoints and short-lived, signed session IDs.
 
 ### Designer desk
 
-`/designer` is an unlisted internal workspace for original-photo approvals, AI-enhanced review, agent images, approved assets, IQI agent lookup, and the decision history. Its photo library can be grouped by team or individual and filtered by pending or approved status. The directory exposes the same photo state for every agent. Kiosk review requests, approved portraits, and background-removed assets flow into its browser-local IndexedDB library; full image Blobs are kept out of `localStorage`. Use **Load demo data** on a fresh browser to rehearse the complete desk without network access. Set `DESIGNER_ACCESS_CODE` to require a server-checked access code; leave it unset for the local demo.
+`/designer` is an unlisted internal workspace for original-photo approvals, AI-enhanced review, agent images, approved assets, IQI agent lookup, and the decision history. Its photo library can be grouped by team or individual and filtered by pending or approved status. The directory exposes the same photo state for every agent. Review requests, approved portraits, and background-removed assets flow into its browser-local IndexedDB library; full image Blobs are kept out of `localStorage`. Use **Load demo data** on a fresh browser to rehearse the complete desk without network access. Set `DESIGNER_ACCESS_CODE` to require a server-checked access code; leave it unset for the local product.
 
 #### SMTP reminder test
 
@@ -116,9 +115,9 @@ Nothing is hard-coded. The browser combines pixel measurements with the bundled 
 - **Score caps.** The only arithmetic between the raw score and the final score is `min(rawScore, lowest applicable cap)`. Caps are ceilings, not values: a weak photo that also trips a gate keeps its own lower score. Screenshots cap at 55, mirror selfies at 49, severe blur, missing or unusable faces, severe exposure and multiple people at 39, and review-level cues such as snapshot framing at 79.
 - **Validated visual defects.** No score, and no combination of scores, rejects on its own. A quality-driven retake must point at something measured in the image: severe blur (structural detail and focus both gone), too little face detail (under ~90px of face height), low resolution with visible detail loss, or compression damage. Smooth skin, retouching and soft studio light are explicitly not evidence of blur.
 - **Status.** ≥80 is ready for design, 65–79 goes to designer review, below 65 is rejected. A photograph that is fine but supplied in a file too small to use anywhere returns `REUPLOAD` rather than a low score — file suitability never lowers photo quality.
-- **Designer review.** Available when photo quality is at least 70, no defect-backed gate fired, and the file is usable. A `REVIEW` verdict is simply sent to a designer; a `REJECT` can be challenged with the agent's own note. Objectively technical failures cannot be overruled, because no judgement recovers detail the file does not carry.
+- **Designer review of the original** is available only on a `REVIEW` verdict: photo quality at least 70, no defect-backed gate, and a usable file. `REJECT` and `REUPLOAD` close the original photograph. A retake-recommended photo whose face still clears AI usability may be enhanced, and that generated portrait may go to designer review with the original attached for identity comparison only.
 
-Pose is reported and carries zero weight, and there is no formal-pose requirement. Sitting, leaning, smiling and relaxed posture never trigger a penalty; only the resulting crop, camera angle, proximity, or lack of design usability can affect the decision. The local model makes no beauty judgements and does not claim to infer character. The 20–50-photo calibration set should include formal, seated, desk, phone-camera, low-light, blurry, cluttered, and lifestyle portraits and be tuned against actual designer decisions before production use.
+Pose is reported and carries zero weight, and there is no formal-pose requirement. Sitting, leaning, smiling and relaxed posture never trigger a penalty; only the resulting crop, camera angle, proximity, or lack of design usability can affect the decision. The local model makes no beauty judgements and does not claim to infer character.
 
 ### Enhancement and export
 
@@ -128,9 +127,7 @@ The local 2048px export uses high-quality browser resampling and does not invent
 
 ### Brand assets and print ordering
 
-Approved, brand-consented portraits appear in the Brand Asset Gallery. From there the demo removes the background on device, composes a subsale board with the agent's Atlas details, previews it full-screen, and places a mock print order — board size, collection or courier, and an FPX, card, or e-wallet payment state. No payment provider is contacted. Artwork stays in memory and only the order record is persisted, because a full-size PNG would exhaust the browser storage quota. The awards-night template is parked until its layout is ready.
-
-The background-removal quality work is specified in [docs/superpowers/specs/2026-08-23-designer-grade-background-removal-design.md](./docs/superpowers/specs/2026-08-23-designer-grade-background-removal-design.md). Its governing principle: background removal is non-generative — remove the background without redesigning, reconstructing or changing the subject.
+Approved, brand-consented portraits appear in the Brand Asset Gallery — including a portrait a designer approved, even when the AI had not marked it brand-ready at save time. From there the product removes the background on device, composes a subsale board with the agent's Atlas details, previews it full-screen, and places a mock print order — board size, collection or courier, and an FPX, card, or e-wallet payment state. No payment provider is contacted. Artwork stays in memory and only the order record is persisted, because a full-size PNG would exhaust the browser storage quota. The awards-night template is parked until its layout is ready. Background removal is non-generative: remove the background without redesigning, reconstructing or changing the subject.
 
 ### CodeFormer restoration service
 
@@ -154,9 +151,9 @@ npm run build
 npm run start
 ```
 
-## Presenting the demo
+## Walking the product
 
-The rehearsed, timed judge flow lives in [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md#three-minute-judge-flow). Prepare these sample files beforehand so every verdict can be shown without depending on the camera:
+Prepare these sample files beforehand so every verdict can be shown without depending on the camera:
 
 | Prepared sample | Expected verdict | Purpose |
 | --- | --- | --- |
@@ -166,7 +163,7 @@ The rehearsed, timed judge flow lives in [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md#thr
 | A good portrait exported small | `REUPLOAD` | Shows that the photograph is judged separately from the file |
 | A studio-ready portrait | `APPROVED` | Drives the full approval, consent, and banner flow |
 
-Use **Reset demo** at any time to return to the opening state. The current screen is otherwise preserved in browser storage if a participant pauses.
+Use **Reset** at any time to return to the opening state. The current screen is otherwise preserved in browser storage if a participant pauses.
 
 ## Project structure
 
@@ -188,7 +185,7 @@ app/
   brand-assets.tsx      Background removal, subsale banner, print ordering
   api/                  Atlas, agent directory, designer access, sessions and model adapters
 services/codeformer/    Pinned CodeFormer + Real-ESRGAN FastAPI container
-scripts/                Demo preflight
+scripts/                Preflight and SMTP helpers
 tests/                  node:test suites for the scoring engine and rendered HTML
 public/                 Bundled fictional portraits, MediaPipe models and WASM
 .claude/skills/         Project skills (mirrored into .agents/skills for other agents)
@@ -198,7 +195,7 @@ public/                 Bundled fictional portraits, MediaPipe models and WASM
 
 Project-local skills in `.claude/skills`, symlinked into `.agents/skills` so Codex, Cursor and other tools that follow the `npx skills` layout pick up the same files:
 
-- `studio-plus-demo` — how to change, debug and present the demo while it is frozen
+- `profile-lab-ai` — how to change, debug and present this product
 - `photo-scoring-invariants` — the rules the verdict engine must keep, and where its thresholds live
 
 Vendored third-party skills, tracked in `skills-lock.json`:
@@ -219,13 +216,13 @@ Suggested Claude visual-review prompt:
 
 > Act as the design director for a premium, accessible physical photo studio product. Review Profile Lab AI. It must be easy for older and non-technical users, yet polished enough to sell to companies. Identify the five highest-impact visual and UX improvements. Preserve the screens and core flow. Give practical, screen-specific recommendations only.
 
-Suggested Claude demo-review prompt:
+Suggested Claude product-review prompt:
 
-> Act as a demo judge. Assess whether the demo proves the complete workflow: weak profile photo, AI guidance, approved portrait, consented brand asset, printable artwork. Identify unclear claims, unfinished handoffs, or unnecessary features, then rewrite the three-minute story in direct language.
+> Act as a product reviewer. Assess whether Profile Lab AI proves the complete workflow: weak profile photo, AI guidance, approved portrait, consented brand asset, printable artwork. Identify unclear claims, unfinished handoffs, or unnecessary features, then rewrite the three-minute story in direct language.
 
 ## Mock integration architecture
 
-| Adapter | Demo implementation | Future implementation |
+| Adapter | Current implementation | Future implementation |
 | --- | --- | --- |
 | Camera | Browser device picker for webcams, phone-webcam modes, USB capture cards, plus universal file import | Optional Local Studio Bridge for manufacturer-specific DSLR tethering |
 | Printer | System print dialog for installed USB, Wi-Fi, network, AirPrint, and PDF destinations | Optional Local Studio Bridge for unattended event-printer automation |
@@ -233,8 +230,6 @@ Suggested Claude demo-review prompt:
 | Profile system | Mock Atlas success state | Atlas profile API or approved workflow |
 | Designer review | Local review queue in browser storage | Designer workflow or ticketing integration |
 | Notifications | Local confirmation messages | IQPilot or messaging integration |
-
-Future n8n workflow: approved asset → secure storage → Atlas sync → confirmation → Brand Asset Gallery → optional print job.
 
 ## Accessibility and reliability
 
@@ -246,13 +241,11 @@ Future n8n workflow: approved asset → secure storage → Atlas sync → confir
 - Multi-camera selection, file import, download, system printing, background removal, relighting, face-aware retouching, high-resolution export, banner composition, consent, and local galleries work now.
 - Payments, remote Atlas updates, notifications, designer review handoff, DSLR tethering, and automatic event printers are integration adapters.
 
-## Demo checklist
+## Checklist
 
-- Confirm Node.js and dependencies before the event: `npm run demo:setup`.
-- Run `npm run verify` and expect a passing preflight, 86 passing tests, and 0 lint errors.
+- Confirm Node.js and dependencies: `npm run demo:setup`.
+- Run `npm run verify` and expect a passing preflight, 199 passing tests, and 0 lint errors.
 - Walk every verdict with the prepared samples above.
-- Rehearse the full journey from a fresh reset in under three minutes, once with a camera and once with file import only.
+- Rehearse the full journey from a fresh reset, once with a camera and once with file import only.
 - Rehearse the QR scan and the manual-code fallback.
 - Check desktop, tablet, and portrait-kiosk sizes.
-- Keep the app, sample portraits, this README, and the runbook available offline.
-- Stop adding features before the final rehearsal, tag the build, and record a backup demo.

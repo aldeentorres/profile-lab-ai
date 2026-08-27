@@ -34,7 +34,7 @@ if (!atLeast(nodeVersion, minimumNode)) {
 try {
   const packageJson = JSON.parse(await readFile("package.json", "utf8"));
   const packageLock = JSON.parse(await readFile("package-lock.json", "utf8"));
-  if (packageJson.name !== "photostudio-plus-demo") failures.push("package.json has the wrong app identity.");
+  if (packageJson.name !== "profile-lab-ai") failures.push("package.json has the wrong app identity.");
   if (packageLock.name !== packageJson.name || packageLock.version !== packageJson.version) failures.push("package-lock.json is not synchronized with package.json.");
   notes.push(`lockfile v${packageLock.lockfileVersion}`);
 } catch (error) {
@@ -63,10 +63,10 @@ try {
 if (failures.length) {
   console.error("\nDemo preflight failed:\n");
   for (const failure of failures) console.error(`  ✗ ${failure}`);
-  console.error("\nFix these items before relying on the demo.\n");
+  console.error("\nFix these items before relying on the product.\n");
   process.exitCode = 1;
 } else {
-  console.log("\nProfile Lab AI demo preflight passed:\n");
+  console.log("\nProfile Lab AI preflight passed:\n");
   for (const note of notes) console.log(`  ✓ ${note}`);
   console.log("\nRun `npm run dev`, then open the address shown in the terminal.\n");
 }
