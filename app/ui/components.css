@@ -1433,3 +1433,16 @@
 .reminder-home-banner.opted-out p { color: #3f6b5b; } /* literal: muted green body text, no token holds this value */
 
 }
+
+/* The receipt for a submission the agent has just made, shown once on Photos. Toned like the pending
+   state it creates rather than like a success: the designer has the photo, nobody has decided yet. */
+.photos-review-banner {
+  grid-column: 1/-1; display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 14px 16px;
+  border: 1px solid #cfd9e4; border-radius: 14px; background: #f2f6fa; color: #33506b;
+}
+.photos-review-banner > span { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.photos-review-banner small { font-size: 9px; font-weight: 900; letter-spacing: .12em; }
+.photos-review-banner b { color: #24384b; }
+.photos-review-banner p { margin: 2px 0 0; color: #5d6b7a; font-size: 11px; line-height: 1.45; }
+.photos-review-dismiss { align-self: center; padding: 4px; border: 0; background: transparent; color: #6a7a89; }
+.photos-review-dismiss:hover { color: #24384b; }

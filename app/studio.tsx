@@ -75,6 +75,7 @@ import {
   ingestReviewRequest,
   recordApprovedPhoto,
   setPhotoCategory as setDesignerPhotoCategory,
+  withdrawPhoto,
 } from "./designer-store";
 import type { PhotoReminder } from "./designer-records";
 import {
@@ -2363,7 +2364,10 @@ export default function Studio() {
   const [sessionCode, setSessionCode] = useState(""),
     [sessionAgent, setSessionAgent] = useState<SessionAgent | null>(null),
     [resetConfirm, setResetConfirm] = useState(false),
-    [deletePhotoId, setDeletePhotoId] = useState<string | null>(null);
+    [deletePhotoId, setDeletePhotoId] = useState<string | null>(null),
+    // The submission the agent has just made, shown as a banner on Photos. Held here rather than derived
+    // from the queue because it answers "did my send go through?", which only the send itself can answer.
+    [reviewNotice, setReviewNotice] = useState<ReviewRequest | null>(null);
   const [reminder, setReminder] = useState<PhotoReminder | null>(null),
     [reminderAction, setReminderAction] = useState<
       "confirm_optout" | "opted_out" | null
@@ -3272,6 +3276,14 @@ export default function Studio() {
     if (!deletePhotoId) return;
     const removed = gallery.find((item) => item.id === deletePhotoId);
     if (removed && categoryOf(removed) === "atlas") clearAtlasProfilePhoto();
+    // The designer desk holds copies of this photograph — the open case, an approved asset, the history
+    // entries about them. Deleting the file here has to take those with it, or the desk keeps a queue row
+    // and a library entry for an image that no longer exists on this device.
+    if (removed)
+      void withdrawPhoto({
+        photoId: removed.id,
+        reviewRequestId: removed.reviewRequestId,
+      });
     setGallery((current) =>
       current.filter((item) => item.id !== deletePhotoId),
     );
@@ -3387,7 +3399,14 @@ export default function Studio() {
         }}
         onExit={() => go("personal")}
         onUpload={upload}
-        onPending={addPendingPhoto}
+        // Sending to a designer ends the agent's work on this photo: there is nothing left to decide on
+        // the assessment screen, so the flow returns to Photos where the case now lives, and the banner
+        // is the receipt for what was just sent.
+        onPending={(request, src, rating, width, height) => {
+          addPendingPhoto(request, src, rating, width, height);
+          setReviewNotice(request);
+          go("personal");
+        }}
       />
     );
   if (view === "select" && original)
@@ -4017,6 +4036,32 @@ export default function Studio() {
               onChange={upload}
               aria-label="Import a photo from a camera, phone, or computer"
             />
+            {reviewNotice ? (
+              <div className="photos-review-banner" role="status">
+                <ShieldCheck size={22} />
+                <span>
+                  <small>{reviewNotice.workflowStatus}</small>
+                  <b>
+                    {reviewNotice.kind === "enhanced_review"
+                      ? "Sent to our designer for review"
+                      : "Sent to our designer for approval"}
+                  </b>
+                  <p>
+                    {reviewNotice.kind === "enhanced_review"
+                      ? "Your original and AI-enhanced photos are with the design team."
+                      : "Your original photo is with the design team."}{" "}
+                    The decision appears here · {reviewNotice.id}
+                  </p>
+                </span>
+                <Button
+                  className="photos-review-dismiss"
+                  onClick={() => setReviewNotice(null)}
+                  aria-label="Dismiss the designer review notice"
+                >
+                  <X size={17} />
+                </Button>
+              </div>
+            ) : null}
             {reminder ? (
               <Button
                 className={`reminder-home-banner reminder-upload-banner${
@@ -4381,7 +4426,11 @@ export default function Studio() {
         )}
         {view === "assets" && (
           <BrandAssetStudio
-            photos={approvedPhotos.filter((item) => item.brandOK)}
+            /* Brand Assets follows approval, not the AI's own verdict: a photo a designer approved is
+               approved, so it belongs on the subsale board exactly like one that passed preflight.
+               `brandOK` records what the AI concluded at save time and still gates the automatic
+               library entry, but it can never be the gate on what artwork an agent may build. */
+            photos={approvedPhotos}
             onOpenPhotos={() => go("personal")}
             onToast={setToast}
           />

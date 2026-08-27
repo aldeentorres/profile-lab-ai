@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {listReviewRequests, recordReviewRequest, resolveReviewRequest, ReviewRequestBlockedError, reviewRequestBlockedBy, workflowStatusFor} from "../app/photo-review-requests.ts";
+import {listReviewRequests, recordReviewRequest, resolveReviewRequest, ReviewRequestBlockedError, reviewRequestBlockedBy, withdrawReviewRequest, workflowStatusFor} from "../app/photo-review-requests.ts";
 
 // node has no localStorage; a tiny in-memory stand-in is enough to prove what the queue keeps.
 const store=new Map();
@@ -102,4 +102,13 @@ test("a designer-review original is the status that does open a case",()=>{
  assert.equal(reviewRequestBlockedBy({...base,kind:"original_approval",original:originalScores}),null);
  recordReviewRequest({...base,id:"IQI-REV-OPEN01",kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,useOriginalRequested:true});
  assert.equal(listReviewRequests().length,1);
+});
+
+test("deleting the photograph withdraws its case instead of deciding it", ()=>{
+ store.clear();
+ recordReviewRequest({...base,id:"IQI-REV-GONE",kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,useOriginalRequested:true});
+ recordReviewRequest({...base,id:"IQI-REV-STAYS",kind:"original_approval",workflowStatus:workflowStatusFor.original_approval,useOriginalRequested:true});
+ withdrawReviewRequest("IQI-REV-GONE");
+ assert.deepEqual(listReviewRequests().map(item=>item.id),["IQI-REV-STAYS"],"only the deleted photo's case leaves the queue");
+ assert.equal(listReviewRequests().some(item=>item.state==="decided"),false,"a withdrawal is not a designer decision");
 });

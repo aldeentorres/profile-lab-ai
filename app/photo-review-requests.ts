@@ -101,3 +101,14 @@ export function resolveReviewRequest(id:string,decision:Exclude<DesignerDecision
   return next.find(item=>item.id===id)??null;
  }catch{return null}
 }
+
+// Deleting the photograph in Photos withdraws the case with it: the file is gone from this device, so
+// there is nothing left for a designer to look at and nothing the agent is still waiting on. The case is
+// dropped rather than decided — a decision the designer never made must not appear in their history.
+export function withdrawReviewRequest(id:string){
+ try{
+  const next=listReviewRequests().filter(item=>item.id!==id);
+  localStorage.setItem(storageKey,JSON.stringify(next));
+  return next;
+ }catch{return listReviewRequests()}
+}

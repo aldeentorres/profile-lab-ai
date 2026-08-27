@@ -291,11 +291,11 @@ export default function BrandAssetStudio({
                 >
                   <img
                     src={item.dataUrl}
-                    alt={`${item.agentName || "Saved portrait"} · ${categoryOf(item) === "awards" ? "Awards night photo" : "Atlas photo"}`}
+                    alt={`${item.agentName || "Saved portrait"} · ${categoryLabel(item)}`}
                     width={58}
                     height={72}
                   />
-                  <em>{categoryOf(item) === "awards" ? "Awards" : "Atlas"}</em>
+                  <em>{categoryLabel(item)}</em>
                   {item.id === photo.id ? (
                     <i>
                       <Check size={13} />
@@ -1212,6 +1212,12 @@ function formatRen(value: string | undefined) {
 }
 function categoryOf(photo: BrandAssetPhoto) {
   return photo.category ?? "atlas";
+}
+// "other" is a real choice an agent makes in Photos — a portrait kept for artwork without claiming the
+// profile or the awards slot — so the board names it rather than mislabelling it as the Atlas photo.
+function categoryLabel(photo: BrandAssetPhoto) {
+  const category = categoryOf(photo);
+  return category === "awards" ? "Awards" : category === "other" ? "Other" : "Atlas";
 }
 function isMockAgent(photo: BrandAssetPhoto | undefined) {
   return !photo?.agentName || photo.agentId === mockAgent.agentId;

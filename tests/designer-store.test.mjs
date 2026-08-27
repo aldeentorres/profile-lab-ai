@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {MemoryDesignerStore} from "../app/designer-store.ts";
 import {listReviewRequests, recordReviewRequest} from "../app/photo-review-requests.ts";
+import {withdrawPhoto} from "../app/designer-store.ts";
 
 const values=new Map();globalThis.localStorage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key)};
 const image="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="red"/></svg>');
@@ -76,4 +77,42 @@ test("real test reminders become sent only after SMTP acceptance",async()=>{
  const store=new MemoryDesignerStore(),[pending]=await store.sendPhotoReminders([{agentId:"agent-1",agentName:"Joyce Yeoh",recipientEmail:"test-one@example.test",intendedRecipientEmail:"joyce@example.test",actualRecipientEmail:"test-one@example.test",relatedPhotoStatus:"none",subject:"[TEST] Reminder: Upload Your Studio+ Profile Photo — Joyce Yeoh",testMode:true,sentBy:"Test Designer"}]);let snapshot=await store.snapshot();
  assert.equal(pending.deliveryStatus,"PENDING");assert.equal(pending.intendedRecipientEmail,"joyce@example.test");assert.equal(pending.actualRecipientEmail,"test-one@example.test");assert.equal(pending.testMode,true);assert.equal(snapshot.events.some(event=>event.action==="PHOTO_REMINDER_SENT"),false,"preparing a reminder must not claim it was sent");
  const [delivered]=await store.finalisePhotoReminders([{reminderId:pending.reminderId,deliveryStatus:"SMTP_DELIVERED"}]);snapshot=await store.snapshot();assert.equal(delivered.deliveryStatus,"SMTP_DELIVERED");assert.equal(snapshot.events.filter(event=>event.action==="PHOTO_REMINDER_SENT").length,1,"SMTP acceptance creates exactly one sent event");
+});
+
+test("deleting the photo in Photos withdraws the whole case from the designer desk",async()=>{
+ values.clear();const store=new MemoryDesignerStore();
+ await store.ingestReviewRequest(request);
+ await store.applyDecision({submissionId:request.id,action:"approve_original",notes:"Usable",actor:"Demo Designer"});
+ const before=await store.snapshot();
+ assert.equal(before.assets.length,1,"the approval left an asset behind to be withdrawn");
+ await store.withdrawPhoto({photoId:"gallery-1",reviewRequestId:request.id});
+ const after=await store.snapshot();
+ assert.deepEqual(after.submissions,[],"the queue case goes with the photograph");
+ assert.deepEqual(after.assets,[],"an approved asset of a deleted photo must not stay in the library");
+ assert.deepEqual(after.reviews,[],"the decision on a withdrawn photo is not a record of anything");
+ assert.deepEqual(after.events,[],"history entries pointing at removed records would point at nothing");
+ assert.equal(await store.image(before.submissions[0].imageId),null,"the blob goes with the record");
+});
+test("withdrawing one photo leaves every other agent's case untouched",async()=>{
+ values.clear();const store=new MemoryDesignerStore();
+ await store.ingestReviewRequest(request);
+ await store.ingestReviewRequest({...request,id:"IQI-REV-OTHER",agentId:"90210",agentName:"Other Agent"});
+ await store.recordApprovedPhoto({photoId:"photo-keep",dataUrl:image,agentId:"90210",agentName:"Other Agent",enhanced:false,createdAt:"2026-08-26T09:00:00Z"});
+ await store.withdrawPhoto({photoId:"photo-gone",reviewRequestId:request.id});
+ const after=await store.snapshot();
+ assert.deepEqual(after.submissions.map(item=>item.submissionId).sort(),["IQI-REV-OTHER","approved-photo-keep"],"only the deleted photograph is withdrawn");
+ assert.equal(after.assets.length,1,"the other agent's approved asset survives");
+});
+test("withdrawing a photo removes the cutout asset cut from it, and the agent's own queue record",async()=>{
+ values.clear();const store=new MemoryDesignerStore();
+ recordReviewRequest(request);
+ await store.recordApprovedPhoto({photoId:"photo-2",dataUrl:image,agentId:"7",agentName:"Maya",enhanced:false,createdAt:"2026-08-26T09:00:00Z"});
+ await store.recordCutoutAsset({photoId:"photo-2",agentId:"7",agentName:"Maya",dataUrl:image,cutoutDataUrl:image});
+ await store.withdrawPhoto({photoId:"photo-2"});
+ const after=await store.snapshot();
+ assert.deepEqual(after.assets,[],"the transparent cutout is derived from the deleted photo, so it goes too");
+ assert.equal(await store.image("image-cutout-photo-2"),null,"the cutout blob is released with it");
+ assert.equal(listReviewRequests().length,1,"a store call alone never touches the agent-side queue record");
+ await withdrawPhoto({photoId:"photo-2",reviewRequestId:request.id});
+ assert.deepEqual(listReviewRequests(),[],"withdrawing through the module clears the agent's pending case as well");
 });
