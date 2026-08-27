@@ -50,7 +50,7 @@ test("renders the Atlas profile with upload and login as the only actions", asyn
   const html = await response.text();
   assert.match(html, /Atlas/i);
   assert.match(html, /Amir Asraf/i);
-  assert.match(html, /Photo quality|Marketing photo preflight/i);
+  assert.match(html, /Add a profile photo/i);
   assert.match(html, /Login to Profile Lab AI/i);
   assert.doesNotMatch(
     html,

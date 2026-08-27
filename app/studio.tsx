@@ -79,9 +79,16 @@ import {
 } from "./designer-store";
 import type { PhotoReminder } from "./designer-records";
 import {
+  categoryFromUses,
   clearAtlasProfilePhoto,
+  photoCategoryBadge,
+  photoUsesAwards,
+  photoUsesAtlas,
   withSingleAtlasPhoto,
+  withToggledPhotoUse,
   writeAtlasProfilePhoto,
+  type PhotoCategory,
+  type PhotoUse,
 } from "./atlas-profile-photo";
 import { atlasAgentSlug, mockAgent } from "./mock-agent";
 import {
@@ -120,7 +127,6 @@ type View =
   | "assets"
   | "console";
 type Assessment = PhotoRating;
-type PhotoCategory = "atlas" | "awards" | "other";
 type Photo = {
   id: string;
   dataUrl: string;
@@ -140,34 +146,23 @@ type Photo = {
   agentOfficePhone?: string;
   reviewRequestId?: string;
 };
-// `short` is what the three-way switch shows; `label` is the badge above it. A photo starts in
-// "other", so an agent's gallery does not claim the profile or awards slot they never picked.
-const photoCategories: {
-  id: PhotoCategory;
-  label: string;
-  short: string;
-  note: string;
-}[] = [
+// Atlas and awards night are independent toggles. Other is simply neither — a photo starts there so
+// the gallery does not claim a slot the agent never picked. Designer approval does not pick Atlas.
+const photoUseToggles: { id: PhotoUse; short: string; note: string }[] = [
   {
     id: "atlas",
-    label: "Atlas photo",
     short: "Atlas",
     note: "The live photo on the agent's Atlas profile",
   },
   {
     id: "awards",
-    label: "Awards night",
     short: "Awards",
     note: "Event screen artwork",
   },
-  {
-    id: "other",
-    label: "Other",
-    short: "Other",
-    note: "Subsale banner and any other artwork",
-  },
 ];
 const categoryOf = (item: Photo): PhotoCategory => item.category ?? "other";
+const categoryLabelOf = (item: Photo) =>
+  photoCategoryBadge(categoryOf(item)) ?? "Other";
 type SessionAgent = {
   agentName: string;
   agentId: string;
@@ -375,7 +370,7 @@ function KeepOriginalOption({
       agentId: appeal.agentId,
       kind: "original_approval",
       workflowStatus: workflowStatusFor.original_approval,
-      category: "atlas",
+      category: "other",
       photo: appeal.photo,
       original: reviewScoresOf(rating),
       aiUsability: rating.ai_usability,
@@ -1305,7 +1300,7 @@ function ReviewAndEnhance({
       agentId: agent.agentId,
       kind: "enhanced_review",
       workflowStatus: workflowStatusFor.enhanced_review,
-      category: "atlas",
+      category: "other",
       photo: src,
       enhancedPhoto: result?.dataUrl,
       original: reviewScoresOf(rating),
@@ -1342,7 +1337,7 @@ function ReviewAndEnhance({
       agentId: agent.agentId,
       kind: "original_approval",
       workflowStatus: workflowStatusFor.original_approval,
-      category: "atlas",
+      category: "other",
       photo: src,
       original: reviewScoresOf(rating),
       aiUsability: rating.ai_usability,
@@ -1604,10 +1599,26 @@ function ReviewAndEnhance({
                     </div>
                   ) : null}
                   {engine?.puterSignedIn ? (
-                    <p className="puter-connected">
-                      <Check size={13} /> Connected to Puter — Generate will use{" "}
-                      {engine.engine}.
-                    </p>
+                    <>
+                      <p className="puter-connected">
+                        <Check size={13} /> Connected to Puter — Generate will use{" "}
+                        {engine.engine}.
+                      </p>
+                      <Button
+                        className="puter-connect"
+                        disabled={connecting}
+                        onClick={() => void connect()}
+                      >
+                        {connecting ? (
+                          <>
+                            <RefreshCw className="spinning" size={13} />{" "}
+                            Connecting…
+                          </>
+                        ) : (
+                          "Switch Puter account"
+                        )}
+                      </Button>
+                    </>
                   ) : engine?.puterConnectable ? (
                     <Button
                       className="puter-connect"
@@ -2359,7 +2370,7 @@ export default function Studio() {
     [assessment, setAssessment] = useState<Assessment | null>(null),
     [checking, setChecking] = useState(false),
     [enhanced, setEnhanced] = useState(false),
-    [profileOK, setProfileOK] = useState(true),
+    [profileOK, setProfileOK] = useState(false),
     [gallery, setGallery] = useState<Photo[]>([]);
   const [sessionCode, setSessionCode] = useState(""),
     [sessionAgent, setSessionAgent] = useState<SessionAgent | null>(null),
@@ -3113,8 +3124,8 @@ export default function Studio() {
   // A designer-approval or designer-review request must show under Pending Designer Review the moment it
   // is created — not only after the agent finishes capture/consent and clicks Save. This mirrors that
   // gallery entry immediately; confirm()'s dataUrl-based dedup later replaces it with the saved photo.
-  // It claims the Atlas slot like any other save, so it must demote the previous Atlas photo too --
-  // without withSingleAtlasPhoto the gallery ends up showing two "Atlas photo" cards at once.
+  // Designer review does not pick the Atlas slot: the photo lands as other until the agent files it
+  // for Atlas and/or awards night on Photos.
   const addPendingPhoto = (
     request: ReviewRequest,
     src: string,
@@ -3126,32 +3137,28 @@ export default function Studio() {
     setGallery((g) =>
       g.some((item) => item.reviewRequestId === request.id)
         ? g
-        : withSingleAtlasPhoto(
-            [
-              {
-                id,
-                dataUrl: src,
-                createdAt: request.createdAt,
-                category: "atlas",
-                enhanced: request.kind === "enhanced_review",
-                profileOK: true,
-                brandOK: false,
-                rating,
-                reviewRequestId: request.id,
-                agentName: request.agentName,
-                agentId: request.agentId,
-                agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
-                agentRenTag:
-                  sessionAgent?.agentRenTag || demoAgent.agentRenTag,
-                agentOfficePhone:
-                  sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
-                width,
-                height,
-              },
-              ...g.filter((item) => item.dataUrl !== src),
-            ].slice(0, 6),
-            id,
-          ),
+        : [
+            {
+              id,
+              dataUrl: src,
+              createdAt: request.createdAt,
+              category: "other" as const,
+              enhanced: request.kind === "enhanced_review",
+              profileOK: false,
+              brandOK: false,
+              rating,
+              reviewRequestId: request.id,
+              agentName: request.agentName,
+              agentId: request.agentId,
+              agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
+              agentRenTag: sessionAgent?.agentRenTag || demoAgent.agentRenTag,
+              agentOfficePhone:
+                sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
+              width,
+              height,
+            },
+            ...g.filter((item) => item.dataUrl !== src),
+          ].slice(0, 6),
     );
   };
   const confirm = () => {
@@ -3160,34 +3167,44 @@ export default function Studio() {
       setToast("Improve the photo until it reaches the approval standard.");
       return;
     }
-    const item: Photo = {
-      id: crypto.randomUUID(),
-      dataUrl: finalUrl,
-      createdAt: new Date().toISOString(),
-      category: "atlas",
-      enhanced,
-      profileOK,
-      brandOK: isPhotoApproved(assessment),
-      rating: assessment,
-      originalRating: originalAssessment ?? undefined,
-      reviewRequestId: pendingReview?.id,
-      agentName: sessionAgent?.agentName || demoAgent.agentName,
-      agentId: sessionAgent?.agentId || demoAgent.agentId,
-      agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
-      agentRenTag: sessionAgent?.agentRenTag || demoAgent.agentRenTag,
-      agentOfficePhone:
-        sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
-      ...dimensions,
-    };
-    // A saved portrait is the agent's new Atlas photo: it takes the single Atlas slot in the gallery
-    // and is pushed to the Atlas profile straight away, so the two never disagree.
-    setGallery((g) =>
-      withSingleAtlasPhoto(
-        [item, ...g.filter((x) => x.dataUrl !== finalUrl)].slice(0, 6),
-        item.id,
+    const existing = gallery.find(
+        (item) =>
+          item.dataUrl === finalUrl ||
+          (pendingReview && item.reviewRequestId === pendingReview.id),
       ),
-    );
-    if (profileOK) writeAtlasProfilePhoto(item.dataUrl, item.rating);
+      atlas = Boolean(profileOK || photoUsesAtlas(existing?.category)),
+      item: Photo = {
+        id: existing?.id ?? crypto.randomUUID(),
+        dataUrl: finalUrl,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+        category: categoryFromUses(
+          atlas,
+          photoUsesAwards(existing?.category),
+        ),
+        enhanced,
+        profileOK: atlas,
+        brandOK: isPhotoApproved(assessment),
+        rating: assessment,
+        originalRating: originalAssessment ?? undefined,
+        reviewRequestId: pendingReview?.id ?? existing?.reviewRequestId,
+        agentName: sessionAgent?.agentName || demoAgent.agentName,
+        agentId: sessionAgent?.agentId || demoAgent.agentId,
+        agentMobile: sessionAgent?.agentMobile || demoAgent.agentMobile,
+        agentRenTag: sessionAgent?.agentRenTag || demoAgent.agentRenTag,
+        agentOfficePhone:
+          sessionAgent?.agentOfficePhone || demoAgent.agentOfficePhone,
+        ...dimensions,
+      };
+    // Atlas is an explicit choice: the consent toggle, or later the Photos switch. Saving a pending
+    // designer case must not steal the live slot the agent never picked.
+    setGallery((g) => {
+      const merged = [item, ...g.filter((x) => x.dataUrl !== finalUrl && x.id !== item.id)].slice(
+        0,
+        6,
+      );
+      return atlas ? withSingleAtlasPhoto(merged, item.id) : merged;
+    });
+    if (atlas) writeAtlasProfilePhoto(item.dataUrl, item.rating);
     // The desk is the record of the whole intake, not only of the photos someone argued about: a photo
     // that already cleared the AI standard lands in the approved library as its own case, approved by
     // preflight rather than by a designer. A photo already sent for review keeps that case — recording
@@ -3238,44 +3255,49 @@ export default function Studio() {
     w.document.close();
     setToast("Choose any installed printer in the system dialog");
   };
-  // The Atlas profile has one photo slot, so the gallery may hold at most one "Atlas photo" and the
-  // stored slot must follow it: promoting a photo demotes the previous one, and demoting or deleting
-  // the current one empties the slot so Atlas falls back to its own portrait instead of showing a
-  // photo the agent has taken back.
-  const setPhotoCategory = (id: string, category: PhotoCategory) => {
+  // Atlas is still one live slot: promoting a photo demotes the previous one (keeping awards if it
+  // had that too). Awards night is independent, so a photo can be Atlas, awards, both, or neither.
+  const togglePhotoUse = (id: string, use: PhotoUse) => {
     const chosen = gallery.find((item) => item.id === id);
     if (!chosen) return;
+    const previous = new Map(gallery.map((item) => [item.id, item.category])),
+      nextGallery = withToggledPhotoUse(gallery, id, use),
+      next = nextGallery.find((item) => item.id === id);
+    if (!next) return;
     // A photo that is already on the designer desk keeps its case; only what the agent wants it for
     // changes, so the desk is told rather than sent a second copy. An approved photo is on the desk
     // under `approved-<photo id>` (recordApprovedPhoto), a reviewed one under its request id; telling
     // the desk about an id it does not hold is a no-op, so no extra bookkeeping is needed here.
-    void setDesignerPhotoCategory(
-      chosen.reviewRequestId ?? `approved-${chosen.id}`,
-      category,
-    );
-    if (category === "atlas") {
-      writeAtlasProfilePhoto(chosen.dataUrl, chosen.rating);
-      setGallery((current) => withSingleAtlasPhoto(current, id));
-    } else {
-      if (categoryOf(chosen) === "atlas") clearAtlasProfilePhoto();
-      setGallery((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, category, profileOK: false } : item,
-        ),
+    // Demoting the previous Atlas photo has to follow onto the desk too, or two cases read as Atlas.
+    for (const item of nextGallery) {
+      if (item.category === previous.get(item.id)) continue;
+      void setDesignerPhotoCategory(
+        item.reviewRequestId ?? `approved-${item.id}`,
+        item.category ?? "other",
       );
     }
+    if (use === "atlas") {
+      if (photoUsesAtlas(next.category))
+        writeAtlasProfilePhoto(chosen.dataUrl, chosen.rating);
+      else if (photoUsesAtlas(chosen.category)) clearAtlasProfilePhoto();
+    }
+    setGallery(nextGallery);
+    const filed = next.category ?? "other";
     setToast(
-      category === "awards"
-        ? "Marked for awards night"
-        : category === "other"
-          ? "Marked for subsale and other artwork"
-          : "Marked as the Atlas photo",
+      filed === "both"
+        ? "Marked as the Atlas photo and for awards night"
+        : filed === "awards"
+          ? "Marked for awards night"
+          : filed === "atlas"
+            ? "Marked as the Atlas photo"
+            : "Marked for subsale and other artwork",
     );
   };
   const removePhoto = () => {
     if (!deletePhotoId) return;
     const removed = gallery.find((item) => item.id === deletePhotoId);
-    if (removed && categoryOf(removed) === "atlas") clearAtlasProfilePhoto();
+    if (removed && photoUsesAtlas(categoryOf(removed)))
+      clearAtlasProfilePhoto();
     // The designer desk holds copies of this photograph — the open case, an approved asset, the history
     // entries about them. Deleting the file here has to take those with it, or the desk keeps a queue row
     // and a library entry for an image that no longer exists on this device.
@@ -3298,7 +3320,7 @@ export default function Studio() {
     setOriginalAssessment(null);
     setPendingReview(null);
     setEnhanced(false);
-    setProfileOK(true);
+    setProfileOK(false);
     setGallery([]);
     setSessionAgent(null);
     setSessionCode("");
@@ -3990,7 +4012,7 @@ export default function Studio() {
               </Button>
               <Button
                 variant="primary"
-                disabled={!savable || !profileOK || !photo}
+                disabled={!savable || !photo}
                 onClick={confirm}
               >
                 {pendingReview && !qualityApproved
@@ -4196,7 +4218,7 @@ export default function Studio() {
                         <MediaFrame
                           src={item.dataUrl}
                           badge={
-                            categoryOf(item) === "atlas"
+                            photoUsesAtlas(categoryOf(item))
                               ? "Atlas profile photo"
                               : "Approved"
                           }
@@ -4205,39 +4227,43 @@ export default function Studio() {
                           className={`photo-card-category ${categoryOf(item)}`}
                         >
                           <Badge tone="photo-category-tag">
-                            {categoryOf(item) === "awards" ? (
-                              <Award size={13} />
-                            ) : categoryOf(item) === "atlas" ? (
+                            {photoUsesAtlas(categoryOf(item)) ? (
                               <Images size={13} />
+                            ) : photoUsesAwards(categoryOf(item)) ? (
+                              <Award size={13} />
                             ) : (
                               <LayoutTemplate size={13} />
                             )}
-                            {
-                              photoCategories.find(
-                                (category) => category.id === categoryOf(item),
-                              )?.label
-                            }
+                            {photoUsesAtlas(categoryOf(item)) &&
+                            photoUsesAwards(categoryOf(item)) ? (
+                              <Award size={13} />
+                            ) : null}
+                            {categoryLabelOf(item)}
                           </Badge>
                           <div
                             className="photo-category-switch"
                             role="group"
-                            aria-label={`Photo category for ${item.agentName || "this portrait"}`}
+                            aria-label={`Photo use for ${item.agentName || "this portrait"}`}
                           >
-                            {photoCategories.map((category) => (
+                            {photoUseToggles.map((use) => (
                               <Button
-                                key={category.id}
+                                key={use.id}
                                 className={
-                                  categoryOf(item) === category.id
+                                  (use.id === "atlas"
+                                    ? photoUsesAtlas(categoryOf(item))
+                                    : photoUsesAwards(categoryOf(item)))
                                     ? "active"
                                     : ""
                                 }
-                                aria-pressed={categoryOf(item) === category.id}
-                                title={category.note}
-                                onClick={() =>
-                                  setPhotoCategory(item.id, category.id)
+                                aria-pressed={
+                                  use.id === "atlas"
+                                    ? photoUsesAtlas(categoryOf(item))
+                                    : photoUsesAwards(categoryOf(item))
                                 }
+                                title={use.note}
+                                onClick={() => togglePhotoUse(item.id, use.id)}
                               >
-                                {category.short}
+                                {use.short}
                               </Button>
                             ))}
                           </div>
@@ -4341,39 +4367,43 @@ export default function Studio() {
                           className={`photo-card-category ${categoryOf(item)}`}
                         >
                           <Badge tone="photo-category-tag">
-                            {categoryOf(item) === "awards" ? (
-                              <Award size={13} />
-                            ) : categoryOf(item) === "atlas" ? (
+                            {photoUsesAtlas(categoryOf(item)) ? (
                               <Images size={13} />
+                            ) : photoUsesAwards(categoryOf(item)) ? (
+                              <Award size={13} />
                             ) : (
                               <LayoutTemplate size={13} />
                             )}
-                            {
-                              photoCategories.find(
-                                (category) => category.id === categoryOf(item),
-                              )?.label
-                            }
+                            {photoUsesAtlas(categoryOf(item)) &&
+                            photoUsesAwards(categoryOf(item)) ? (
+                              <Award size={13} />
+                            ) : null}
+                            {categoryLabelOf(item)}
                           </Badge>
                           <div
                             className="photo-category-switch"
                             role="group"
-                            aria-label={`Photo category for ${item.agentName || "this portrait"}`}
+                            aria-label={`Photo use for ${item.agentName || "this portrait"}`}
                           >
-                            {photoCategories.map((category) => (
+                            {photoUseToggles.map((use) => (
                               <Button
-                                key={category.id}
+                                key={use.id}
                                 className={
-                                  categoryOf(item) === category.id
+                                  (use.id === "atlas"
+                                    ? photoUsesAtlas(categoryOf(item))
+                                    : photoUsesAwards(categoryOf(item)))
                                     ? "active"
                                     : ""
                                 }
-                                aria-pressed={categoryOf(item) === category.id}
-                                title={category.note}
-                                onClick={() =>
-                                  setPhotoCategory(item.id, category.id)
+                                aria-pressed={
+                                  use.id === "atlas"
+                                    ? photoUsesAtlas(categoryOf(item))
+                                    : photoUsesAwards(categoryOf(item))
                                 }
+                                title={use.note}
+                                onClick={() => togglePhotoUse(item.id, use.id)}
                               >
-                                {category.short}
+                                {use.short}
                               </Button>
                             ))}
                           </div>

@@ -164,6 +164,9 @@
 .photo-card.is-atlas .photo-media .badge { background: #dc542c; }
 .photo-card.is-awards { border-color: #ebd2a4; } /* literal: awards-night gold, no token holds it */
 .photo-card.is-awards .photo-card-category { border-top: 2px solid #f2dcb2; }
+.photo-card.is-both { border-color: #eaa88e; box-shadow: 0 0 0 3px #fdece6; }
+.photo-card.is-both .photo-media .badge { background: #dc542c; }
+.photo-card.is-both .photo-card-category { border-top: 2px solid #f2dcb2; }
 
 .photos-section { margin-bottom: 36px; }
 /* Required alongside the base rule -- on the personal view's single-section case this is also

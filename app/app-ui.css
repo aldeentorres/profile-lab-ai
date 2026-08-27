@@ -67,6 +67,7 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .photo-category-tag{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#eef2f6;color:#4a5560;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
 .photo-card-category.atlas .photo-category-tag{background:#fdece6;color:#b8452a}
 .photo-card-category.awards .photo-category-tag{background:#fdf1dd;color:#8a5a12}
+.photo-card-category.both .photo-category-tag{background:#fdece6;color:#b8452a}
 .photo-card-category.other .photo-category-tag{background:#eef1f6;color:#5b6b80}
 
 .photo-category-switch{display:flex;gap:4px;padding:3px;border-radius:9px;background:#f2f4f6}
@@ -228,6 +229,7 @@ html,body,button,input{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFon
 .puter-connect:disabled{cursor:not-allowed;opacity:.6}
 .puter-connected{display:flex;align-items:center;gap:6px;margin:10px 0 0;color:#8df0b4;font-size:10.5px;font-weight:700}
 .puter-connected svg{flex:none}
+.puter-connected+.puter-connect{margin-top:8px}
 
 /* Upload is the priority action on the home screen; Take a photo sits beside it as the secondary option. */
 .qr-main-actions .qr-secondary-action{min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border:1px solid #d8ddda;border-radius:10px;background:#fff;color:#26332d;font-size:14px;font-weight:750}

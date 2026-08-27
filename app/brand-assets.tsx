@@ -19,6 +19,11 @@ import {
 } from "lucide-react";
 import { mockAgent } from "./mock-agent";
 import {
+  photoUsesAwards,
+  photoUsesAtlas,
+  type PhotoCategory,
+} from "./atlas-profile-photo";
+import {
   createOrderId,
   deliveryOptions,
   formatMYR,
@@ -33,7 +38,7 @@ import { recordCutoutAsset } from "./designer-store";
 export type BrandAssetPhoto = {
   id: string;
   dataUrl: string;
-  category?: "atlas" | "awards";
+  category?: PhotoCategory;
   agentName?: string;
   agentId?: string;
   agentMobile?: string;
@@ -102,8 +107,10 @@ export default function BrandAssetStudio({
         ? Math.min(Math.max(current, -100), 100)
         : Math.min(Math.max(current, -20), 20),
     );
-    const tagged = photos.find(
-      (item) => categoryOf(item) === (next === "awards" ? "awards" : "atlas"),
+    const tagged = photos.find((item) =>
+      next === "awards"
+        ? photoUsesAwards(item.category)
+        : photoUsesAtlas(item.category),
     );
     if (tagged && tagged.id !== photo?.id) choosePhoto(tagged);
   };
@@ -1215,9 +1222,13 @@ function categoryOf(photo: BrandAssetPhoto) {
 }
 // "other" is a real choice an agent makes in Photos — a portrait kept for artwork without claiming the
 // profile or the awards slot — so the board names it rather than mislabelling it as the Atlas photo.
+// A photo filed for both destinations is named as both so the picker does not hide either use.
 function categoryLabel(photo: BrandAssetPhoto) {
   const category = categoryOf(photo);
-  return category === "awards" ? "Awards" : category === "other" ? "Other" : "Atlas";
+  if (category === "both") return "Atlas · Awards";
+  if (category === "awards") return "Awards";
+  if (category === "other") return "Other";
+  return "Atlas";
 }
 function isMockAgent(photo: BrandAssetPhoto | undefined) {
   return !photo?.agentName || photo.agentId === mockAgent.agentId;

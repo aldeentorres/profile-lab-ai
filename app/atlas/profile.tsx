@@ -32,7 +32,7 @@ import {
   readAtlasProfilePhoto,
   writeAtlasProfilePhoto,
 } from "../atlas-profile-photo";
-import { atlasAgentSlug, atlasPhotoSrc, mockAgent } from "../mock-agent";
+import { atlasAgentSlug, mockAgent } from "../mock-agent";
 import {
   emptyPhotoRating,
   evaluatePhoto,
@@ -62,7 +62,7 @@ const fallbackAgent: Agent = {
   phone: "60165764506",
   officePhone: mockAgent.agentOfficePhone,
   email: "amir.asraf@iqiglobal.com",
-  avatar: atlasPhotoSrc,
+  avatar: "",
   renTag: "REN52483",
 };
 
@@ -73,7 +73,7 @@ export default function AtlasProfile({
 }) {
   const [agent, setAgent] = useState<Agent>(fallbackAgent);
   const [live, setLive] = useState(false);
-  const [photo, setPhoto] = useState(atlasPhotoSrc);
+  const [photo, setPhoto] = useState("");
   // Keyed by the photo it describes, so switching photos falls back to the empty rating by
   // derivation instead of a setState in an effect body that would cascade an extra render.
   const [assessed, setAssessed] = useState<{
@@ -153,7 +153,7 @@ export default function AtlasProfile({
             data.branch_phone_number ||
             mockAgent.agentOfficePhone,
           email: data.email || "Not provided",
-          avatar: isDemoAgent ? atlasPhotoSrc : avatar,
+          avatar: isDemoAgent ? "" : avatar,
           renTag: data.ren_tag || "",
         };
         setAgent(mapped);
@@ -385,7 +385,7 @@ export default function AtlasProfile({
             <Check size={17} /> {live ? "Connected" : "Offline"}
           </button>
         </div>
-        {rating.score > 0 && !verified ? (
+        {!photo || (rating.score > 0 && !verified) ? (
           <div className={`quality-banner ${!photo ? "empty" : ""}`}>
             <div className="banner-icon">
               <Camera />
@@ -402,7 +402,7 @@ export default function AtlasProfile({
               </strong>
               <span>
                 {!photo
-                  ? "Upload a photo to get it scored."
+                  ? "Upload a photo, or choose one from Photos."
                   : `${rating.score}/100 · ${rating.recommendation}`}
               </span>
             </div>
@@ -418,15 +418,15 @@ export default function AtlasProfile({
                 className={`agent-photo ${photo ? "has-photo" : ""}`}
                 style={photo ? { backgroundImage: `url(${photo})` } : undefined}
               >
-                {verified ? (
+                {photo && verified ? (
                   <span className="photo-verified" title="Verified photo">
                     <BadgeCheck size={14} />
                   </span>
-                ) : (
+                ) : photo ? (
                   <span className={`rating-ring ${rating.tone}`}>
                     {rating.score}
                   </span>
-                )}
+                ) : null}
               </div>
               <div>
                 <h2>{agent.name}</h2>
@@ -440,7 +440,7 @@ export default function AtlasProfile({
                 ) : null}
               </div>
             </div>
-            {!verified ? (
+            {!photo || verified ? null : (
             <button
               type="button"
               className="photo-score"
@@ -462,7 +462,7 @@ export default function AtlasProfile({
                 View feedback <span>→</span>
               </p>
             </button>
-            ) : null}
+            )}
             <div className="atlas-photo-actions">
               <button type="button" onClick={() => file.current?.click()}>
                 <Upload size={18} /> Upload

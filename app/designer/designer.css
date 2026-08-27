@@ -21,4 +21,4 @@ body:has(.designer-app),body:has(.designer-access),body:has(.designer-boot){heig
 
 /* A designer has to tell an Atlas profile photo from an awards-night entry at a glance, so the purpose
    the agent filed the photo under rides next to its source instead of hiding in the case detail. */
-.designer-asset-card>section>b{display:flex;align-items:center;gap:6px;justify-content:space-between}.designer-photo-category{padding:3px 6px;border-radius:99px;background:#e9eef8;color:#43567a;font-size:7px;font-style:normal;font-weight:850;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}.designer-photo-category.awards{background:#f7ecdc;color:#8a5f21}
+.designer-asset-card>section>b{display:flex;align-items:center;gap:6px;justify-content:space-between}.designer-photo-category{padding:3px 6px;border-radius:99px;background:#e9eef8;color:#43567a;font-size:7px;font-style:normal;font-weight:850;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}.designer-photo-category.awards{background:#f7ecdc;color:#8a5f21}.designer-photo-category.both{background:#f7ecdc;color:#8a5f21}

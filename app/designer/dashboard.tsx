@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { designerStore, type DesignerSnapshot } from "../designer-store";
+import { photoCategoryBadge } from "../atlas-profile-photo";
 import {
   DesignerCaseStatus,
   agentPhotoSummary,
@@ -86,10 +87,7 @@ const sourceLabel = {
 };
 // What the agent wants the photo for. "other" (subsale banner and the rest) carries no badge: only the
 // two slots a designer has to keep apart — the live Atlas profile photo and an awards-night entry — do.
-const photoCategoryLabel: Record<string, string> = {
-  atlas: "Atlas photo",
-  awards: "Awards night",
-};
+// A photo filed for both is named as both so the desk never hides one of those slots.
 type LibraryImage = {
   key: string;
   agentId: string;
@@ -1355,9 +1353,9 @@ function ImageCard({
       <section>
         <b>
           {sourceLabel[image.sourceType]}
-          {image.category && photoCategoryLabel[image.category] ? (
+          {photoCategoryBadge(image.category) ? (
             <i className={`designer-photo-category ${image.category}`}>
-              {photoCategoryLabel[image.category]}
+              {photoCategoryBadge(image.category)}
             </i>
           ) : null}
         </b>

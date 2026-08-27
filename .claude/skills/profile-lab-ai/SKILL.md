@@ -41,6 +41,10 @@ generation, SMTP, and payments are adapters with local fallbacks.
 - Local enhancement is non-generative; only the labelled CodeFormer and "Generate AI Portrait"
   adapters reconstruct or generate faces. The original always stays available.
 - The Atlas profile has one photo slot: saving a photo to it demotes the previous one.
+  Demotion keeps an awards-night entry if the agent had also filed that photo for awards.
+  An empty slot stays empty — it does not restore the bundled demo portrait.
+- Designer approval does not assign Atlas. A review lands as Other until the agent files it
+  for Atlas and/or awards night on Photos; one photo may be both.
 - A designer-approved portrait reaches Brand Assets. The AI's `brandOK` flag at save time is
   not the gate on artwork.
 - Deleting a photograph in Photos withdraws its designer case, approved asset, cutout, and

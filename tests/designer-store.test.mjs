@@ -66,6 +66,16 @@ test("the desk carries what the agent wants the photo for, and follows a later c
  await store.setPhotoCategory("IQI-REV-CATEGORY","awards");
  assert.equal((await store.snapshot()).submissions[0].photoCategory,"awards","re-filing the photo in Photos re-files it on the desk");
 });
+test("designer approval does not file the photo as Atlas",async()=>{
+ values.clear();const store=new MemoryDesignerStore();await store.ingestReviewRequest({...request,id:"IQI-REV-NOATLAS",category:"other"});
+ await store.applyDecision({submissionId:"IQI-REV-NOATLAS",action:"approve_original",notes:"Usable",actor:"Demo Designer"});
+ assert.equal((await store.snapshot()).submissions[0].photoCategory,"other","approval is a verdict on the file, not a choice of Atlas vs awards");
+});
+test("the desk can show a photo filed for Atlas and awards night together",async()=>{
+ values.clear();const store=new MemoryDesignerStore();await store.ingestReviewRequest({...request,id:"IQI-REV-BOTH",category:"other"});
+ await store.setPhotoCategory("IQI-REV-BOTH","both");
+ assert.equal((await store.snapshot()).submissions[0].photoCategory,"both","Atlas and awards night can share one photograph");
+});
 test("mock reminders are audited, use opaque links and require confirmation before opt-out",async()=>{
  const store=new MemoryDesignerStore();await store.loadDemoData();const snapshot=await store.snapshot(),agent=snapshot.agents[0],records=await store.sendPhotoReminders([{agentId:agent.agentId,agentName:agent.name,recipientEmail:agent.email,relatedPhotoStatus:"none",sentBy:"Test Designer",demo:true}]);
  assert.equal(records[0].deliveryStatus,"MOCK_DELIVERED");assert.equal(records[0].actualRecipientEmail,agent.email);assert.match(records[0].uploadUrl,/^\/?\?reminder=[a-zA-Z0-9]+$/);assert.doesNotMatch(records[0].uploadUrl,new RegExp(agent.agentId));

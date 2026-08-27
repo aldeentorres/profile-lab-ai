@@ -27,8 +27,8 @@ export type ReviewRequest={
  kind:ReviewKind;
  workflowStatus:WorkflowStatus;
  // What the agent wants the photo for — the designer desk shows it so an Atlas profile photo is never
- // confused with an awards-night entry. It follows the agent's own choice in Photos and can change
- // after the case is opened, which is why the queue keeps it on the case rather than deriving it.
+ // confused with an awards-night entry. A new review starts as "other": designer approval does not
+ // pick Atlas. The agent files Atlas and/or awards night on Photos afterwards, and the queue follows.
  category?:PhotoCategory;
  photo:string;
  enhancedPhoto?:string;
